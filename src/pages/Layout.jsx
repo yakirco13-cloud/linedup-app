@@ -2,7 +2,7 @@
 import React, { useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { UserProvider, useUser } from "./components/UserContext";
+import { useUser } from "@/components/UserContext";
 import { Home, Calendar, Settings, CalendarCheck, User } from "lucide-react";
 import { motion } from "framer-motion";
 import PWAInstallPrompt from "./components/PWAInstallPrompt";
