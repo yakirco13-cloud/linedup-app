@@ -1,11 +1,10 @@
-
 import React, { useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { UserProvider, useUser } from "./components/UserContext";
+import { useUser } from "@/components/UserContext";
 import { Home, Calendar, Settings, CalendarCheck, User } from "lucide-react";
 import { motion } from "framer-motion";
-import PWAInstallPrompt from "./components/PWAInstallPrompt";
+import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 
 function AppContent({ children }) {
   const location = useLocation();
@@ -86,7 +85,7 @@ function AppContent({ children }) {
       const currentPath = location.pathname;
       const isSetupPage = currentPath.includes('BusinessSetup') || 
                          currentPath.includes('Welcome') || 
-                         currentPath.includes('AuthCallback');
+                         currentPath.includes('Auth');
 
       if (!isSetupPage) {
         if (!user.user_role) {
@@ -104,10 +103,10 @@ function AppContent({ children }) {
     if (!user) {
       hasCheckedSetup.current = false;
     }
-  }, [user, loading, location.pathname, navigate]); // Added navigate to dependency array for correctness
+  }, [user, loading, location.pathname, navigate]);
 
   const hideNav = location.pathname.includes('Welcome') || 
-                  location.pathname.includes('AuthCallback') ||
+                  location.pathname.includes('Auth') ||
                   location.pathname.includes('BusinessSetup');
 
   const showNav = !hideNav && user?.user_role && 
@@ -197,7 +196,7 @@ function AppContent({ children }) {
         </motion.nav>
       )}
 
-      <style jsx global>{`
+      <style>{`
         /* PWA optimizations */
         * {
           -webkit-tap-highlight-color: transparent;
@@ -253,9 +252,5 @@ function AppContent({ children }) {
 }
 
 export default function Layout({ children }) {
-  return (
-    <UserProvider>
-      <AppContent>{children}</AppContent>
-    </UserProvider>
-  );
+  return <AppContent>{children}</AppContent>;
 }
