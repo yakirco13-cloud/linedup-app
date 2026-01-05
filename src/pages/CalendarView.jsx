@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
-import { useUser } from "../components/UserContext";
+import { useUser } from "@/components/UserContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Loader2, Plus, Home, X, Edit, Trash2, Calendar, Clock, Scissors, Bell, RefreshCw } from "lucide-react";
 import NotificationDropdown from "../components/NotificationDropdown";
@@ -11,7 +11,7 @@ import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, 
 import { he } from "date-fns/locale";
 
 // WhatsApp Service API
-const WHATSAPP_API_URL = 'https://reminder-service-production-0232.up.railway.app';
+const WHATSAPP_API_URL = 'https://linedup-official-production.up.railway.app';
 
 export default function CalendarView() {
   const navigate = useNavigate();

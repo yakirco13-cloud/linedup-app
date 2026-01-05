@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { useUser } from "../components/UserContext";
+import { useUser } from "@/components/UserContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
@@ -86,7 +86,7 @@ export default function Settings() {
       await refetchUser();
       
       if (newRole === 'business_owner') {
-        const businesses = await base44.entities.Business.filter({ owner_email: user.email });
+        const businesses = await base44.entities.Business.filter({ owner_id: user.id });
         if (businesses.length === 0) {
           navigate(createPageUrl("BusinessSetup"));
         } else {

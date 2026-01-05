@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
-import { useUser } from "../components/UserContext";
+import { useUser } from "@/components/UserContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -287,7 +287,7 @@ export default function BusinessSetup() {
       // Create business
       const business = await base44.entities.Business.create({
         name: formData.name,
-        owner_email: user.email,
+        owner_id: user.id,
         phone: formData.phone,
         email: formData.email,
         business_code: businessCode,

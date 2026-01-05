@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
-import { useUser } from "../components/UserContext";
+import { useUser } from "@/components/UserContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Calendar, Clock, Plus, MessageCircle, Phone, MapPin, CheckCircle, X, Navigation, Edit, Scissors, Wallet, Bell, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,18 +22,18 @@ export default function ClientDashboard() {
 
   // Get barbershop (assume first/only business)
   const { data: business, refetch: refetchBusiness, isLoading: businessLoading } = useQuery({
-    queryKey: ['my-barbershop', user?.email, user?.joined_businesses],
+    queryKey: ['my-barbershop', user?.phone, user?.joined_businesses],
     queryFn: async () => {
       console.log('Fetching business with joined_businesses:', user?.joined_businesses);
       if (!user?.joined_businesses || user.joined_businesses.length === 0) {
         console.log('No joined businesses found');
         return null;
       }
-      const businesses = await base44.entities.Business.filter({ id: user.joined_businesses[0] });
+      const businesses = await base44.entities.Business.filter({ id: user.joined_business_id });
       console.log('Fetched businesses:', businesses);
       return businesses[0] || null;
     },
-    enabled: !!user?.email,
+    enabled: !!user?.phone,
     staleTime: 10 * 60 * 1000,
     cacheTime: 15 * 60 * 1000,
     refetchOnWindowFocus: true,
@@ -42,25 +42,25 @@ export default function ClientDashboard() {
 
   // Refetch business when user or joined_businesses changes
   useEffect(() => {
-    if (user?.joined_businesses && user.joined_businesses.length > 0) {
+    if (user?.joined_business_id && user.joined_business_id) {
       console.log('User joined businesses changed, refetching...', user.joined_businesses);
       refetchBusiness();
     }
-  }, [user?.email, user?.joined_businesses, refetchBusiness]);
+  }, [user?.phone, user?.joined_businesses, refetchBusiness]);
 
   // Get next upcoming appointment
   const { data: nextAppointment } = useQuery({
-    queryKey: ['next-appointment', user?.email],
+    queryKey: ['next-appointment', user?.phone],
     queryFn: async () => {
       const allBookings = await base44.entities.Booking.filter(
-        { client_email: user.email, status: 'confirmed' },
+        { client_phone: user.phone, status: 'confirmed' },
         'date',
         20
       );
       const upcoming = allBookings.filter(b => new Date(`${b.date}T${b.time}`) >= new Date());
       return upcoming.length > 0 ? upcoming[0] : null;
     },
-    enabled: !!user?.email,
+    enabled: !!user?.phone,
     staleTime: 5 * 1000,
     cacheTime: 5 * 60 * 1000,
     refetchInterval: 20000,
@@ -70,13 +70,13 @@ export default function ClientDashboard() {
 
   // Get appointment history - ONLY for current business
   const { data: recentAppointments = [] } = useQuery({
-    queryKey: ['recent-appointments', user?.email, business?.id],
+    queryKey: ['recent-appointments', user?.phone, business?.id],
     queryFn: async () => {
       if (!business?.id) return [];
       
       const allBookings = await base44.entities.Booking.filter(
         { 
-          client_email: user.email,
+          client_phone: user.phone,
           business_id: business.id  // Filter by current business
         },
         '-date',
@@ -86,7 +86,7 @@ export default function ClientDashboard() {
         .filter(b => b.status === 'completed' || b.status === 'cancelled')
         .slice(0, 3);
     },
-    enabled: !!user?.email && !!business?.id,
+    enabled: !!user?.phone && !!business?.id,
     staleTime: 5 * 60 * 1000,
     cacheTime: 10 * 60 * 1000,
     refetchOnWindowFocus: true,
@@ -95,12 +95,12 @@ export default function ClientDashboard() {
 
   // Get most frequently booked services
   const { data: frequentServices = [] } = useQuery({
-    queryKey: ['frequent-services', user?.email, business?.id],
+    queryKey: ['frequent-services', user?.phone, business?.id],
     queryFn: async () => {
       if (!business) return [];
       
       const completedBookings = await base44.entities.Booking.filter({
-        client_email: user.email,
+        client_phone: user.phone,
         business_id: business.id,
         status: 'completed'
       });
@@ -126,7 +126,7 @@ export default function ClientDashboard() {
       );
       return services.map(s => s[0]).filter(Boolean);
     },
-    enabled: !!user?.email && !!business?.id,
+    enabled: !!user?.phone && !!business?.id,
     staleTime: 10 * 60 * 1000,
     cacheTime: 15 * 60 * 1000,
     refetchOnWindowFocus: true,
@@ -136,12 +136,12 @@ export default function ClientDashboard() {
   // Check waiting list entries that have been NOTIFIED (slot actually opened)
   useEffect(() => {
     const checkWaitingListNotifications = async () => {
-      if (!user?.email || !business?.id || popupDismissed) return;
+      if (!user?.phone || !business?.id || popupDismissed) return;
       
       try {
         // Get user's waiting list entries that have been NOTIFIED (a real slot opened)
         const notifiedEntries = await base44.entities.WaitingList.filter({
-          client_email: user.email,
+          client_phone: user.phone,
           business_id: business.id,
           status: 'notified'  // Only entries where we actually notified them of availability
         });
@@ -170,7 +170,7 @@ export default function ClientDashboard() {
     };
     
     checkWaitingListNotifications();
-  }, [user?.email, business?.id, popupDismissed]);
+  }, [user?.phone, business?.id, popupDismissed]);
 
   // Check if user has any completed bookings
   const hasCompletedBookings = recentAppointments.some(b => b.status === 'completed');

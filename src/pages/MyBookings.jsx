@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
-import { useUser } from "../components/UserContext";
+import { useUser } from "@/components/UserContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Calendar, Clock, User, X, Loader2, Edit, Bell, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { format, parseISO } from "date-fns";
 import { he } from "date-fns/locale";
 
 // WhatsApp Service API
-const WHATSAPP_API_URL = 'https://reminder-service-production-0232.up.railway.app';
+const WHATSAPP_API_URL = 'https://linedup-official-production.up.railway.app';
 
 export default function MyBookings() {
   const navigate = useNavigate();
@@ -19,9 +19,9 @@ export default function MyBookings() {
   const [filter, setFilter] = useState('upcoming');
 
   const { data: bookings = [], isLoading } = useQuery({
-    queryKey: ['my-bookings', user?.email],
-    queryFn: () => base44.entities.Booking.filter({ client_email: user.email }, '-date', 20),
-    enabled: !!user?.email,
+    queryKey: ['my-bookings', user?.phone],
+    queryFn: () => base44.entities.Booking.filter({ client_phone: user.phone }, '-date', 20),
+    enabled: !!user?.phone,
     staleTime: 5 * 1000,
     cacheTime: 10 * 60 * 1000,
     refetchInterval: 20000,
@@ -50,16 +50,16 @@ export default function MyBookings() {
 
   // Fetch waiting list entries for this user (both waiting and notified)
   const { data: waitingListEntries = [], isLoading: waitingListLoading } = useQuery({
-    queryKey: ['my-waiting-list', user?.email],
+    queryKey: ['my-waiting-list', user?.phone],
     queryFn: async () => {
       // Fetch both 'waiting' and 'notified' entries
       const [waitingEntries, notifiedEntries] = await Promise.all([
-        base44.entities.WaitingList.filter({ client_email: user.email, status: 'waiting' }, '-date', 50),
-        base44.entities.WaitingList.filter({ client_email: user.email, status: 'notified' }, '-date', 50)
+        base44.entities.WaitingList.filter({ client_phone: user.phone, status: 'waiting' }, '-date', 50),
+        base44.entities.WaitingList.filter({ client_phone: user.phone, status: 'notified' }, '-date', 50)
       ]);
       return [...waitingEntries, ...notifiedEntries];
     },
-    enabled: !!user?.email,
+    enabled: !!user?.phone,
     staleTime: 30 * 1000,  // 30 seconds
     refetchOnWindowFocus: true,
   });

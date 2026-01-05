@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
-import { useUser } from "../components/UserContext";
+import { useUser } from "@/components/UserContext";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, User, Phone, Mail, Calendar, Loader2, Search, Send, MessageSquare } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import { format, parseISO } from "date-fns";
 import { he } from "date-fns/locale";
 
 // WhatsApp Service API
-const WHATSAPP_API_URL = 'https://reminder-service-production-0232.up.railway.app';
+const WHATSAPP_API_URL = 'https://linedup-official-production.up.railway.app';
 
 export default function Clients() {
   const navigate = useNavigate();

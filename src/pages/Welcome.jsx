@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useUser } from "../components/UserContext";
+import { useUser } from "@/components/UserContext";
 import { Calendar, Loader2 } from "lucide-react";
 
 export default function Welcome() {

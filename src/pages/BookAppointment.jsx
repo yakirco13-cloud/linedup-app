@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
-import { useUser } from "../components/UserContext";
+import { useUser } from "@/components/UserContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Calendar, Clock, User, Loader2, CheckCircle, Briefcase, ChevronLeft, ChevronRight, Lightbulb, Sparkles, Bell } from "lucide-react";
@@ -11,7 +11,7 @@ import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay
 import { he } from "date-fns/locale";
 
 // WhatsApp Service API
-const WHATSAPP_API_URL = 'https://reminder-service-production-0232.up.railway.app';
+const WHATSAPP_API_URL = 'https://linedup-official-production.up.railway.app';
 
 export default function BookAppointment() {
   const navigate = useNavigate();
@@ -39,8 +39,8 @@ export default function BookAppointment() {
   // Load business automatically from user's joined businesses
   useEffect(() => {
     const loadBusiness = async () => {
-      if (user?.joined_businesses && user.joined_businesses.length > 0) {
-        const businesses = await base44.entities.Business.filter({ id: user.joined_businesses[0] });
+      if (user?.joined_business_id && user.joined_business_id) {
+        const businesses = await base44.entities.Business.filter({ id: user.joined_business_id });
         if (businesses.length > 0) {
           setSelectedBusiness(businesses[0]);
         }
@@ -139,12 +139,12 @@ export default function BookAppointment() {
   // Check if user is already on waiting list for selected date
   useEffect(() => {
     const checkWaitingList = async () => {
-      if (!selectedBusiness || !selectedDate || !user?.email) return;
+      if (!selectedBusiness || !selectedDate || !user?.phone) return;
       
       try {
         const existingEntries = await base44.entities.WaitingList.filter({
           business_id: selectedBusiness.id,
-          client_email: user.email,
+          client_phone: user.phone,
           date: format(selectedDate, 'yyyy-MM-dd'),
           status: 'waiting'
         });
@@ -160,7 +160,7 @@ export default function BookAppointment() {
     };
     
     checkWaitingList();
-  }, [selectedBusiness, selectedDate, user?.email]);
+  }, [selectedBusiness, selectedDate, user?.phone]);
 
   const { data: services = [], isLoading: servicesLoading } = useQuery({
     queryKey: ['services', selectedBusiness?.id],
@@ -400,7 +400,7 @@ export default function BookAppointment() {
     try {
       await base44.entities.WaitingList.create({
         business_id: selectedBusiness.id,
-        client_email: user.email,
+        client_phone: user.phone,
         client_name: user.name,
         client_phone: user.phone,
         service_id: selectedService?.id || null,
@@ -711,7 +711,7 @@ export default function BookAppointment() {
   }, [step, selectedDate, existingBookings]);
 
 const handleBooking = async () => {
-  if (!user?.email) {
+  if (!user?.phone) {
     console.error("User email is not available for booking.");
     return;
   }
@@ -787,7 +787,7 @@ const handleBooking = async () => {
   // Otherwise, create a new booking
   const clientBookings = await base44.entities.Booking.filter({
     business_id: selectedBusiness.id,
-    client_email: user.email
+    client_phone: user.phone
   });
   
   const confirmedOrCompletedBookings = clientBookings.filter(
@@ -818,7 +818,7 @@ const handleBooking = async () => {
 
   const bookingData = {
     business_id: selectedBusiness.id,
-    client_email: user.email,
+    client_phone: user.phone,
     client_name: user.name,
     client_phone: user.phone,
     staff_id: selectedStaff.id,

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
-import { useUser } from "../components/UserContext";
+import { useUser } from "@/components/UserContext";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,15 +36,14 @@ export default function JoinBusiness() {
     setLoading(true);
 
     try {
-      const joinedBusinesses = user?.joined_businesses || [];
-      if (joinedBusinesses.includes(business.id)) {
+      if (user?.joined_business_id === business.id) {
         setError("כבר הצטרפת לעסק זה");
         setLoading(false);
         return;
       }
 
       await updateUser({
-        joined_businesses: [...joinedBusinesses, business.id]
+        joined_business_id: business.id
       });
 
       queryClient.invalidateQueries({ queryKey: ['my-barbershop'] });

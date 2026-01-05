@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
-import { useUser } from "../components/UserContext";
+import { useUser } from "@/components/UserContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Calendar, Loader2, Clock, Wallet, Plus, Check, Phone, X, MessageCircle, Share2, Copy, ChevronLeft, TrendingUp, Bell, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { he } from "date-fns/locale";
 import NotificationDropdown from "../components/NotificationDropdown";
 
 // WhatsApp Service API
-const WHATSAPP_API_URL = 'https://reminder-service-production-0232.up.railway.app';
+const WHATSAPP_API_URL = 'https://linedup-official-production.up.railway.app';
 
 export default function BusinessDashboard() {
   const navigate = useNavigate();
