@@ -49,11 +49,11 @@ export default function Settings() {
   const { data: joinedBusiness } = useQuery({
     queryKey: ['joined-business', user?.email],
     queryFn: async () => {
-      if (!user?.joined_businesses || user.joined_businesses.length === 0) return null;
-      const businesses = await base44.entities.Business.filter({ id: user.joined_businesses[0] });
+      if (!user?.joined_business_id || user.joined_businesses.length === 0) return null;
+      const businesses = await base44.entities.Business.filter({ id: user.joined_business_id });
       return businesses[0] || null;
     },
-    enabled: !!user?.joined_businesses && user.joined_businesses.length > 0 && user?.user_role === 'client',
+    enabled: !!user?.joined_business_id && user.joined_business_id && user?.user_role === 'client',
     staleTime: 10 * 60 * 1000,
     cacheTime: 15 * 60 * 1000,
     refetchOnWindowFocus: true,
@@ -107,13 +107,12 @@ export default function Settings() {
           alert('שגיאה: פרטי משתמש או עסק חסרים.');
           return;
         }
-        // Remove the business from joined_businesses array
-        const updatedBusinesses = (user.joined_businesses || []).filter(id => id !== joinedBusiness.id);
-        await updateUser({ joined_businesses: updatedBusinesses });
+        // Remove the business - set joined_business_id to null
+        await updateUser({ joined_business_id: null });
         await refetchUser();
         
         // Invalidate queries related to business to ensure fresh data if the user joins a new one
-        queryClient.invalidateQueries(['joined-business', user.email]);
+        queryClient.invalidateQueries(['joined-business', user.phone]);
         queryClient.invalidateQueries(['business', user.business_id]);
         
         // Navigate to ClientDashboard which will show the join business screen
