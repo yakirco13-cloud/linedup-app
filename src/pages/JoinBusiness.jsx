@@ -23,7 +23,7 @@ export default function JoinBusiness() {
 
   const { data: allBusinesses = [], isLoading: searchLoading } = useQuery({
     queryKey: ['all-businesses'],
-    queryFn: () => base44.entities.Business.list('-created_date', 100),
+    queryFn: () => base44.entities.Business.list('-created_at', 100),
     enabled: joinMethod === 'search',
   });
 

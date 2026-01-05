@@ -16,7 +16,7 @@ export default function NotificationDropdown({ businessId, onClose }) {
 
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ['notifications', businessId],
-    queryFn: () => base44.entities.Notification.filter({ business_id: businessId }, '-created_date', 5),
+    queryFn: () => base44.entities.Notification.filter({ business_id: businessId }, '-created_at', 5),
     enabled: !!businessId,
     staleTime: 10 * 1000,
   });
@@ -141,7 +141,7 @@ export default function NotificationDropdown({ businessId, onClose }) {
                               </div>
                               <p className="text-xs text-[#94A3B8] mb-1">{notification.message}</p>
                               <p className="text-xs text-[#64748B]">
-                                {format(parseISO(notification.created_date), 'HH:mm', { locale: he })}
+                                {format(parseISO(notification.created_at), 'HH:mm', { locale: he })}
                               </p>
                             </div>
 

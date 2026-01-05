@@ -27,7 +27,7 @@ export default function NotificationCenter() {
 
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ['notifications', business?.id],
-    queryFn: () => base44.entities.Notification.filter({ business_id: business.id }, '-created_date', 100),
+    queryFn: () => base44.entities.Notification.filter({ business_id: business.id }, '-created_at', 100),
     enabled: !!business?.id,
     staleTime: 30 * 1000,
     refetchInterval: 30000,
@@ -173,7 +173,7 @@ export default function NotificationCenter() {
                     <p className="text-[#94A3B8] mb-3">{notification.message}</p>
                     
                     <p className="text-xs text-[#64748B]">
-                      {format(parseISO(notification.created_date), 'PPpp', { locale: he })}
+                      {format(parseISO(notification.created_at), 'PPpp', { locale: he })}
                     </p>
                   </div>
 

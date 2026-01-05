@@ -57,7 +57,7 @@ export default function BusinessDashboard() {
   // Fetch notifications for the bell icon
   const { data: notifications = [] } = useQuery({
     queryKey: ['notifications', business?.id],
-    queryFn: () => base44.entities.Notification.filter({ business_id: business.id }, '-created_date', 10),
+    queryFn: () => base44.entities.Notification.filter({ business_id: business.id }, '-created_at', 10),
     enabled: !!business?.id,
     staleTime: 10 * 1000,
     refetchInterval: 10000,

@@ -38,7 +38,7 @@ export default function Clients() {
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['all-bookings', business?.id],
-    queryFn: () => base44.entities.Booking.filter({ business_id: business.id }, '-created_date', 500),
+    queryFn: () => base44.entities.Booking.filter({ business_id: business.id }, '-created_at', 500),
     enabled: !!business?.id,
     staleTime: 5 * 60 * 1000,
     cacheTime: 10 * 60 * 1000,

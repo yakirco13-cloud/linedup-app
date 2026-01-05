@@ -32,7 +32,7 @@ export default function ApprovalManagement() {
     queryFn: () => base44.entities.Booking.filter({ 
       business_id: business.id,
       status: 'pending_approval'
-    }, '-created_date', 50),
+    }, '-created_at', 50),
     enabled: !!business?.id,
     staleTime: 5 * 1000,
     refetchInterval: 15000,
