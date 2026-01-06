@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { ArrowRight, Briefcase, Phone, Mail, Clock, Loader2, CheckCircle, Plus, Trash2, Bell, Share2, Copy, RefreshCw } from "lucide-react";
+import { ArrowRight, Briefcase, Phone, Mail, Clock, Loader2, CheckCircle, Plus, Trash2, Bell, Share2, Copy, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 
 const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -48,6 +48,8 @@ export default function BusinessSettings() {
   });
 
   const [selectedDays, setSelectedDays] = useState([]);
+
+  const [workingHoursExpanded, setWorkingHoursExpanded] = useState(false);
 
   const { data: business, isLoading } = useQuery({
     queryKey: ['business', user?.business_id],
@@ -625,13 +627,26 @@ export default function BusinessSettings() {
 
           {/* Working Hours */}
           <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800">
-            <div className="flex items-center gap-2 mb-4">
-              <Clock className="w-5 h-5 text-[#FF6B35]" />
-              <h2 className="text-xl font-bold">שעות פעילות</h2>
-            </div>
+            <button 
+              type="button"
+              onClick={() => setWorkingHoursExpanded(!workingHoursExpanded)}
+              className="flex items-center justify-between w-full"
+            >
+              <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-[#FF6B35]" />
+                <h2 className="text-xl font-bold">שעות פעילות</h2>
+              </div>
+              {workingHoursExpanded ? (
+                <ChevronUp className="w-5 h-5 text-[#94A3B8]" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-[#94A3B8]" />
+              )}
+            </button>
 
+            {workingHoursExpanded && (
+            <>
             {selectedDays.length > 0 &&
-            <div className="mb-4 bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+            <div className="mb-4 mt-4 bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
                 <p className="text-blue-400 text-sm mb-2">
                   נבחרו {selectedDays.length} ימים - לחץ על "העתק" ליד יום כדי להעתיק את השעות
                 </p>
@@ -645,7 +660,7 @@ export default function BusinessSettings() {
               </div>
             }
             
-            <div className="space-y-4">
+            <div className="space-y-4 mt-4">
               {DAY_KEYS.map((dayKey, index) =>
               <div key={dayKey} className={`bg-[#0C0F1D] rounded-xl p-4 border-2 transition-all ${
               selectedDays.includes(dayKey) ? 'border-blue-500' : 'border-transparent'}`
@@ -733,11 +748,18 @@ export default function BusinessSettings() {
                 </div>
               )}
             </div>
+            </>
+            )}
           </div>
 
-          <div className="flex gap-3">
+        </form>
+        
+        {/* Sticky Save Button */}
+        <div className="fixed bottom-20 left-0 right-0 bg-[#0C0F1D]/95 backdrop-blur-sm border-t border-gray-800 p-4 z-20">
+          <div className="max-w-4xl mx-auto flex gap-3">
             <Button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={updateMutation.isPending}
               className="flex-1 h-14 rounded-xl text-white font-semibold text-lg"
               style={{
@@ -754,12 +776,12 @@ export default function BusinessSettings() {
               type="button"
               onClick={() => navigate(createPageUrl("Settings"))}
               variant="outline"
-              className="flex-1 h-14 rounded-xl border-gray-700 bg-transparent text-white hover:bg-[#0C0F1D] hover:text-white">
+              className="h-14 px-6 rounded-xl border-gray-700 bg-transparent text-white hover:bg-[#0C0F1D] hover:text-white">
               
               ביטול
             </Button>
           </div>
-        </form>
+        </div>
       </div>
     </div>);
 

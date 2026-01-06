@@ -97,18 +97,26 @@ export const UserProvider = ({ children }) => {
   };
 
   const verifyOTP = async (phone, code, userData = {}) => {
-    const response = await fetch(`${WHATSAPP_API_URL}/api/otp/verify`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, code }),
-    });
+    // DEV MODE: Accept "123456" as valid code without API call
+    const DEV_MODE = true; // Set to false for production
+    
+    if (DEV_MODE && code === '123456') {
+      console.log('🔧 DEV MODE: Bypassing OTP verification');
+    } else {
+      const response = await fetch(`${WHATSAPP_API_URL}/api/otp/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, code }),
+      });
 
-    const data = await response.json();
-    if (!response.ok || !data.verified) {
-      throw new Error(data.error || 'Invalid OTP');
+      const data = await response.json();
+      if (!response.ok || !data.verified) {
+        throw new Error(data.error || 'Invalid OTP');
+      }
     }
 
     const normalizedPhone = normalizePhone(phone);
+    const isSignup = userData.userRole && userData.fullName;
     
     // Check if user exists
     const { data: existingProfile } = await supabase
@@ -131,6 +139,17 @@ export const UserProvider = ({ children }) => {
 
       return { success: true, isNewUser: false, profile: existingProfile };
     } else {
+      // User doesn't exist
+      if (!isSignup) {
+        // Trying to login without account - reject
+        throw new Error('משתמש לא קיים. נא להירשם תחילה');
+      }
+      
+      // Check terms acceptance for signup
+      if (!userData.acceptedTerms) {
+        throw new Error('נא לאשר את תנאי השימוש');
+      }
+      
       // New user - create account
       const fakeEmail = `${normalizedPhone}@phone.linedup.app`;
       const tempPassword = `temp_${normalizedPhone}_${Date.now()}`;

@@ -284,7 +284,7 @@ export default function ClientDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] p-4 pb-24 pt-safe">
+    <div className="min-h-screen bg-[#0C0F1D]">
       {/* Waiting List Availability Popup */}
       {waitingListPopup && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6">
@@ -356,244 +356,310 @@ export default function ClientDashboard() {
         </div>
       )}
 
-      <div className="max-w-4xl mx-auto">
-        {/* Greeting */}
-        <div className="mb-6 pt-4">
-          <h1 className="text-3xl font-bold mb-1">שלום, {user?.name?.split(' ')[0] || 'אורח'} 👋</h1>
-          <p className="text-[#94A3B8] text-lg">{business.name}</p>
-        </div>
-
-        {/* Business Info Card with Photo and Description */}
-        {(business.photo_url || business.description) && (
-          <div className="bg-[#1A1F35] rounded-2xl overflow-hidden border border-gray-800 mb-6">
-            {business.photo_url && (
-              <div className="relative h-48 overflow-hidden">
-                <img 
-                  src={business.photo_url} 
-                  alt={business.name}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#1A1F35] to-transparent"></div>
-              </div>
-            )}
-            {business.description && (
-              <div className="p-6">
-                <h3 className="text-lg font-bold mb-2">אודות</h3>
-                <p className="text-[#94A3B8] leading-relaxed">{business.description}</p>
-              </div>
-            )}
-          </div>
+      {/* ============ HEADER WITH FULL BACKGROUND IMAGE ============ */}
+      <div className="relative">
+        {/* Background Image - Extends behind header and card */}
+        {business.photo_url && (
+          <div 
+            className="absolute top-0 left-0 right-0 h-64 bg-cover bg-center"
+            style={{ backgroundImage: `url(${business.photo_url})` }}
+          />
         )}
-
-        {/* Hero Section - Next Appointment */}
-        {nextAppointment ? (
-          <div className="mb-6">
-            <div className="bg-gradient-to-r from-[#FF6B35] to-[#FF1744] rounded-2xl p-6 mb-3">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-white text-xl font-bold">התור הבא שלך</h2>
-                <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-                  isToday(parseISO(nextAppointment.date)) 
-                    ? 'bg-white/30 text-white' 
-                    : isTomorrow(parseISO(nextAppointment.date))
-                    ? 'bg-blue-500/30 text-white'
-                    : 'bg-white/20 text-white/80'
-                }`}>
+        
+        {/* Gradient overlay - Fades to background color */}
+        <div 
+          className="absolute top-0 left-0 right-0 h-64"
+          style={{ 
+            background: business.photo_url 
+              ? 'linear-gradient(180deg, rgba(255,107,53,0.75) 0%, rgba(255,77,42,0.85) 50%, #0C0F1D 100%)'
+              : 'linear-gradient(180deg, #FF6B35 0%, #FF4D2A 50%, #0C0F1D 100%)'
+          }}
+        />
+        
+        {/* Greeting - on top of background */}
+        <div className="relative z-10 px-5 pt-14 pb-4">
+          <div className="flex items-center gap-3">
+            {business.photo_url ? (
+              <div 
+                className="w-12 h-12 rounded-xl bg-cover bg-center border-2 border-white/30 flex-shrink-0"
+                style={{ backgroundImage: `url(${business.photo_url})` }}
+              />
+            ) : (
+              <div 
+                className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(255,255,255,0.2)' }}
+              >
+                <Scissors className="w-6 h-6 text-white" />
+              </div>
+            )}
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold text-white">שלום, {user?.name?.split(' ')[0] || 'אורח'}</h1>
+                <span className="text-xl">👋</span>
+              </div>
+              <p className="text-white/80 text-sm">{business.name}</p>
+            </div>
+          </div>
+        </div>
+        
+        {/* ============ APPOINTMENT CARD ============ */}
+        <div className="relative z-10 px-4 pb-4">
+          {nextAppointment ? (
+            <div 
+              className="rounded-3xl p-5"
+              style={{ 
+                background: '#1A1F35',
+                boxShadow: '0 20px 40px -12px rgba(0,0,0,0.5)'
+              }}
+            >
+              {/* Badge + Label row */}
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-white/60 text-sm">התור הבא שלך</span>
+                <span 
+                  className="px-3 py-1 rounded-full text-xs font-bold text-white"
+                  style={{ background: 'linear-gradient(135deg, #FF6B35 0%, #FF1744 100%)' }}
+                >
                   {isToday(parseISO(nextAppointment.date)) ? 'היום' :
                    isTomorrow(parseISO(nextAppointment.date)) ? 'מחר' :
                    format(parseISO(nextAppointment.date), 'd בMMMM', { locale: he })}
                 </span>
               </div>
-
-              <div className="text-center mb-6">
-                <p className="text-6xl font-bold text-white mb-2">{nextAppointment.time}</p>
-                <p className="text-white/80 text-base">
-                  {format(parseISO(nextAppointment.date), 'EEEE, d בMMMM', { locale: he })}
-                </p>
+              
+              {/* Time + Icon row */}
+              <div className="flex items-center justify-between mb-4">
+                <div 
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'linear-gradient(135deg, #FF6B35 0%, #FF1744 100%)' }}
+                >
+                  <Scissors className="w-7 h-7 text-white" />
+                </div>
+                <div className="text-left">
+                  <span 
+                    className="text-5xl font-bold text-white"
+                    style={{ fontVariantNumeric: 'tabular-nums' }}
+                  >
+                    {nextAppointment.time.substring(0, 5)}
+                  </span>
+                  <p className="text-[#94A3B8] text-sm mt-1">
+                    {format(parseISO(nextAppointment.date), 'EEEE, d בMMMM', { locale: he })}
+                  </p>
+                </div>
               </div>
-
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4 flex-1">
-                    <div className="w-16 h-16 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
-                      <Scissors className="w-8 h-8 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-white font-bold text-xl mb-2">{nextAppointment.service_name}</h3>
-                      <div className="flex items-center gap-3 text-white/90 text-sm">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-4 h-4" />
-                          {nextAppointment.duration} דקות
-                        </span>
-                        <span>עם {nextAppointment.staff_name}</span>
-                      </div>
-                    </div>
-                  </div>
+              
+              {/* Service info bar */}
+              <div 
+                className="p-4 rounded-2xl flex items-center justify-between"
+                style={{ background: 'rgba(255,255,255,0.05)' }}
+              >
+                <div className="flex gap-2">
+                  <button 
+                    onClick={handleCancelAppointment}
+                    disabled={cancelMutation.isPending}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+                    style={{ background: 'rgba(239,68,68,0.15)' }}
+                  >
+                    <X className="w-5 h-5 text-red-400" />
+                  </button>
+                  <button 
+                    onClick={handleRescheduleAppointment}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+                    style={{ background: 'rgba(255,107,53,0.15)' }}
+                  >
+                    <Edit className="w-5 h-5 text-[#FF6B35]" />
+                  </button>
+                </div>
+                <div className="text-right">
+                  <p className="text-white font-semibold">{nextAppointment.service_name}</p>
+                  <p className="text-[#94A3B8] text-sm flex items-center justify-end gap-2">
+                    <span>עם {nextAppointment.staff_name}</span>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      {nextAppointment.duration} דקות
+                      <Clock className="w-3.5 h-3.5" />
+                    </span>
+                  </p>
                 </div>
               </div>
             </div>
+          ) : (
+            <div 
+              className="rounded-3xl p-6 text-center"
+              style={{ 
+                background: '#1A1F35',
+                boxShadow: '0 20px 40px -12px rgba(0,0,0,0.5)'
+              }}
+            >
+              <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-[#FF6B35] to-[#FF1744] flex items-center justify-center">
+                <Calendar className="w-10 h-10 text-white" />
+              </div>
+              <h2 className="text-xl font-bold text-white mb-2">אין לך תור קרוב</h2>
+              <p className="text-[#94A3B8] mb-5">הגיע הזמן לתספורת חדשה?</p>
+              <Button
+                onClick={() => navigate(createPageUrl("BookAppointment"))}
+                className="h-12 px-6 rounded-xl text-base font-semibold hover:scale-105 active:scale-95 transition-transform"
+                style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}
+              >
+                <Plus className="w-5 h-5 ml-2" />
+                קבע תור עכשיו
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ============ REST OF CONTENT - Directly after header, no gap ============ */}
+      <div className="px-4 pt-4 pb-10">
+        {/* ============ SERVICES GRID ============ */}
+        {frequentServices.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-white">
+                {hasCompletedBookings ? 'קבע שוב' : 'השירותים שלנו'}
+              </h2>
+              <button 
+                onClick={() => navigate(createPageUrl("BookAppointment"))}
+                className="text-[#FF6B35] text-sm font-medium"
+              >
+                הכל
+              </button>
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={handleRescheduleAppointment}
-                className="bg-[#1A1F35] border-2 border-gray-700 rounded-xl py-3.5 text-sm font-medium text-white hover:border-[#FF6B35] transition-colors flex items-center justify-center gap-2"
-              >
-                <Edit className="w-4 h-4" />
-                שנה מועד
-              </button>
-              <button
-                onClick={handleCancelAppointment}
-                disabled={cancelMutation.isPending}
-                className="bg-[#1A1F35] border-2 border-red-500/50 rounded-xl py-3.5 text-sm font-medium text-red-400 hover:bg-red-500/10 hover:border-red-500 transition-colors flex items-center justify-center gap-2"
-              >
-                <X className="w-4 h-4" />
-                בטל תור
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="mb-6 border-2 border-dashed border-gray-700 rounded-2xl p-8 text-center">
-            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-[#FF6B35] to-[#FF1744] flex items-center justify-center">
-              <Calendar className="w-10 h-10 text-white" />
-            </div>
-            <h2 className="text-2xl font-bold mb-2">אין לך תור קרוב</h2>
-            <p className="text-[#94A3B8] text-lg mb-6">הגיע הזמן לתספורת חדשה?</p>
-            <Button
-              onClick={() => navigate(createPageUrl("BookAppointment"))}
-              className="h-14 px-8 rounded-xl text-lg font-semibold hover:scale-105 active:scale-95 transition-transform"
-              style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}
-            >
-              <Plus className="w-6 h-6 ml-2" />
-              קבע תור עכשיו
-            </Button>
-          </div>
-        )}
-
-        {/* Quick Book Section */}
-        {frequentServices.length > 0 && (
-          <div className="bg-[#1A1F35] rounded-2xl p-6 mb-6 border border-gray-800">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold">{hasCompletedBookings ? 'קבע שוב' : 'השירותים שלנו'}</h2>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              {frequentServices.map((service) => (
+              {frequentServices.map((service, index) => (
                 <button
                   key={service.id}
                   onClick={() => handleRebookService(service.id)}
-                  className="bg-[#0C0F1D] rounded-2xl p-4 border-2 border-gray-800 hover:border-[#FF6B35] hover:scale-105 active:scale-95 transition-all text-right"
+                  className="bg-[#1A1F35] rounded-2xl p-4 text-right transition-all hover:scale-[1.02] active:scale-[0.98] relative"
+                  style={{ 
+                    border: index === 0 ? '1px solid rgba(255,107,53,0.4)' : '1px solid rgba(255,255,255,0.05)'
+                  }}
                 >
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#FF6B35]/20 to-[#FF1744]/20 flex items-center justify-center mb-3">
-                    <Scissors className="w-6 h-6 text-[#FF6B35]" />
+                  {/* Popular badge for first item */}
+                  {index === 0 && (
+                    <span 
+                      className="absolute -top-2.5 right-3 px-2.5 py-1 rounded-md text-[10px] font-bold"
+                      style={{ 
+                        background: 'linear-gradient(135deg, #FF6B35 0%, #FF1744 100%)', 
+                        color: 'white' 
+                      }}
+                    >
+                      פופולרי
+                    </span>
+                  )}
+                  
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#FF6B35]/20 to-[#FF1744]/20 flex items-center justify-center mb-3">
+                    <Scissors className="w-5 h-5 text-[#FF6B35]" />
                   </div>
-                  <h3 className="font-semibold text-base text-white mb-1">{service.name}</h3>
-                  <div className="flex items-center gap-1 text-sm text-[#94A3B8] mb-2">
+                  <h3 className="font-semibold text-white mb-1">{service.name}</h3>
+                  <p className="text-[#94A3B8] text-xs flex items-center gap-1 mb-2">
                     <Clock className="w-3 h-3" />
-                    <span>{service.duration} דקות</span>
-                  </div>
+                    {service.duration} דקות
+                  </p>
                   {service.price > 0 && (
                     <p className="text-xl font-bold text-[#FF6B35]">₪{service.price}</p>
                   )}
                 </button>
               ))}
             </div>
-
-            <button
-              onClick={() => navigate(createPageUrl("BookAppointment"))}
-              className="w-full bg-[#0C0F1D] border-2 border-gray-800 rounded-xl py-3.5 text-sm font-medium text-white hover:border-[#FF6B35] transition-colors"
-            >
-              כל השירותים
-            </button>
           </div>
         )}
 
-        {/* Appointment History */}
+        {/* ============ APPOINTMENT HISTORY ============ */}
         {recentAppointments.length > 0 && (
-          <div className="bg-[#1A1F35] rounded-2xl p-6 mb-6 border border-gray-800">
+          <div className="bg-[#1A1F35] rounded-2xl p-5 mb-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold">היסטוריית תורים</h2>
-              <Button
+              <h2 className="text-lg font-bold text-white">היסטוריית תורים</h2>
+              <button
                 onClick={() => navigate(createPageUrl("MyBookings"))}
-                variant="ghost"
-                className="text-[#FF6B35] hover:text-[#FF6B35]/80 hover:bg-[#FF6B35]/10 h-10 rounded-xl font-semibold"
+                className="text-[#FF6B35] text-sm font-medium"
               >
                 ראה הכל
-              </Button>
+              </button>
             </div>
 
             <div className="space-y-3">
               {recentAppointments.map((appointment) => (
                 <div
                   key={appointment.id}
-                  className="bg-[#0C0F1D] rounded-2xl p-4 border-2 border-gray-800 hover:border-gray-700 transition-all"
+                  className="bg-[#0C0F1D] rounded-xl p-4 flex items-center justify-between"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                        appointment.status === 'completed' 
-                          ? 'bg-green-500/10' 
-                          : 'bg-red-500/10'
-                      }`}>
-                        {appointment.status === 'completed' ? (
-                          <CheckCircle className="w-5 h-5 text-green-500" />
-                        ) : (
-                          <X className="w-5 h-5 text-red-500" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-sm text-white mb-0.5 truncate">{appointment.service_name}</h3>
-                        <p className="text-xs text-[#94A3B8]">
-                          {format(parseISO(appointment.date), 'd בMMMM yyyy', { locale: he })}
-                        </p>
-                      </div>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      appointment.status === 'completed' 
+                        ? 'bg-green-500/15' 
+                        : 'bg-red-500/15'
+                    }`}>
+                      {appointment.status === 'completed' ? (
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                      ) : (
+                        <X className="w-5 h-5 text-red-500" />
+                      )}
                     </div>
-                    <button
-                      onClick={() => handleRebookService(appointment.service_id)}
-                      className="text-[#FF6B35] text-sm font-medium flex items-center gap-1 hover:text-[#FF8555] transition-colors flex-shrink-0"
-                    >
-                      <Calendar className="w-4 h-4" />
-                      קבע שוב
-                    </button>
+                    <div>
+                      <h3 className="font-semibold text-sm text-white">{appointment.service_name}</h3>
+                      <p className="text-xs text-[#94A3B8]">
+                        {format(parseISO(appointment.date), 'd בMMMM yyyy', { locale: he })}
+                      </p>
+                    </div>
                   </div>
+                  <button
+                    onClick={() => handleRebookService(appointment.service_id)}
+                    className="text-[#FF6B35] text-sm font-medium flex items-center gap-1 hover:text-[#FF8555] transition-colors"
+                  >
+                    <Calendar className="w-4 h-4" />
+                    קבע שוב
+                  </button>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Barbershop Info */}
-        <div className="bg-[#1A1F35] rounded-2xl overflow-hidden border border-gray-800">
-          <div className="bg-gradient-to-r from-[#FF6B35] to-[#FF1744] p-4">
-            <h2 className="text-white text-xl font-bold">{business.name}</h2>
+        {/* ============ BUSINESS INFO CARD ============ */}
+        <div className="bg-[#1A1F35] rounded-2xl overflow-hidden">
+          {/* Business name banner */}
+          <div 
+            className="py-4 px-5 text-center"
+            style={{ 
+              background: 'linear-gradient(90deg, #FF6B35 0%, #FF1744 100%)'
+            }}
+          >
+            <span className="text-white font-bold text-lg">{business.name}</span>
           </div>
-
-          <div className="p-6 space-y-4">
+          
+          <div className="p-5">
             {/* Working Hours */}
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#0C0F1D] flex items-center justify-center flex-shrink-0">
+            <div className="flex items-center gap-3 mb-5">
+              <div 
+                className="w-11 h-11 rounded-xl flex items-center justify-center"
+                style={{ background: 'rgba(255,107,53,0.15)' }}
+              >
                 <Clock className="w-5 h-5 text-[#FF6B35]" />
               </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-white mb-1 text-sm">שעות פעילות</h3>
-                <p className="text-[#94A3B8] text-sm">
+              <div>
+                <p className="text-[#94A3B8] text-xs">שעות פעילות</p>
+                <p className="text-white text-sm font-medium flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-green-400"></span>
                   {getWorkingHoursDisplay() || 'לא זמין כרגע'}
                 </p>
               </div>
             </div>
-
+            
             {/* Contact Buttons */}
-            <div className="grid grid-cols-2 gap-3 pt-2">
+            <div className="grid grid-cols-2 gap-3">
               <a
                 href={`https://wa.me/${formatPhoneForWhatsApp(business.phone)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 h-12 bg-[#25D366] hover:bg-[#25D366]/90 rounded-xl text-white font-semibold transition-all"
+                className="flex items-center justify-center gap-2 h-12 bg-[#25D366] hover:bg-[#25D366]/90 rounded-xl text-white font-semibold transition-all active:scale-[0.98]"
               >
                 <MessageCircle className="w-5 h-5" />
                 WhatsApp
               </a>
               <a
                 href={`tel:${business.phone}`}
-                className="flex items-center justify-center gap-2 h-12 bg-blue-600 hover:bg-blue-700 rounded-xl text-white font-semibold transition-all"
+                className="flex items-center justify-center gap-2 h-12 rounded-xl text-white font-semibold transition-all active:scale-[0.98]"
+                style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}
               >
                 <Phone className="w-5 h-5" />
                 התקשר

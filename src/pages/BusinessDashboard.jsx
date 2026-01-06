@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createPageUrl } from "@/utils";
+import { createPageUrl, formatTime } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { format, parseISO, startOfDay, addDays } from "date-fns";
 import { he } from "date-fns/locale";
 import NotificationDropdown from "../components/NotificationDropdown";
+import MessageUsageCard from "@/components/MessageUsageCard";
 
 // WhatsApp Service API
 const WHATSAPP_API_URL = 'https://linedup-official-production.up.railway.app';
@@ -325,6 +326,9 @@ export default function BusinessDashboard() {
             </div>
           </div>
 
+          {/* Message Usage Card */}
+          <MessageUsageCard businessId={business?.id} />
+
           {/* Quick Action Buttons */}
           <div className="grid grid-cols-2 gap-3">
             <button
@@ -371,7 +375,7 @@ export default function BusinessDashboard() {
                         <div className="flex items-center gap-2 text-xs text-[#94A3B8]">
                           <span>{format(parseBookingDate(booking.date), 'd.M', { locale: he })}</span>
                           <span>•</span>
-                          <span>{booking.time}</span>
+                          <span>{formatTime(booking.time)}</span>
                           <span>•</span>
                           <span>{booking.duration} דקות</span>
                         </div>
@@ -446,7 +450,7 @@ export default function BusinessDashboard() {
                   <div className="flex items-start gap-3 mb-3">
                     <div className="text-center min-w-[65px]">
                       <p className="text-2xl font-bold text-[#FF6B35] leading-none mb-1">
-                        {booking.time}
+                        {formatTime(booking.time)}
                       </p>
                       <p className="text-xs text-[#94A3B8]">{booking.duration}′</p>
                     </div>

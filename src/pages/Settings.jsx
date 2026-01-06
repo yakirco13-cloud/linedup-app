@@ -336,7 +336,8 @@ export default function Settings() {
           </div>
         )}
 
-        {/* WhatsApp Notifications Settings */}
+        {/* WhatsApp Notifications Settings - Only show for clients */}
+        {user?.user_role === 'client' && (
         <div className="bg-[#1A1F35] rounded-2xl p-6 mb-6 border border-gray-800">
           <h3 className="font-bold mb-4 flex items-center gap-2 text-lg">
             <MessageSquare className="w-6 h-6 text-green-500" />
@@ -348,7 +349,7 @@ export default function Settings() {
               checked={user?.whatsapp_notifications_enabled !== false}
               onCheckedChange={async (checked) => {
                 try {
-                  await base44.auth.updateMe({ whatsapp_notifications_enabled: checked });
+                  await updateUser({ whatsapp_notifications_enabled: checked });
                   await refetchUser();
                 } catch (error) {
                   console.error('Failed to update WhatsApp preference:', error);
@@ -367,6 +368,7 @@ export default function Settings() {
             </div>
           </div>
         </div>
+        )}
 
         {/* Account Actions */}
         <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800">

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createPageUrl } from "@/utils";
+import { createPageUrl, formatTime } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -571,7 +571,7 @@ export default function MyBookings() {
                       <span className="font-medium">{format(new Date(`${booking.date}T${booking.time}`), 'EEEE, d.M.yyyy', { locale: he })}</span>
                     </div>
                     <div className="text-[#FF6B35] font-bold text-2xl">
-                      {booking.time}
+                      {formatTime(booking.time)}
                     </div>
                   </div>
                   

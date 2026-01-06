@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createPageUrl } from "@/utils";
+import { createPageUrl, formatTime } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -472,7 +472,7 @@ export default function CalendarView() {
                     <Clock className="w-4 h-4" />
                     <span className="text-sm">שעה</span>
                   </div>
-                  <span className="font-semibold">{selectedBooking.time}</span>
+                  <span className="font-semibold">{formatTime(selectedBooking.time)}</span>
                 </div>
 
                 <div className="flex items-center justify-between py-2">
