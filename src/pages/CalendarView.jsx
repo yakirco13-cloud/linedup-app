@@ -47,6 +47,20 @@ export default function CalendarView() {
     keepPreviousData: true,
   });
 
+  // Fetch services for colors
+  const { data: services = [] } = useQuery({
+    queryKey: ['services', business?.id],
+    queryFn: () => base44.entities.Service.filter({ business_id: business.id }),
+    enabled: !!business?.id,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Helper to get service color
+  const getServiceColor = (serviceId, serviceName) => {
+    const service = services.find(s => s.id === serviceId || s.name === serviceName);
+    return service?.color || '#FF6B35';
+  };
+
   const { data: bookings = [], isLoading, refetch: refetchBookings } = useQuery({
     queryKey: ['bookings', business?.id],
     queryFn: async () => {
@@ -391,6 +405,7 @@ export default function CalendarView() {
   const AppointmentBlock = ({ appointment, onClick }) => {
     const isPending = appointment.status === 'pending_approval';
     const { top, height } = getBookingPosition(appointment);
+    const serviceColor = getServiceColor(appointment.service_id, appointment.service_name);
     
     return (
       <button
@@ -398,12 +413,12 @@ export default function CalendarView() {
           e.stopPropagation();
           onClick();
         }}
-        className={`absolute left-1 right-1 rounded-lg p-1.5 text-right overflow-hidden ${
-          getStatusColor(appointment.status)
-        } hover:brightness-110 transition-all shadow-lg`}
+        className={`absolute left-1 right-1 rounded-lg p-1.5 text-right overflow-hidden hover:brightness-110 transition-all shadow-lg`}
         style={{
           top: `${top}px`,
           height: `${height}px`,
+          backgroundColor: isPending ? '#EAB308' : serviceColor,
+          borderRight: `3px solid ${serviceColor}`,
         }}
       >
         {isPending && (
@@ -413,6 +428,11 @@ export default function CalendarView() {
         <p className="text-[10px] font-bold text-white leading-tight break-words">
           {appointment.client_name || 'Walk-in'}
         </p>
+        {height >= 40 && (
+          <p className="text-[8px] text-white/80 truncate">
+            {appointment.service_name}
+          </p>
+        )}
       </button>
     );
   };

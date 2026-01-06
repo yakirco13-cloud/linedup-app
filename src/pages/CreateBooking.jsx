@@ -302,7 +302,6 @@ export default function CreateBooking() {
 
     const bookingData = {
       business_id: business.id,
-      client_email: formData.client_email || `walkin_${Date.now()}@temp.com`,
       client_name: formData.client_name,
       client_phone: formData.client_phone || "",
       staff_id: formData.staff_id,

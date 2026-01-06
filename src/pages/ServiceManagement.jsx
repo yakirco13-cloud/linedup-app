@@ -9,10 +9,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowRight, Plus, Trash2, Clock, DollarSign, Loader2, Pencil } from "lucide-react";
+import { ArrowRight, Plus, Trash2, Clock, DollarSign, Loader2, Pencil, Palette, Check } from "lucide-react";
 
 // Generate duration options from 5 to 90 minutes in 5-minute increments
 const DURATION_OPTIONS = Array.from({ length: 18 }, (_, i) => (i + 1) * 5);
+
+// Predefined color palette for services
+const SERVICE_COLORS = [
+  { name: 'כתום', value: '#FF6B35' },
+  { name: 'כחול', value: '#3B82F6' },
+  { name: 'ירוק', value: '#10B981' },
+  { name: 'צהוב', value: '#F59E0B' },
+  { name: 'אדום', value: '#EF4444' },
+  { name: 'סגול', value: '#8B5CF6' },
+  { name: 'ורוד', value: '#EC4899' },
+  { name: 'תכלת', value: '#06B6D4' },
+  { name: 'ירוק בהיר', value: '#84CC16' },
+  { name: 'כתום כהה', value: '#F97316' },
+];
 
 export default function ServiceManagement() {
   const navigate = useNavigate();
@@ -25,7 +39,8 @@ export default function ServiceManagement() {
     name: "",
     duration: "30",
     price: "",
-    description: ""
+    description: "",
+    color: "#FF6B35"
   });
 
   const { data: business } = useQuery({
@@ -67,8 +82,27 @@ export default function ServiceManagement() {
   });
 
   const resetForm = () => {
-    setFormData({ name: "", duration: "30", price: "", description: "" });
+    setFormData({ name: "", duration: "30", price: "", description: "", color: "#FF6B35" });
     setShowForm(false);
+    setEditingService(null);
+  };
+
+  // Auto-assign a color based on existing services
+  const getNextAvailableColor = () => {
+    const usedColors = services.map(s => s.color);
+    const availableColor = SERVICE_COLORS.find(c => !usedColors.includes(c.value));
+    return availableColor?.value || SERVICE_COLORS[services.length % SERVICE_COLORS.length].value;
+  };
+
+  const handleAddNew = () => {
+    setFormData({
+      name: "",
+      duration: "30",
+      price: "",
+      description: "",
+      color: getNextAvailableColor()
+    });
+    setShowForm(true);
     setEditingService(null);
   };
 
@@ -80,7 +114,8 @@ export default function ServiceManagement() {
       name: formData.name,
       duration: parseInt(formData.duration),
       price: parseFloat(formData.price) || 0,
-      description: formData.description
+      description: formData.description,
+      color: formData.color
     };
 
     if (editingService) {
@@ -96,7 +131,8 @@ export default function ServiceManagement() {
       name: service.name,
       duration: service.duration.toString(),
       price: service.price?.toString() || "",
-      description: service.description || ""
+      description: service.description || "",
+      color: service.color || "#FF6B35"
     });
     setShowForm(true);
   };
@@ -121,7 +157,7 @@ export default function ServiceManagement() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold">ניהול שירותים</h1>
           <Button
-            onClick={() => setShowForm(!showForm)}
+            onClick={handleAddNew}
             className="h-12 px-6 rounded-xl"
             style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}
           >
@@ -185,6 +221,37 @@ export default function ServiceManagement() {
                 </div>
               </div>
 
+              {/* Color Picker */}
+              <div className="space-y-2">
+                <Label className="text-white flex items-center gap-2">
+                  <Palette className="w-4 h-4" />
+                  צבע השירות
+                </Label>
+                <div className="flex flex-wrap gap-2">
+                  {SERVICE_COLORS.map((color) => (
+                    <button
+                      key={color.value}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, color: color.value })}
+                      className={`w-10 h-10 rounded-xl transition-all ${
+                        formData.color === color.value 
+                          ? 'ring-2 ring-white ring-offset-2 ring-offset-[#1A1F35] scale-110' 
+                          : 'hover:scale-105'
+                      }`}
+                      style={{ backgroundColor: color.value }}
+                      title={color.name}
+                    >
+                      {formData.color === color.value && (
+                        <Check className="w-5 h-5 text-white mx-auto" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-[#94A3B8]">
+                  הצבע יוצג ביומן ובסטטיסטיקות
+                </p>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="description" className="text-white">תיאור</Label>
                 <Textarea
@@ -233,14 +300,24 @@ export default function ServiceManagement() {
         ) : (
           <div className="space-y-3">
             {services.map((service) => (
-              <div key={service.id} className="bg-[#1A1F35] rounded-2xl p-5 border border-gray-800">
-                <div className="flex justify-between items-start mb-3">
+              <div 
+                key={service.id} 
+                className="bg-[#1A1F35] rounded-2xl p-5 border border-gray-800 overflow-hidden"
+                style={{ borderRightWidth: '4px', borderRightColor: service.color || '#FF6B35' }}
+              >
+                <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <h3 className="text-lg font-bold text-white mb-1">{service.name}</h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: service.color || '#FF6B35' }}
+                      />
+                      <h3 className="text-lg font-bold text-white">{service.name}</h3>
+                    </div>
                     {service.description && (
-                      <p className="text-[#94A3B8] text-sm mb-2">{service.description}</p>
+                      <p className="text-[#94A3B8] text-sm mb-2 mr-5">{service.description}</p>
                     )}
-                    <div className="flex gap-4 text-sm">
+                    <div className="flex gap-4 text-sm mr-5">
                       <div className="flex items-center gap-1 text-[#94A3B8]">
                         <Clock className="w-4 h-4" />
                         <span>{service.duration} דקות</span>

@@ -138,7 +138,7 @@ export default function Settings() {
         <h1 className="text-3xl font-bold mb-8 pt-4">הגדרות</h1>
 
         {/* User Info */}
-        <div className="bg-[#1A1F35] rounded-2xl p-6 mb-6 border border-gray-800">
+        <div className="bg-[#1A1F35] rounded-2xl p-4 mb-6 border border-gray-800">
           {editingProfile ? (
             <form onSubmit={handleProfileUpdate} className="space-y-5">
               <h2 className="text-xl font-bold mb-6">ערוך פרופיל</h2>

@@ -156,9 +156,9 @@ function AppContent({ children }) {
         <motion.nav 
           initial={{ y: 100 }}
           animate={{ y: 0 }}
-          className="fixed bottom-0 left-0 right-0 bg-[#1A1F35]/95 backdrop-blur-lg border-t border-gray-800 z-50 shadow-2xl safe-area-inset-bottom"
+          className="fixed bottom-3 left-3 right-3 z-50"
         >
-          <div className="flex justify-around items-center h-20 max-w-screen-lg mx-auto px-2">
+          <div className="bg-[#1A1F35] rounded-full py-2 px-2 flex justify-around items-center border border-white/5 shadow-2xl">
             {tabs.map((tab) => {
               const isActive = location.pathname === tab.path;
               const Icon = tab.icon;
@@ -167,28 +167,15 @@ function AppContent({ children }) {
                 <Link
                   key={tab.name}
                   to={tab.path}
-                  className="relative flex flex-col items-center justify-center flex-1 h-16 transition-all duration-200"
+                  className={`flex items-center gap-1.5 transition-all duration-300 ${
+                    isActive 
+                      ? 'bg-[#FF6B35] text-white px-4 py-2.5 rounded-full' 
+                      : 'text-[#94A3B8] p-2.5'
+                  }`}
+                  style={isActive ? { boxShadow: '0 4px 15px rgba(255, 107, 53, 0.4)' } : {}}
                 >
-                  <motion.div
-                    whileTap={{ scale: 0.9 }}
-                    className={`flex flex-col items-center justify-center ${
-                      isActive 
-                        ? 'text-[#FF6B35]' 
-                        : 'text-[#94A3B8]'
-                    }`}
-                  >
-                    {isActive && (
-                      <motion.div
-                        layoutId="activeTab"
-                        className="absolute inset-0 bg-[#FF6B35]/10 rounded-2xl"
-                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                      />
-                    )}
-                    <Icon className={`w-6 h-6 mb-1 relative z-10 ${isActive ? 'drop-shadow-[0_0_8px_rgba(255,107,53,0.5)]' : ''}`} />
-                    <span className={`text-xs font-semibold relative z-10 ${isActive ? 'font-bold' : 'font-medium'}`}>
-                      {tab.name}
-                    </span>
-                  </motion.div>
+                  <Icon className="w-5 h-5" />
+                  {isActive && <span className="text-sm font-bold">{tab.name}</span>}
                 </Link>
               );
             })}
@@ -217,6 +204,22 @@ function AppContent({ children }) {
         /* Safe area for iPhone notch and top */
         .safe-area-inset-bottom {
           padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        /* Nav safe area - extends background to absolute bottom */
+        .nav-safe-area {
+          padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        
+        .nav-safe-area::after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: env(safe-area-inset-bottom, 0px);
+          background: inherit;
+          transform: translateY(100%);
         }
 
         .pt-safe {

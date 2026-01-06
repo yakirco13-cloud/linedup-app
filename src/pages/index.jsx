@@ -17,6 +17,7 @@ import ServiceManagement from "./ServiceManagement";
 import Settings from "./Settings";
 import SharedCalendar from "./SharedCalendar";
 import StaffManagement from "./StaffManagement";
+import Statistics from "./Statistics";
 import TermsOfService from "./TermsOfService";
 import Welcome from "./Welcome";
 
@@ -41,6 +42,7 @@ const PAGES = {
     Settings,
     SharedCalendar,
     StaffManagement,
+    Statistics,
     TermsOfService,
     Welcome,
 }
@@ -85,6 +87,7 @@ function PagesContent() {
                 <Route path="/Settings" element={<Settings />} />
                 <Route path="/SharedCalendar" element={<SharedCalendar />} />
                 <Route path="/StaffManagement" element={<StaffManagement />} />
+                <Route path="/Statistics" element={<Statistics />} />
                 <Route path="/TermsOfService" element={<TermsOfService />} />
             </Routes>
         </Layout>

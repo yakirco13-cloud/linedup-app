@@ -8,6 +8,7 @@ import { Calendar, Clock, Plus, MessageCircle, Phone, MapPin, CheckCircle, X, Na
 import { Button } from "@/components/ui/button";
 import { format, isToday, isTomorrow, parseISO } from "date-fns";
 import { he } from "date-fns/locale";
+import page from "@/components/Page";
 
 export default function ClientDashboard() {
   const navigate = useNavigate();
@@ -284,7 +285,7 @@ export default function ClientDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D]">
+    <div className="min-h-screen bg-[#0C0F1D]" style={{ minHeight: '100vh', backgroundColor: '#0C0F1D' }}>
       {/* Waiting List Availability Popup */}
       {waitingListPopup && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6">
@@ -508,7 +509,7 @@ export default function ClientDashboard() {
       </div>
 
       {/* ============ REST OF CONTENT - Directly after header, no gap ============ */}
-      <div className="px-4 pt-4 pb-10">
+      <div className="px-4 pt-4">
         {/* ============ SERVICES GRID ============ */}
         {frequentServices.length > 0 && (
           <div className="mb-6">

@@ -4,7 +4,7 @@ import { createPageUrl, formatTime } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Calendar, Loader2, Clock, Wallet, Plus, Check, Phone, X, MessageCircle, Share2, Copy, ChevronLeft, TrendingUp, Bell, Send } from "lucide-react";
+import { Calendar, Loader2, Clock, Wallet, Plus, Check, Phone, X, MessageCircle, Share2, Copy, ChevronLeft, TrendingUp, Bell, Send, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format, parseISO, startOfDay, addDays } from "date-fns";
 import { he } from "date-fns/locale";
@@ -328,6 +328,23 @@ export default function BusinessDashboard() {
 
           {/* Message Usage Card */}
           <MessageUsageCard businessId={business?.id} />
+
+          {/* Statistics Link */}
+          <button
+            onClick={() => navigate(createPageUrl("Statistics"))}
+            className="w-full bg-[#1A1F35] rounded-2xl p-4 border border-gray-800 flex items-center justify-between hover:border-[#FF6B35] transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-[#FF6B35]/20 rounded-xl flex items-center justify-center">
+                <BarChart3 className="w-5 h-5 text-[#FF6B35]" />
+              </div>
+              <div className="text-right">
+                <p className="font-semibold">סטטיסטיקות ודוחות</p>
+                <p className="text-xs text-[#94A3B8]">צפה בנתוני העסק שלך</p>
+              </div>
+            </div>
+            <ChevronLeft className="w-5 h-5 text-[#94A3B8]" />
+          </button>
 
           {/* Quick Action Buttons */}
           <div className="grid grid-cols-2 gap-3">
