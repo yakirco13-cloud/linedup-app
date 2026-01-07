@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, User, Phone, Mail, Calendar, Loader2, Search, Send, MessageSquare } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { format, parseISO } from "date-fns";
 import { he } from "date-fns/locale";
-
-// WhatsApp Service API
-const WHATSAPP_API_URL = 'https://linedup-official-production.up.railway.app';
+import { sendBroadcast } from "@/lib/supabase";
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -199,28 +197,19 @@ export default function Clients() {
                     setBroadcastResult(null);
                     
                     try {
-                      const clientsWithPhone = clients.filter(c => c.phone).map(c => ({
-                        phone: c.phone,
-                        name: c.name,
-                        whatsappEnabled: true
-                      }));
+                      const clientPhones = clients.filter(c => c.phone).map(c => c.phone);
                       
-                      const response = await fetch(`${WHATSAPP_API_URL}/api/send-broadcast`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          businessName: business.name,
-                          message: broadcastMessage,
-                          clients: clientsWithPhone
-                        })
+                      const result = await sendBroadcast({
+                        phones: clientPhones,
+                        businessName: business.name,
+                        message: broadcastMessage,
+                        businessId: business.id
                       });
-                      
-                      const result = await response.json();
                       
                       if (result.success) {
                         setBroadcastResult({
                           success: true,
-                          message: `✅ ההודעה נשלחה ל-${result.results.success} לקוחות!`
+                          message: `✅ ההודעה נשלחה ל-${result.sent} לקוחות!`
                         });
                         setBroadcastMessage("");
                         setTimeout(() => {
@@ -230,7 +219,9 @@ export default function Clients() {
                       } else {
                         setBroadcastResult({
                           success: false,
-                          message: `❌ שגיאה: ${result.error}`
+                          message: result.limitReached 
+                            ? `❌ הגעת למגבלת ההודעות החודשית. נשלחו ${result.sent} הודעות.`
+                            : `❌ שגיאה בשליחה`
                         });
                       }
                     } catch (error) {

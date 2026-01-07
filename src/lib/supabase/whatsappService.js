@@ -65,7 +65,8 @@ export async function sendConfirmation({ phone, clientName, businessName, date, 
     businessName,
     date,
     time,
-    serviceName
+    serviceName,
+    whatsappEnabled: true
   }, businessId);
 }
 
@@ -77,7 +78,8 @@ export async function sendUpdate({ phone, clientName, businessName, message, bus
     phone,
     clientName,
     businessName,
-    message
+    message,
+    whatsappEnabled: true
   }, businessId);
 }
 
@@ -90,7 +92,8 @@ export async function sendWaitingListNotification({ phone, clientName, businessN
     clientName,
     businessName,
     date,
-    serviceName
+    serviceName,
+    whatsappEnabled: true
   }, businessId);
 }
 

@@ -62,7 +62,7 @@ export default function Settings() {
 
   const profileUpdateMutation = useMutation({
     mutationFn: async (data) => {
-      await base44.auth.updateMe(data);
+      await updateUser(data);
     },
     onSuccess: async () => {
       await refetchUser();
@@ -127,7 +127,7 @@ export default function Settings() {
   const handleProfileUpdate = async (e) => {
     e.preventDefault();
     profileUpdateMutation.mutate({
-      name: profileForm.name,
+      full_name: profileForm.name,
       phone: profileForm.phone
     });
   };
@@ -199,8 +199,8 @@ export default function Settings() {
                   <User className="w-10 h-10 text-white" />
                 </div>
                 <div className="flex-1">
-                  <h2 className="text-xl font-bold mb-1">{user?.name}</h2>
-                  <p className="text-[#94A3B8] text-sm">{user?.email}</p>
+                  <h2 className="text-xl font-bold mb-1">{user?.name || user?.full_name}</h2>
+                  <p className="text-[#94A3B8] text-sm" dir="ltr">{user?.phone ? `0${user.phone.slice(3)}` : ''}</p>
                 </div>
                 <Button
                   onClick={() => setEditingProfile(true)}

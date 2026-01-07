@@ -4,8 +4,9 @@ import { createPageUrl, formatTime } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Loader2, Plus, Home, X, Edit, Trash2, Calendar, Clock, Scissors, Bell, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Plus, Home, X, Edit, Trash2, Calendar, Clock, Scissors, Bell, RefreshCw, Settings2 } from "lucide-react";
 import NotificationDropdown from "../components/NotificationDropdown";
+import ScheduleOverrideModal from "../components/ScheduleOverrideModal";
 import { Button } from "@/components/ui/button";
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, isSameDay, isToday, parseISO, addDays } from "date-fns";
 import { he } from "date-fns/locale";
@@ -33,6 +34,11 @@ export default function CalendarView() {
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
 
+  // Schedule override state
+  const [showOverrideModal, setShowOverrideModal] = useState(false);
+  const [selectedOverrideDate, setSelectedOverrideDate] = useState(null);
+  const [editingOverride, setEditingOverride] = useState(null);
+
   const minSwipeDistance = 50;
 
   const { data: business } = useQuery({
@@ -53,6 +59,29 @@ export default function CalendarView() {
     queryFn: () => base44.entities.Service.filter({ business_id: business.id }),
     enabled: !!business?.id,
     staleTime: 10 * 60 * 1000,
+  });
+
+  // Fetch staff for schedule overrides
+  const { data: staffList = [] } = useQuery({
+    queryKey: ['staff', business?.id],
+    queryFn: () => base44.entities.Staff.filter({ business_id: business.id }),
+    enabled: !!business?.id,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Fetch schedule overrides (with error handling in case table doesn't exist yet)
+  const { data: scheduleOverrides = [] } = useQuery({
+    queryKey: ['schedule-overrides', business?.id],
+    queryFn: async () => {
+      try {
+        return await base44.entities.ScheduleOverride.filter({ business_id: business.id });
+      } catch (error) {
+        console.warn('Schedule overrides table may not exist yet:', error);
+        return [];
+      }
+    },
+    enabled: !!business?.id,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Helper to get service color
@@ -202,6 +231,69 @@ export default function CalendarView() {
     },
   });
 
+  // Schedule Override Mutations
+  const createOverrideMutation = useMutation({
+    mutationFn: (data) => base44.entities.ScheduleOverride.create({
+      ...data,
+      business_id: business.id
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schedule-overrides'] });
+      setShowOverrideModal(false);
+      setSelectedOverrideDate(null);
+      setEditingOverride(null);
+    },
+  });
+
+  const updateOverrideMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.ScheduleOverride.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schedule-overrides'] });
+      setShowOverrideModal(false);
+      setSelectedOverrideDate(null);
+      setEditingOverride(null);
+    },
+  });
+
+  const deleteOverrideMutation = useMutation({
+    mutationFn: (id) => base44.entities.ScheduleOverride.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schedule-overrides'] });
+      setShowOverrideModal(false);
+      setSelectedOverrideDate(null);
+      setEditingOverride(null);
+    },
+  });
+
+  // Helper to get override for a specific date
+  const getOverrideForDate = (date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    return scheduleOverrides.find(o => o.date === dateStr);
+  };
+
+  // Handle opening override modal
+  const handleOpenOverrideModal = (date, existingOverride = null) => {
+    setSelectedOverrideDate(date);
+    setEditingOverride(existingOverride);
+    setShowOverrideModal(true);
+  };
+
+  // Handle saving override
+  const handleSaveOverride = (data) => {
+    if (editingOverride) {
+      updateOverrideMutation.mutate({ id: editingOverride.id, data });
+    } else {
+      createOverrideMutation.mutate(data);
+    }
+  };
+
+  // Handle deleting override
+  const handleDeleteOverride = (id) => {
+    if (window.confirm('האם למחוק את השינוי ולחזור לשעות הרגילות?')) {
+      deleteOverrideMutation.mutate(id);
+    }
+  };
+
   const weekStart = startOfWeek(currentDate, { locale: he, weekStartsOn: 0 });
   const weekEnd = endOfWeek(currentDate, { locale: he, weekStartsOn: 0 });
   const allDaysInWeek = eachDayOfInterval({ start: weekStart, end: weekEnd });
@@ -322,9 +414,8 @@ export default function CalendarView() {
       }
     }
     
-    // Show live swipe preview and prevent vertical scroll if we're swiping horizontally
+    // Show live swipe preview if we're swiping horizontally
     if (isSwipingHorizontally && diffX > diffY) {
-      e.preventDefault();
       // Apply swipe offset with rubber band effect (damping)
       const offset = (currentTouch - touchStart) * 0.4; // 0.4 = damping factor
       setSwipeOffset(offset);
@@ -380,25 +471,37 @@ export default function CalendarView() {
     const dayIsToday = isToday(day);
     const dayNameShort = format(day, 'EEEEEE', { locale: he });
     const dayNumber = format(day, 'd');
+    const override = getOverrideForDate(day);
+    const hasOverride = !!override;
+    const isDayOff = override?.is_day_off;
 
     return (
-      <div
-        className={`h-14 flex flex-col items-center justify-center border-l border-gray-800 last:border-l-0 ${
+      <button
+        onClick={() => handleOpenOverrideModal(day, override)}
+        className={`h-14 flex flex-col items-center justify-center border-l border-gray-800 last:border-l-0 relative transition-colors hover:bg-white/5 ${
           dayIsToday ? 'bg-[#FF6B35]/10' : ''
-        }`}
+        } ${isDayOff ? 'bg-red-500/10' : ''}`}
       >
+        {/* Override indicator */}
+        {hasOverride && (
+          <div className={`absolute top-1 left-1 w-2 h-2 rounded-full ${isDayOff ? 'bg-red-500' : 'bg-blue-500'}`} />
+        )}
+        
         <span className={`text-xs mb-0.5 ${
-          dayIsToday ? 'text-[#FF6B35] font-semibold' : 'text-[#94A3B8]'
+          dayIsToday ? 'text-[#FF6B35] font-semibold' : isDayOff ? 'text-red-400' : 'text-[#94A3B8]'
         }`}>
           {dayNameShort}
         </span>
 
         <span className={`text-base font-bold leading-none ${
-          dayIsToday ? 'text-[#FF6B35]' : 'text-white'
+          dayIsToday ? 'text-[#FF6B35]' : isDayOff ? 'text-red-400' : 'text-white'
         }`}>
           {dayNumber}
         </span>
-      </div>
+        
+        {/* Small settings icon on hover */}
+        <Settings2 className="w-3 h-3 text-[#94A3B8] absolute bottom-0.5 right-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+      </button>
     );
   };
 
@@ -446,6 +549,22 @@ export default function CalendarView() {
           onClose={() => setShowNotifications(false)}
         />
       )}
+
+      {/* Schedule Override Modal */}
+      <ScheduleOverrideModal
+        isOpen={showOverrideModal}
+        onClose={() => {
+          setShowOverrideModal(false);
+          setSelectedOverrideDate(null);
+          setEditingOverride(null);
+        }}
+        date={selectedOverrideDate}
+        staff={staffList}
+        existingOverride={editingOverride}
+        onSave={handleSaveOverride}
+        onDelete={handleDeleteOverride}
+        isLoading={createOverrideMutation.isPending || updateOverrideMutation.isPending || deleteOverrideMutation.isPending}
+      />
 
       {/* Booking Details Modal */}
       {selectedBooking && (
@@ -636,6 +755,7 @@ export default function CalendarView() {
             transform: `translateX(${swipeOffset}px)`,
             transition: isAnimating ? 'transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1)' : 'none',
             opacity: isAnimating ? 1 - Math.abs(swipeOffset) / window.innerWidth * 0.3 : 1,
+            touchAction: isSwipingHorizontally ? 'none' : 'pan-y',
           }}
         >
           {/* Day Headers */}

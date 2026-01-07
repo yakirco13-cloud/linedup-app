@@ -5,10 +5,11 @@ import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Calendar, Clock, User, Loader2, CheckCircle, Briefcase, ChevronLeft, ChevronRight, Lightbulb, Sparkles, Bell } from "lucide-react";
+import { ArrowRight, Calendar, Clock, User, Loader2, CheckCircle, Briefcase, ChevronLeft, ChevronRight, Lightbulb, Sparkles, Bell, CalendarPlus } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, parseISO, addMonths, subMonths, startOfDay, startOfWeek, endOfWeek } from "date-fns";
 import { he } from "date-fns/locale";
+import { generateGoogleCalendarLink } from "@/utils/calendarLinks";
 
 // WhatsApp Service API
 const WHATSAPP_API_URL = 'https://linedup-official-production.up.railway.app';
@@ -214,6 +215,56 @@ export default function BookAppointment() {
     refetchOnWindowFocus: true,
     keepPreviousData: true,
   });
+
+  // Query for schedule overrides
+  const { data: scheduleOverrides = [] } = useQuery({
+    queryKey: ['schedule-overrides', selectedBusiness?.id],
+    queryFn: () => base44.entities.ScheduleOverride.filter({ business_id: selectedBusiness.id }),
+    enabled: !!selectedBusiness,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Helper to get schedule for a specific date (checks overrides first)
+  const getScheduleForDate = (date, staffMember) => {
+    if (!date || !staffMember) return null;
+    
+    const dateStr = format(date, 'yyyy-MM-dd');
+    
+    // Check for override - first staff-specific, then all-staff
+    const staffOverride = scheduleOverrides.find(o => 
+      o.date === dateStr && o.staff_id === staffMember.id
+    );
+    const allStaffOverride = scheduleOverrides.find(o => 
+      o.date === dateStr && o.staff_id === null
+    );
+    
+    const override = staffOverride || allStaffOverride;
+    
+    if (override) {
+      if (override.is_day_off) {
+        return { enabled: false, shifts: [], isDayOff: true };
+      }
+      return { 
+        enabled: true, 
+        shifts: override.shifts || [], 
+        isOverride: true 
+      };
+    }
+    
+    // No override - use regular schedule
+    const dayName = format(date, 'EEEE').toLowerCase();
+    const dayKey = {
+      'sunday': 'sunday',
+      'monday': 'monday',
+      'tuesday': 'tuesday',
+      'wednesday': 'wednesday',
+      'thursday': 'thursday',
+      'friday': 'friday',
+      'saturday': 'saturday'
+    }[dayName];
+    
+    return staffMember.schedule?.[dayKey] || { enabled: false, shifts: [] };
+  };
 
   const bookingMutation = useMutation({
     mutationFn: (data) => {
@@ -426,20 +477,10 @@ export default function BookAppointment() {
   };
 
   const generateTimeSlots = () => {
-    if (!selectedDate || !selectedStaff?.schedule || !selectedService) return [];
+    if (!selectedDate || !selectedStaff || !selectedService) return [];
     
-    const dayName = format(selectedDate, 'EEEE').toLowerCase();
-    const dayKey = {
-      'sunday': 'sunday',
-      'monday': 'monday',
-      'tuesday': 'tuesday',
-      'wednesday': 'wednesday',
-      'thursday': 'thursday',
-      'friday': 'friday',
-      'saturday': 'saturday'
-    }[dayName];
-
-    const daySchedule = selectedStaff.schedule[dayKey];
+    // Use getScheduleForDate to check for overrides
+    const daySchedule = getScheduleForDate(selectedDate, selectedStaff);
     
     if (!daySchedule?.enabled) {
       return [];
@@ -548,7 +589,7 @@ export default function BookAppointment() {
   };
 
   const getAvailableDates = () => {
-    if (!selectedStaff?.schedule) return [];
+    if (!selectedStaff) return [];
     
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
@@ -557,27 +598,18 @@ export default function BookAppointment() {
     return daysInMonth.filter(date => {
       if (date < startOfDay(new Date())) return false;
       
-      const dayName = format(date, 'EEEE').toLowerCase();
-      const dayKey = {
-        'sunday': 'sunday',
-        'monday': 'monday',
-        'tuesday': 'tuesday',
-        'wednesday': 'wednesday',
-        'thursday': 'thursday',
-        'friday': 'friday',
-        'saturday': 'saturday'
-      }[dayName];
-      
-      return selectedStaff.schedule[dayKey]?.enabled;
+      // Use getScheduleForDate to check for overrides
+      const daySchedule = getScheduleForDate(date, selectedStaff);
+      return daySchedule?.enabled;
     });
   };
 
   // Function to check time slots for a specific service on a specific date
   const checkSlotsForService = async (service, date, bookingsForDate) => {
-    if (!selectedStaff?.schedule) return 0;
+    if (!selectedStaff) return 0;
     
-    const dayName = format(date, 'EEEE').toLowerCase();
-    const daySchedule = selectedStaff.schedule[dayName];
+    // Use getScheduleForDate to check for overrides
+    const daySchedule = getScheduleForDate(date, selectedStaff);
     
     if (!daySchedule?.enabled) return 0;
     
@@ -677,9 +709,9 @@ export default function BookAppointment() {
         const checkDate = addDays(today, i);
         if (isSameDay(checkDate, selectedDate)) continue;
         
-        // Check if staff works on this day
-        const dayName = format(checkDate, 'EEEE').toLowerCase();
-        if (!selectedStaff.schedule[dayName]?.enabled) continue;
+        // Check if staff works on this day (using schedule overrides)
+        const daySchedule = getScheduleForDate(checkDate, selectedStaff);
+        if (!daySchedule?.enabled) continue;
         
         // Get bookings for this date
         const bookingsForDate = await base44.entities.Booking.filter({
@@ -856,6 +888,15 @@ const handleBooking = async () => {
   }
 
   if (success) {
+    const calendarLink = generateGoogleCalendarLink({
+      title: `תור ל${selectedService?.name || 'שירות'} ב${selectedBusiness?.name || 'העסק'}`,
+      description: `לקוח: ${user?.name || user?.full_name || ''}\nטלפון: ${user?.phone || ''}\nשירות: ${selectedService?.name || ''}`,
+      location: selectedBusiness?.address || '',
+      startDate: selectedDate,
+      startTime: selectedTime,
+      duration: selectedService?.duration || 30
+    });
+
     return (
       <div className="min-h-screen bg-[#0C0F1D] flex items-center justify-center p-6">
         <div className="text-center max-w-md">
@@ -873,6 +914,17 @@ const handleBooking = async () => {
                 : `התור שלך ל-${format(selectedDate, 'd.M', { locale: he })} בשעה ${selectedTime}`
             }
           </p>
+
+          {/* Add to Calendar Button */}
+          <a
+            href={calendarLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-2 w-full bg-[#1A1F35] hover:bg-[#252B45] text-white font-semibold py-3 px-6 rounded-xl border border-gray-700 transition-colors mb-4"
+          >
+            <CalendarPlus className="w-5 h-5" />
+            הוסף ליומן Google
+          </a>
 
           <div className="bg-[#1A1F35] rounded-xl p-4 border border-[#FF6B35]/30 text-right space-y-3">
              <p className="text-white text-sm font-medium leading-relaxed">

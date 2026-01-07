@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowRight, Plus, Trash2, Users, Mail, Phone, Clock, Loader2, Copy, Pencil } from "lucide-react";
+import { ArrowRight, Plus, Trash2, Users, Clock, Loader2, Copy, Pencil } from "lucide-react";
 
 const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -21,9 +21,7 @@ export default function StaffManagement() {
   const [useBusinessHours, setUseBusinessHours] = useState(true);
 
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: ""
+    name: ""
   });
 
   const [schedule, setSchedule] = useState({
@@ -79,7 +77,7 @@ export default function StaffManagement() {
   });
 
   const resetForm = () => {
-    setFormData({ name: "", email: "", phone: "" });
+    setFormData({ name: "" });
     setSchedule({
       sunday: { enabled: true, shifts: [{ start: "09:00", end: "17:00" }] },
       monday: { enabled: true, shifts: [{ start: "09:00", end: "17:00" }] },
@@ -137,9 +135,8 @@ export default function StaffManagement() {
     const staffData = {
       business_id: business.id,
       name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      schedule: finalSchedule
+      schedule: finalSchedule,
+      uses_business_hours: useBusinessHours
     };
 
     console.log('Submitting staff data:', staffData);
@@ -154,10 +151,11 @@ export default function StaffManagement() {
   const handleEdit = (staffMember) => {
     setEditingStaff(staffMember);
     setFormData({
-      name: staffMember.name,
-      email: staffMember.email || "",
-      phone: staffMember.phone || ""
+      name: staffMember.name
     });
+    
+    // Check if staff uses business hours
+    setUseBusinessHours(staffMember.uses_business_hours !== false);
     
     const staffScheduleForEdit = {}; // This will be the schedule state for the form
 
@@ -341,7 +339,7 @@ export default function StaffManagement() {
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-white">שם מלא *</Label>
+                <Label htmlFor="name" className="text-white">שם העובד *</Label>
                 <Input
                   id="name"
                   value={formData.name}
@@ -352,65 +350,28 @@ export default function StaffManagement() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-white">אימייל</Label>
-                <div className="relative">
-                  <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="bg-[#0C0F1D] border-gray-700 text-white h-12 rounded-xl pr-11"
-                    placeholder="email@example.com"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone" className="text-white">טלפון</Label>
-                <div className="relative">
-                  <Phone className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="bg-[#0C0F1D] border-gray-700 text-white h-12 rounded-xl pr-11"
-                    placeholder="050-1234567"
-                  />
-                </div>
-              </div>
-
               <div className="pt-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
+                {/* Toggle for business hours */}
+                <div 
+                  onClick={() => setUseBusinessHours(!useBusinessHours)}
+                  className={`flex items-center justify-between p-4 rounded-xl cursor-pointer transition-all ${
+                    useBusinessHours
+                      ? 'bg-[#FF6B35]/20 border-2 border-[#FF6B35]'
+                      : 'bg-[#0C0F1D] border-2 border-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
                     <Clock className="w-5 h-5 text-[#FF6B35]" />
-                    <h3 className="text-lg font-bold">לוח זמנים</h3>
+                    <span className="text-white font-medium">עובד בשעות העסק</span>
                   </div>
-                  
-                  <button
-                    type="button"
-                    onClick={() => setUseBusinessHours(!useBusinessHours)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all ${
-                      useBusinessHours
-                        ? 'bg-[#FF6B35] text-white'
-                        : 'bg-[#0C0F1D] text-[#94A3B8] border-2 border-gray-700 hover:border-[#FF6B35]'
-                    }`}
-                  >
-                    <Copy className="w-4 h-4" />
-                    שעות העסק
-                  </button>
+                  <div className={`w-12 h-6 rounded-full transition-all ${useBusinessHours ? 'bg-[#FF6B35]' : 'bg-gray-600'}`}>
+                    <div className={`w-5 h-5 bg-white rounded-full mt-0.5 transition-all ${useBusinessHours ? 'mr-0.5' : 'mr-6'}`} />
+                  </div>
                 </div>
 
-                {useBusinessHours ? (
-                  <div className="bg-[#0C0F1D] rounded-xl p-4 border-2 border-[#FF6B35]/30">
-                    <p className="text-white text-center text-sm">
-                      העובד יעבוד בשעות העסק הרגילות (כולל כל המשמרות)
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
+                {!useBusinessHours && (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-[#94A3B8] text-sm mb-3">הגדר שעות עבודה מותאמות אישית:</p>
                     {DAY_KEYS.map((dayKey, index) => (
                       <div key={dayKey} className="p-3 bg-[#0C0F1D] rounded-xl">
                         <div className="flex items-center gap-3 mb-2">
@@ -510,22 +471,12 @@ export default function StaffManagement() {
           <div className="space-y-3">
             {staff.map((staffMember) => (
               <div key={staffMember.id} className="bg-[#1A1F35] rounded-2xl p-5 border border-gray-800">
-                <div className="flex justify-between items-start mb-3">
+                <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <h3 className="text-lg font-bold text-white mb-2">{staffMember.name}</h3>
-                    <div className="space-y-1">
-                      {staffMember.email && (
-                        <div className="flex items-center gap-2 text-sm text-[#94A3B8]">
-                          <Mail className="w-4 h-4" />
-                          <span>{staffMember.email}</span>
-                        </div>
-                      )}
-                      {staffMember.phone && (
-                        <div className="flex items-center gap-2 text-sm text-[#94A3B8]">
-                          <Phone className="w-4 h-4" />
-                          <span>{staffMember.phone}</span>
-                        </div>
-                      )}
+                    <h3 className="text-lg font-bold text-white mb-1">{staffMember.name}</h3>
+                    <div className="flex items-center gap-2 text-sm text-[#94A3B8]">
+                      <Clock className="w-4 h-4" />
+                      <span>{staffMember.uses_business_hours !== false ? 'עובד בשעות העסק' : 'שעות מותאמות אישית'}</span>
                     </div>
                   </div>
                   <div className="flex gap-2">

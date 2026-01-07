@@ -4,10 +4,11 @@ import { createPageUrl, formatTime } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Calendar, Clock, User, X, Loader2, Edit, Bell, Trash2 } from "lucide-react";
+import { ArrowRight, Calendar, Clock, User, X, Loader2, Edit, Bell, Trash2, CalendarPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format, parseISO } from "date-fns";
 import { he } from "date-fns/locale";
+import { generateGoogleCalendarLink } from "@/utils/calendarLinks";
 
 // WhatsApp Service API
 const WHATSAPP_API_URL = 'https://linedup-official-production.up.railway.app';
@@ -616,6 +617,26 @@ export default function MyBookings() {
                       בטל תור
                     </Button>
                   </div>
+                )}
+
+                {/* Add to Calendar - show for upcoming confirmed bookings */}
+                {filter === 'upcoming' && booking.status === 'confirmed' && (
+                  <a
+                    href={generateGoogleCalendarLink({
+                      title: `תור ל${booking.service_name} ב${businesses.find(b => b.id === booking.business_id)?.name || 'העסק'}`,
+                      description: `שירות: ${booking.service_name}\nמשך: ${booking.duration} דקות\nעם: ${booking.staff_name || ''}`,
+                      location: businesses.find(b => b.id === booking.business_id)?.address || '',
+                      startDate: booking.date,
+                      startTime: booking.time,
+                      duration: booking.duration || 30
+                    })}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 mt-3 py-2.5 px-4 rounded-xl bg-[#0C0F1D] hover:bg-[#1A1F35] border border-gray-700 text-[#94A3B8] hover:text-white transition-colors text-sm"
+                  >
+                    <CalendarPlus className="w-4 h-4" />
+                    הוסף ליומן
+                  </a>
                 )}
               </div>
             ))}

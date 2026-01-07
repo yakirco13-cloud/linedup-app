@@ -83,7 +83,8 @@ export default function Auth() {
 
     setLoading(true);
     try {
-      await sendOTP(phone);
+      // For login, check if user exists first
+      await sendOTP(phone, true); // true = check exists first
       setStep('otp');
       setCountdown(60);
     } catch (err) {

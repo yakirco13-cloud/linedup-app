@@ -84,7 +84,22 @@ export const UserProvider = ({ children }) => {
     fetchUser();
   }, [fetchUser]);
 
-  const sendOTP = async (phone) => {
+  const sendOTP = async (phone, checkExistsFirst = false) => {
+    const normalizedPhone = normalizePhone(phone);
+    
+    // For login mode, check if user exists first
+    if (checkExistsFirst) {
+      const { data: existingProfile, error } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('phone', normalizedPhone)
+        .maybeSingle();
+      
+      if (!existingProfile) {
+        throw new Error('משתמש לא קיים. נא להירשם תחילה');
+      }
+    }
+    
     const response = await fetch(`${WHATSAPP_API_URL}/api/otp/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -119,11 +134,11 @@ export const UserProvider = ({ children }) => {
     const isSignup = userData.userRole && userData.fullName;
     
     // Check if user exists
-    const { data: existingProfile } = await supabase
+    const { data: existingProfile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('phone', normalizedPhone)
-      .single();
+      .maybeSingle();
 
     if (existingProfile) {
       // Existing user - log them in

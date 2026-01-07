@@ -160,7 +160,10 @@ function AppContent({ children }) {
         >
           <div className="bg-[#1A1F35] rounded-full py-2 px-2 flex justify-around items-center border border-white/5 shadow-2xl">
             {tabs.map((tab) => {
-              const isActive = location.pathname === tab.path;
+              // Case-insensitive path comparison
+              const currentPath = location.pathname.toLowerCase();
+              const tabPath = tab.path.toLowerCase();
+              const isActive = currentPath === tabPath || currentPath.startsWith(tabPath + '/');
               const Icon = tab.icon;
               
               return (

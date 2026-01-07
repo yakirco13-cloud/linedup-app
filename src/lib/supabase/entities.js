@@ -100,6 +100,7 @@ export const Notification = createEntity('notifications');
 export const WaitingList = createEntity('waiting_list');
 export const Subscription = createEntity('subscriptions');
 export const Payment = createEntity('payments');
+export const ScheduleOverride = createEntity('schedule_overrides');
 
 export const entities = {
   Business,
@@ -110,6 +111,7 @@ export const entities = {
   WaitingList,
   Subscription,
   Payment,
+  ScheduleOverride,
 };
 
 export default entities;

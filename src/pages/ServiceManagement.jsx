@@ -297,7 +297,7 @@ export default function ServiceManagement() {
           <div className="text-center py-12">
             <p className="text-[#94A3B8]">עדיין לא הוספת שירותים</p>
           </div>
-        ) : (
+        ) : !showForm ? (
           <div className="space-y-3">
             {services.map((service) => (
               <div 
@@ -353,7 +353,7 @@ export default function ServiceManagement() {
               </div>
             ))}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

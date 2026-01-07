@@ -11,9 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowRight, Loader2, CheckCircle, UserPlus, Users, Search, Clock } from "lucide-react";
 import { format } from "date-fns";
-
-// WhatsApp Service API
-const WHATSAPP_API_URL = 'https://linedup-official-production.up.railway.app';
+import { sendConfirmation, sendUpdate } from "@/lib/supabase";
 
 export default function CreateBooking() {
   const navigate = useNavigate();
@@ -214,36 +212,30 @@ export default function CreateBooking() {
     onSuccess: async (data) => {
       // Send WhatsApp notification if client has phone number
       const clientPhone = formData.client_phone || data.client_phone;
-      if (clientPhone && !formData.client_email?.includes('walkin_')) {
+      if (clientPhone) {
         try {
           if (editMode) {
             // Send update notification
             console.log('📱 Sending WhatsApp update notification (owner action)...');
-            await fetch(`${WHATSAPP_API_URL}/api/send-update`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                phone: clientPhone,
-                clientName: formData.client_name,
-                businessName: business.name,
-                whatsappEnabled: true
-              })
+            await sendUpdate({
+              phone: clientPhone,
+              clientName: formData.client_name,
+              businessName: business.name,
+              message: 'התור שלך עודכן',
+              businessId: business.id
             });
             console.log('✅ WhatsApp update notification sent');
           } else {
             // Send confirmation notification
             console.log('📱 Sending WhatsApp confirmation (owner action)...');
-            await fetch(`${WHATSAPP_API_URL}/api/send-confirmation`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                phone: clientPhone,
-                clientName: formData.client_name,
-                businessName: business.name,
-                date: formData.date,
-                time: selectedTime,
-                whatsappEnabled: true
-              })
+            await sendConfirmation({
+              phone: clientPhone,
+              clientName: formData.client_name,
+              businessName: business.name,
+              date: formData.date,
+              time: selectedTime,
+              serviceName: selectedService?.name,
+              businessId: business.id
             });
             console.log('✅ WhatsApp confirmation sent');
           }
@@ -254,6 +246,7 @@ export default function CreateBooking() {
       
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       queryClient.invalidateQueries({ queryKey: ['all-bookings'] }); // Invalidate all-bookings for conflict check
+      queryClient.invalidateQueries({ queryKey: ['message-usage'] });
       setSuccess(true);
       setTimeout(() => {
         navigate(createPageUrl("CalendarView"));

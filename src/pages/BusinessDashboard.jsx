@@ -10,9 +10,7 @@ import { format, parseISO, startOfDay, addDays } from "date-fns";
 import { he } from "date-fns/locale";
 import NotificationDropdown from "../components/NotificationDropdown";
 import MessageUsageCard from "@/components/MessageUsageCard";
-
-// WhatsApp Service API
-const WHATSAPP_API_URL = 'https://linedup-official-production.up.railway.app';
+import { sendConfirmation, sendUpdate } from "@/lib/supabase";
 
 export default function BusinessDashboard() {
   const navigate = useNavigate();
@@ -138,17 +136,14 @@ export default function BusinessDashboard() {
       if (booking.client_phone) {
         try {
           console.log('📱 Sending WhatsApp approval confirmation...');
-          await fetch(`${WHATSAPP_API_URL}/api/send-confirmation`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              phone: booking.client_phone,
-              clientName: booking.client_name,
-              businessName: business?.name || 'העסק',
-              date: booking.date,
-              time: booking.time,
-              whatsappEnabled: true
-            })
+          await sendConfirmation({
+            phone: booking.client_phone,
+            clientName: booking.client_name,
+            businessName: business?.name || 'העסק',
+            date: booking.date,
+            time: booking.time,
+            serviceName: booking.service_name,
+            businessId: business?.id
           });
           console.log('✅ WhatsApp approval confirmation sent');
         } catch (error) {
@@ -159,6 +154,7 @@ export default function BusinessDashboard() {
       queryClient.invalidateQueries({ queryKey: ['all-bookings'] });
       queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
       queryClient.invalidateQueries({ queryKey: ['next-appointment'] });
+      queryClient.invalidateQueries({ queryKey: ['message-usage'] });
     },
   });
 
@@ -172,15 +168,12 @@ export default function BusinessDashboard() {
       if (booking.client_phone) {
         try {
           console.log('📱 Sending WhatsApp rejection notification...');
-          await fetch(`${WHATSAPP_API_URL}/api/send-update`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              phone: booking.client_phone,
-              clientName: booking.client_name,
-              businessName: business?.name || 'העסק',
-              whatsappEnabled: true
-            })
+          await sendUpdate({
+            phone: booking.client_phone,
+            clientName: booking.client_name,
+            businessName: business?.name || 'העסק',
+            message: 'התור שלך נדחה',
+            businessId: business?.id
           });
           console.log('✅ WhatsApp rejection notification sent');
         } catch (error) {
@@ -191,6 +184,7 @@ export default function BusinessDashboard() {
       queryClient.invalidateQueries({ queryKey: ['all-bookings'] });
       queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
       queryClient.invalidateQueries({ queryKey: ['next-appointment'] });
+      queryClient.invalidateQueries({ queryKey: ['message-usage'] });
     },
   });
 
@@ -204,15 +198,12 @@ export default function BusinessDashboard() {
       if (booking.client_phone) {
         try {
           console.log('📱 Sending WhatsApp cancellation notification...');
-          await fetch(`${WHATSAPP_API_URL}/api/send-update`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              phone: booking.client_phone,
-              clientName: booking.client_name,
-              businessName: business?.name || 'העסק',
-              whatsappEnabled: true
-            })
+          await sendUpdate({
+            phone: booking.client_phone,
+            clientName: booking.client_name,
+            businessName: business?.name || 'העסק',
+            message: 'התור שלך בוטל',
+            businessId: business?.id
           });
           console.log('✅ WhatsApp cancellation notification sent');
         } catch (error) {
@@ -223,6 +214,7 @@ export default function BusinessDashboard() {
       queryClient.invalidateQueries({ queryKey: ['all-bookings'] });
       queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
       queryClient.invalidateQueries({ queryKey: ['next-appointment'] });
+      queryClient.invalidateQueries({ queryKey: ['message-usage'] });
     },
   });
 
@@ -328,23 +320,6 @@ export default function BusinessDashboard() {
 
           {/* Message Usage Card */}
           <MessageUsageCard businessId={business?.id} />
-
-          {/* Statistics Link */}
-          <button
-            onClick={() => navigate(createPageUrl("Statistics"))}
-            className="w-full bg-[#1A1F35] rounded-2xl p-4 border border-gray-800 flex items-center justify-between hover:border-[#FF6B35] transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-[#FF6B35]/20 rounded-xl flex items-center justify-center">
-                <BarChart3 className="w-5 h-5 text-[#FF6B35]" />
-              </div>
-              <div className="text-right">
-                <p className="font-semibold">סטטיסטיקות ודוחות</p>
-                <p className="text-xs text-[#94A3B8]">צפה בנתוני העסק שלך</p>
-              </div>
-            </div>
-            <ChevronLeft className="w-5 h-5 text-[#94A3B8]" />
-          </button>
 
           {/* Quick Action Buttons */}
           <div className="grid grid-cols-2 gap-3">

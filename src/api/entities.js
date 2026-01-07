@@ -6,5 +6,6 @@ export {
   Notification, 
   WaitingList,
   Subscription,
-  Payment 
+  Payment,
+  ScheduleOverride
 } from '@/lib/supabase/entities';

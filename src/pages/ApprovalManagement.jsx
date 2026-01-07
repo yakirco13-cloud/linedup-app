@@ -8,9 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle, XCircle, Clock, User, Calendar, Loader2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { he } from "date-fns/locale";
-
-// WhatsApp Service API
-const WHATSAPP_API_URL = 'https://linedup-official-production.up.railway.app';
+import { sendConfirmation, sendUpdate } from "@/lib/supabase";
 
 export default function ApprovalManagement() {
   const navigate = useNavigate();
@@ -50,17 +48,14 @@ export default function ApprovalManagement() {
       if (booking.client_phone) {
         try {
           console.log('📱 Sending WhatsApp approval confirmation...');
-          await fetch(`${WHATSAPP_API_URL}/api/send-confirmation`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              phone: booking.client_phone,
-              clientName: booking.client_name,
-              businessName: business?.name || 'העסק',
-              date: booking.date,
-              time: booking.time,
-              whatsappEnabled: true
-            })
+          await sendConfirmation({
+            phone: booking.client_phone,
+            clientName: booking.client_name,
+            businessName: business?.name || 'העסק',
+            date: booking.date,
+            time: booking.time,
+            serviceName: booking.service_name,
+            businessId: business?.id
           });
           console.log('✅ WhatsApp approval confirmation sent');
         } catch (error) {
@@ -70,6 +65,7 @@ export default function ApprovalManagement() {
       
       queryClient.invalidateQueries({ queryKey: ['pending-bookings'] });
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['message-usage'] });
     },
   });
 
@@ -83,15 +79,12 @@ export default function ApprovalManagement() {
       if (booking.client_phone) {
         try {
           console.log('📱 Sending WhatsApp rejection notification...');
-          await fetch(`${WHATSAPP_API_URL}/api/send-update`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              phone: booking.client_phone,
-              clientName: booking.client_name,
-              businessName: business?.name || 'העסק',
-              whatsappEnabled: true
-            })
+          await sendUpdate({
+            phone: booking.client_phone,
+            clientName: booking.client_name,
+            businessName: business?.name || 'העסק',
+            message: 'התור שלך נדחה',
+            businessId: business?.id
           });
           console.log('✅ WhatsApp rejection notification sent');
         } catch (error) {
