@@ -9,9 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowRight, Loader2, CheckCircle, UserPlus, Users, Search, Clock } from "lucide-react";
+import { ArrowRight, Loader2, CheckCircle, UserPlus, Users, Search, Clock, Bell, BellOff } from "lucide-react";
 import { format } from "date-fns";
-import { sendConfirmation, sendUpdate } from "@/lib/supabase";
+
+// WhatsApp Service API
+const WHATSAPP_API_URL = 'https://linedup-official-production.up.railway.app';
 
 export default function CreateBooking() {
   const navigate = useNavigate();
@@ -26,6 +28,7 @@ export default function CreateBooking() {
   const [selectedHour, setSelectedHour] = useState('09');
   const [selectedMinute, setSelectedMinute] = useState('00');
   const [urlParamsProcessed, setUrlParamsProcessed] = useState(false);
+  const [sendNotification, setSendNotification] = useState(false); // Toggle for walk-in notifications
 
   const [formData, setFormData] = useState({
     client_name: "",
@@ -210,32 +213,43 @@ export default function CreateBooking() {
       return base44.entities.Booking.create(data);
     },
     onSuccess: async (data) => {
-      // Send WhatsApp notification if client has phone number
+      // Send WhatsApp notification if:
+      // 1. Client has phone number AND
+      // 2. Either it's not a walk-in OR sendNotification is enabled for walk-in
       const clientPhone = formData.client_phone || data.client_phone;
-      if (clientPhone) {
+      const isWalkin = formData.client_email?.includes('walkin_');
+      const shouldSendNotification = clientPhone && (!isWalkin || (isWalkin && sendNotification));
+      
+      if (shouldSendNotification) {
         try {
           if (editMode) {
             // Send update notification
             console.log('📱 Sending WhatsApp update notification (owner action)...');
-            await sendUpdate({
-              phone: clientPhone,
-              clientName: formData.client_name,
-              businessName: business.name,
-              message: 'התור שלך עודכן',
-              businessId: business.id
+            await fetch(`${WHATSAPP_API_URL}/api/send-update`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                phone: clientPhone,
+                clientName: formData.client_name,
+                businessName: business.name,
+                whatsappEnabled: true
+              })
             });
             console.log('✅ WhatsApp update notification sent');
           } else {
             // Send confirmation notification
             console.log('📱 Sending WhatsApp confirmation (owner action)...');
-            await sendConfirmation({
-              phone: clientPhone,
-              clientName: formData.client_name,
-              businessName: business.name,
-              date: formData.date,
-              time: selectedTime,
-              serviceName: selectedService?.name,
-              businessId: business.id
+            await fetch(`${WHATSAPP_API_URL}/api/send-confirmation`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                phone: clientPhone,
+                clientName: formData.client_name,
+                businessName: business.name,
+                date: formData.date,
+                time: selectedTime,
+                whatsappEnabled: true
+              })
             });
             console.log('✅ WhatsApp confirmation sent');
           }
@@ -246,7 +260,6 @@ export default function CreateBooking() {
       
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       queryClient.invalidateQueries({ queryKey: ['all-bookings'] }); // Invalidate all-bookings for conflict check
-      queryClient.invalidateQueries({ queryKey: ['message-usage'] });
       setSuccess(true);
       setTimeout(() => {
         navigate(createPageUrl("CalendarView"));
@@ -340,7 +353,7 @@ export default function CreateBooking() {
       <div className="max-w-2xl mx-auto">
         <button
           onClick={() => navigate(createPageUrl("CalendarView"))}
-          className="flex items-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors"
+          className="flex items-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors py-2 px-1 -ml-1 min-h-[44px]"
         >
           <ArrowRight className="w-5 h-5" />
           <span>חזרה</span>
@@ -470,18 +483,56 @@ export default function CreateBooking() {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="client_phone" className="text-white">טלפון *</Label>
-                    <Input
-                      id="client_phone"
-                      type="tel"
-                      value={formData.client_phone}
-                      onChange={(e) => setFormData({ ...formData, client_phone: e.target.value })}
-                      className="bg-[#0C0F1D] border-gray-700 text-white h-12 rounded-xl"
-                      placeholder="050-1234567"
-                      required
-                    />
+                  {/* Send Notification Toggle */}
+                  <div className="flex items-center justify-between bg-[#0C0F1D] rounded-xl p-4 border border-gray-700">
+                    <div className="flex items-center gap-3">
+                      {sendNotification ? (
+                        <Bell className="w-5 h-5 text-[#FF6B35]" />
+                      ) : (
+                        <BellOff className="w-5 h-5 text-[#94A3B8]" />
+                      )}
+                      <div>
+                        <p className="text-white font-medium">שלח הודעת אישור</p>
+                        <p className="text-xs text-[#94A3B8]">שלח ללקוח הודעת WhatsApp</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSendNotification(!sendNotification);
+                        if (!sendNotification) {
+                          // Clearing phone when turning off notifications
+                        } else {
+                          setFormData(prev => ({ ...prev, client_phone: '' }));
+                        }
+                      }}
+                      className={`relative w-14 h-8 rounded-full transition-colors ${
+                        sendNotification ? 'bg-[#FF6B35]' : 'bg-gray-600'
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-transform ${
+                          sendNotification ? 'right-1' : 'left-1'
+                        }`}
+                      />
+                    </button>
                   </div>
+
+                  {/* Phone field - only shown when sendNotification is true */}
+                  {sendNotification && (
+                    <div className="space-y-2">
+                      <Label htmlFor="client_phone" className="text-white">טלפון *</Label>
+                      <Input
+                        id="client_phone"
+                        type="tel"
+                        value={formData.client_phone}
+                        onChange={(e) => setFormData({ ...formData, client_phone: e.target.value })}
+                        className="bg-[#0C0F1D] border-gray-700 text-white h-12 rounded-xl"
+                        placeholder="050-1234567"
+                        required
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -679,7 +730,7 @@ export default function CreateBooking() {
               !selectedHour ||
               !selectedMinute ||
               !formData.client_name || // Client name is required
-              (clientType === 'walkin' && !formData.client_phone) // Phone required for walk-in
+              (clientType === 'walkin' && sendNotification && !formData.client_phone) // Phone required only if notifications enabled
             }
             className="w-full h-14 rounded-xl text-white font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}

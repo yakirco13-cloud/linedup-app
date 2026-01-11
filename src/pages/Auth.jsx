@@ -5,16 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowRight, Loader2, Phone, User, Briefcase, CheckCircle, Calendar } from "lucide-react";
+import { ArrowRight, Loader2, Phone, User, Briefcase, CheckCircle, Lock, Eye, EyeOff } from "lucide-react";
 
 export default function Auth() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const mode = searchParams.get('mode') || 'signup';
   
-  const { sendOTP, verifyOTP, profile, isAuthenticated } = useUser();
+  const { sendOTP, verifyOTP, loginWithPassword, profile, isAuthenticated } = useUser();
 
-  const [step, setStep] = useState(mode === 'login' ? 'phone' : 'role');
+  const [step, setStep] = useState(mode === 'login' ? 'login' : 'role');
+  const [loginMethod, setLoginMethod] = useState('password'); // 'password' or 'otp'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [countdown, setCountdown] = useState(0);
@@ -22,6 +23,9 @@ export default function Auth() {
   const [selectedRole, setSelectedRole] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedMarketing, setAcceptedMarketing] = useState(false);
   const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
@@ -41,11 +45,12 @@ export default function Auth() {
     }
   }, [countdown]);
 
-  const redirectToApp = () => {
-    if (profile?.user_role === 'business_owner') {
-      navigate(profile.business_id ? "/BusinessDashboard" : "/BusinessSetup");
+  const redirectToApp = (profileData = profile) => {
+    const p = profileData || profile;
+    if (p?.user_role === 'business_owner') {
+      navigate(p.business_id ? "/BusinessDashboard" : "/BusinessSetup");
     } else {
-      navigate(profile.joined_business_id ? "/ClientDashboard" : "/JoinBusiness");
+      navigate(p?.joined_business_id ? "/ClientDashboard" : "/JoinBusiness");
     }
   };
 
@@ -55,13 +60,16 @@ export default function Auth() {
     setError('');
   };
 
+  // Signup: Submit details and go to OTP
   const handleDetailsSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
     if (!fullName.trim()) return setError('נא להזין שם מלא');
     if (!phone.trim() || phone.replace(/\D/g, '').length < 9) return setError('נא להזין מספר טלפון תקין');
-    if (mode === 'signup' && !acceptedTerms) return setError('נא לאשר את תנאי השימוש');
+    if (!password || password.length < 6) return setError('סיסמה חייבת להכיל לפחות 6 תווים');
+    if (password !== confirmPassword) return setError('הסיסמאות לא תואמות');
+    if (!acceptedTerms) return setError('נא לאשר את תנאי השימוש');
 
     setLoading(true);
     try {
@@ -75,7 +83,30 @@ export default function Auth() {
     }
   };
 
-  const handleLoginSubmit = async (e) => {
+  // Login with password
+  const handlePasswordLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (!phone.trim() || phone.replace(/\D/g, '').length < 9) return setError('נא להזין מספר טלפון תקין');
+    if (!password) return setError('נא להזין סיסמה');
+
+    setLoading(true);
+    try {
+      const result = await loginWithPassword(phone, password);
+      if (result.success) {
+        setStep('success');
+        setTimeout(() => redirectToApp(result.profile), 1500);
+      }
+    } catch (err) {
+      setError(err.message || 'שם משתמש או סיסמה שגויים');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Login with OTP - send code
+  const handleOtpLoginRequest = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -83,7 +114,6 @@ export default function Auth() {
 
     setLoading(true);
     try {
-      // For login, check if user exists first
       await sendOTP(phone, true); // true = check exists first
       setStep('otp');
       setCountdown(60);
@@ -127,6 +157,7 @@ export default function Auth() {
     try {
       const result = await verifyOTP(phone, code, {
         fullName,
+        password,
         userRole: selectedRole,
         acceptedTerms,
         acceptedMarketing,
@@ -138,7 +169,7 @@ export default function Auth() {
           if (result.isNewUser) {
             navigate(selectedRole === 'business_owner' ? "/BusinessSetup" : "/JoinBusiness");
           } else {
-            redirectToApp();
+            redirectToApp(result.profile);
           }
         }, 1500);
       }
@@ -189,48 +220,43 @@ export default function Auth() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] p-6 pt-safe">
-      <div className="max-w-md mx-auto">
-        {/* Back button */}
-        {step !== 'role' && step !== 'phone' && (
-          <button
-            onClick={() => {
-              if (step === 'otp') setStep(mode === 'login' ? 'phone' : 'details');
-              else if (step === 'details') setStep('role');
-              setError('');
-            }}
-            className="flex items-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors"
-          >
-            <ArrowRight className="w-5 h-5" />
-            <span>חזרה</span>
-          </button>
-        )}
+    <div className="min-h-screen bg-[#0C0F1D] p-6 pt-safe flex flex-col">
+      {/* Back button - fixed at top */}
+      <button
+        onClick={() => {
+          if (step === 'otp') {
+            if (mode === 'login') {
+              setStep('login');
+              setLoginMethod('otp');
+            } else {
+              setStep('details');
+            }
+          } else if (step === 'details') {
+            setStep('role');
+          } else {
+            navigate("/Welcome");
+          }
+          setError('');
+          setOtpCode(['', '', '', '', '', '']);
+        }}
+        className="flex items-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors"
+      >
+        <ArrowRight className="w-5 h-5" />
+        <span>חזרה</span>
+      </button>
 
-        {(step === 'role' || step === 'phone') && (
-          <button
-            onClick={() => navigate("/Welcome")}
-            className="flex items-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors"
-          >
-            <ArrowRight className="w-5 h-5" />
-            <span>חזרה</span>
-          </button>
-        )}
+      {/* Content - centered */}
+      <div className="flex-1 flex flex-col justify-center">
+        <div className="max-w-md mx-auto w-full">
 
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-[#FF6B35] to-[#FF1744] flex items-center justify-center">
-            <Calendar className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-white">
-            {mode === 'login' ? 'התחברות' : 'הרשמה'}
-          </h1>
-        </div>
-
-        {/* Step: Role Selection */}
+        {/* Step: Role Selection (Signup) */}
         {step === 'role' && (
-          <div className="space-y-4">
-            <p className="text-center text-[#94A3B8] mb-6">מה מתאר אותך?</p>
-            
+          <div className="space-y-6">
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold text-white mb-2">הרשמה</h1>
+              <p className="text-[#94A3B8]">בחר את סוג החשבון שלך</p>
+            </div>
+
             <button
               onClick={() => handleRoleSelect('client')}
               className="w-full bg-[#1A1F35] rounded-2xl p-5 text-right transition-all hover:scale-105 hover:border-[#FF6B35] border-2 border-gray-800"
@@ -270,40 +296,127 @@ export default function Auth() {
           </div>
         )}
 
-        {/* Step: Phone only (Login) */}
-        {step === 'phone' && (
-          <form onSubmit={handleLoginSubmit} className="space-y-6">
-            <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800">
-              <div className="space-y-2">
-                <Label className="text-white">מספר טלפון</Label>
-                <div className="relative">
-                  <Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
-                  <Input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="054-1234567"
-                    className="bg-[#0C0F1D] border-gray-700 text-white h-14 rounded-xl pr-12 text-lg"
-                    dir="ltr"
-                  />
-                </div>
-              </div>
+        {/* Step: Login */}
+        {step === 'login' && (
+          <div className="space-y-6">
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold text-white mb-2">התחברות</h1>
+              <p className="text-[#94A3B8]">הזן את פרטי החשבון שלך</p>
             </div>
 
-            {error && (
-              <div className="bg-red-500/10 border border-red-500 rounded-xl p-3 text-red-400 text-sm text-center">
-                {error}
-              </div>
-            )}
+            {loginMethod === 'password' ? (
+              <form onSubmit={handlePasswordLogin} className="space-y-6">
+                <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800 space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-white">מספר טלפון</Label>
+                    <div className="relative">
+                      <Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
+                      <Input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="054-1234567"
+                        className="bg-[#0C0F1D] border-gray-700 text-white h-14 rounded-xl pr-12 text-lg"
+                        dir="ltr"
+                      />
+                    </div>
+                  </div>
 
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full h-14 rounded-xl text-white font-bold text-lg"
-              style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}
-            >
-              {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'שלח קוד אימות'}
-            </Button>
+                  <div className="space-y-2">
+                    <Label className="text-white">סיסמה</Label>
+                    <div className="relative">
+                      <Lock className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
+                      <Input
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="הסיסמה שלך"
+                        className="bg-[#0C0F1D] border-gray-700 text-white h-14 rounded-xl pr-12 pl-12 text-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-white"
+                      >
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="bg-red-500/10 border border-red-500 rounded-xl p-3 text-red-400 text-sm text-center">
+                    {error}
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full h-14 rounded-xl text-white font-bold text-lg"
+                  style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}
+                >
+                  {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'התחבר'}
+                </Button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginMethod('otp');
+                    setError('');
+                  }}
+                  className="w-full text-center text-[#94A3B8] text-sm hover:text-[#FF6B35]"
+                >
+                  שכחת סיסמה? התחבר עם קוד SMS
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleOtpLoginRequest} className="space-y-6">
+                <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800">
+                  <div className="space-y-2">
+                    <Label className="text-white">מספר טלפון</Label>
+                    <div className="relative">
+                      <Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
+                      <Input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="054-1234567"
+                        className="bg-[#0C0F1D] border-gray-700 text-white h-14 rounded-xl pr-12 text-lg"
+                        dir="ltr"
+                      />
+                    </div>
+                    <p className="text-[#64748B] text-xs">נשלח קוד אימות בוואטסאפ</p>
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="bg-red-500/10 border border-red-500 rounded-xl p-3 text-red-400 text-sm text-center">
+                    {error}
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full h-14 rounded-xl text-white font-bold text-lg"
+                  style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}
+                >
+                  {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'שלח קוד אימות'}
+                </Button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginMethod('password');
+                    setError('');
+                  }}
+                  className="w-full text-center text-[#94A3B8] text-sm hover:text-[#FF6B35]"
+                >
+                  התחבר עם סיסמה
+                </button>
+              </form>
+            )}
 
             <p className="text-center text-[#64748B] text-sm">
               אין לך חשבון?{' '}
@@ -311,12 +424,17 @@ export default function Auth() {
                 הרשם
               </button>
             </p>
-          </form>
+          </div>
         )}
 
         {/* Step: Details (Signup) */}
         {step === 'details' && (
           <form onSubmit={handleDetailsSubmit} className="space-y-6">
+            <div className="text-center mb-6">
+              <h1 className="text-2xl font-bold text-white mb-2">פרטי חשבון</h1>
+              <p className="text-[#94A3B8] text-sm">מלא את הפרטים ליצירת חשבון</p>
+            </div>
+
             <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800 space-y-4">
               <div className="space-y-2">
                 <Label className="text-white">שם מלא</Label>
@@ -345,7 +463,41 @@ export default function Auth() {
                     dir="ltr"
                   />
                 </div>
-                <p className="text-[#64748B] text-xs">נשלח קוד אימות בוואטסאפ</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-white">סיסמה</Label>
+                <div className="relative">
+                  <Lock className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="לפחות 6 תווים"
+                    className="bg-[#0C0F1D] border-gray-700 text-white h-14 rounded-xl pr-12 pl-12 text-lg"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-white"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-white">אימות סיסמה</Label>
+                <div className="relative">
+                  <Lock className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="הזן שוב את הסיסמה"
+                    className="bg-[#0C0F1D] border-gray-700 text-white h-14 rounded-xl pr-12 text-lg"
+                  />
+                </div>
               </div>
             </div>
 
@@ -394,7 +546,7 @@ export default function Auth() {
               className="w-full h-14 rounded-xl text-white font-bold text-lg"
               style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}
             >
-              {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'שלח קוד אימות'}
+              {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'המשך לאימות טלפון'}
             </Button>
           </form>
         )}
@@ -452,6 +604,7 @@ export default function Auth() {
             </Button>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

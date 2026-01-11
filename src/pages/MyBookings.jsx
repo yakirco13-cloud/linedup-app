@@ -58,7 +58,43 @@ export default function MyBookings() {
         base44.entities.WaitingList.filter({ client_phone: user.phone, status: 'waiting' }, '-date', 50),
         base44.entities.WaitingList.filter({ client_phone: user.phone, status: 'notified' }, '-date', 50)
       ]);
-      return [...waitingEntries, ...notifiedEntries];
+      
+      const allEntries = [...waitingEntries, ...notifiedEntries];
+      const today = new Date(new Date().toDateString());
+      
+      // Auto-delete expired entries (date < today)
+      const expiredEntries = allEntries.filter(entry => {
+        let entryDate;
+        if (entry.date && entry.date.includes('/')) {
+          const [d, m, y] = entry.date.split('/');
+          entryDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+        } else {
+          entryDate = new Date(entry.date);
+        }
+        return entryDate < today;
+      });
+      
+      // Delete expired entries in background
+      if (expiredEntries.length > 0) {
+        console.log(`🗑️ Auto-deleting ${expiredEntries.length} expired waiting list entries`);
+        expiredEntries.forEach(entry => {
+          base44.entities.WaitingList.delete(entry.id).catch(e => 
+            console.error('Failed to delete expired entry:', e)
+          );
+        });
+      }
+      
+      // Return only non-expired entries
+      return allEntries.filter(entry => {
+        let entryDate;
+        if (entry.date && entry.date.includes('/')) {
+          const [d, m, y] = entry.date.split('/');
+          entryDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+        } else {
+          entryDate = new Date(entry.date);
+        }
+        return entryDate >= today;
+      });
     },
     enabled: !!user?.phone,
     staleTime: 30 * 1000,  // 30 seconds
@@ -465,10 +501,21 @@ export default function MyBookings() {
                       {entry.service_name && (
                         <h3 className="text-lg font-bold text-white mb-2">{entry.service_name}</h3>
                       )}
-                      <div className="flex items-center gap-3 text-[#94A3B8]">
+                      <div className="flex items-center gap-3 text-[#94A3B8] mb-1">
                         <Calendar className="w-4 h-4" />
                         <span>{format(displayDate, 'EEEE, d.M.yyyy', { locale: he })}</span>
                       </div>
+                      {(entry.from_time || entry.to_time) && (
+                        <div className="flex items-center gap-3 text-[#94A3B8]">
+                          <Clock className="w-4 h-4" />
+                          <span dir="ltr">{entry.from_time || '08:00'} - {entry.to_time || '22:00'}</span>
+                        </div>
+                      )}
+                      {entry.status === 'notified' && entry.notified_time && (
+                        <div className="mt-2 bg-green-500/10 rounded-lg px-3 py-2">
+                          <span className="text-green-400 font-bold">שעה פנויה: {entry.notified_time}</span>
+                        </div>
+                      )}
                       {entry.status === 'notified' ? (
                         <Button
                           onClick={() => navigate(`/BookAppointment?date=${entry.date}`)}

@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useUser } from "@/components/UserContext";
-import { Home, Calendar, Settings, CalendarCheck, User } from "lucide-react";
+import { Home, Calendar, Settings, CalendarCheck, User, BarChart3 } from "lucide-react";
 import { motion } from "framer-motion";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 
@@ -117,6 +117,7 @@ function AppContent({ children }) {
   const ownerTabs = [
     { name: 'בית', path: "/BusinessDashboard", icon: Home },
     { name: 'יומן', path: "/CalendarView", icon: Calendar },
+    { name: 'סטטיסטיקה', path: "/Statistics", icon: BarChart3 },
     { name: 'לקוחות', path: "/Clients", icon: User },
     { name: 'הגדרות', path: "/Settings", icon: Settings },
   ];

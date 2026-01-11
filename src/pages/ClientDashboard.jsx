@@ -160,6 +160,7 @@ export default function ClientDashboard() {
           // Show popup for this notified entry
           setWaitingListPopup({
             date: entry.date,
+            time: entry.notified_time || null,
             serviceName: entry.service_name,
             entryId: entry.id
           });
@@ -310,6 +311,12 @@ export default function ClientDashboard() {
                     {format(parseISO(waitingListPopup.date), 'EEEE, d בMMMM', { locale: he })}
                   </span>
                 </div>
+                {waitingListPopup.time && (
+                  <div className="flex items-center gap-3 mb-3">
+                    <Clock className="w-5 h-5 text-green-400" />
+                    <span className="text-green-400 font-bold text-xl">{waitingListPopup.time}</span>
+                  </div>
+                )}
                 {waitingListPopup.serviceName && (
                   <div className="flex items-center gap-3">
                     <Scissors className="w-5 h-5 text-[#94A3B8]" />
@@ -333,7 +340,9 @@ export default function ClientDashboard() {
                     } catch (e) {
                       console.error('Failed to update waiting list status:', e);
                     }
-                    navigate(`/BookAppointment?date=${waitingListPopup.date}`);
+                    // Include time if available so BookAppointment can pre-select it
+                    const timeParam = waitingListPopup.time ? `&time=${waitingListPopup.time}` : '';
+                    navigate(`/BookAppointment?date=${waitingListPopup.date}${timeParam}`);
                   }}
                   className="w-full h-14 rounded-xl text-white font-bold text-lg"
                   style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)' }}

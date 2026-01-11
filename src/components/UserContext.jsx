@@ -44,30 +44,46 @@ export const UserProvider = ({ children }) => {
     isFetchingRef.current = true;
 
     try {
-      const storedSession = localStorage.getItem('linedup_session');
+      // First check if there's an active Supabase session
+      const { data: { session } } = await supabase.auth.getSession();
       
-      if (storedSession) {
-        const sessionData = JSON.parse(storedSession);
+      if (session?.user) {
+        // User is authenticated via Supabase
+        const profileData = await fetchProfile(session.user.id);
+        if (profileData) {
+          setUser({ id: session.user.id, phone: profileData.phone });
+          setProfile(profileData);
+        } else {
+          setUser(null);
+          setProfile(null);
+        }
+      } else {
+        // Check localStorage session (fallback for OTP login)
+        const storedSession = localStorage.getItem('linedup_session');
         
-        if (sessionData.expiresAt && new Date(sessionData.expiresAt) > new Date()) {
-          const profileData = await fetchProfile(sessionData.userId);
+        if (storedSession) {
+          const sessionData = JSON.parse(storedSession);
           
-          if (profileData) {
-            setUser({ id: sessionData.userId, phone: sessionData.phone });
-            setProfile(profileData);
+          if (sessionData.expiresAt && new Date(sessionData.expiresAt) > new Date()) {
+            const profileData = await fetchProfile(sessionData.userId);
+            
+            if (profileData) {
+              setUser({ id: sessionData.userId, phone: sessionData.phone });
+              setProfile(profileData);
+            } else {
+              localStorage.removeItem('linedup_session');
+              setUser(null);
+              setProfile(null);
+            }
           } else {
             localStorage.removeItem('linedup_session');
             setUser(null);
             setProfile(null);
           }
         } else {
-          localStorage.removeItem('linedup_session');
           setUser(null);
           setProfile(null);
         }
-      } else {
-        setUser(null);
-        setProfile(null);
       }
     } catch (error) {
       console.error('Error fetching user:', error);
@@ -82,7 +98,20 @@ export const UserProvider = ({ children }) => {
 
   useEffect(() => {
     fetchUser();
-  }, [fetchUser]);
+    
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event);
+      if (event === 'SIGNED_OUT') {
+        localStorage.removeItem('linedup_session');
+        setUser(null);
+        setProfile(null);
+      }
+      // Don't handle SIGNED_IN here - let the login functions handle it
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const sendOTP = async (phone, checkExistsFirst = false) => {
     const normalizedPhone = normalizePhone(phone);
@@ -131,7 +160,7 @@ export const UserProvider = ({ children }) => {
     }
 
     const normalizedPhone = normalizePhone(phone);
-    const isSignup = userData.userRole && userData.fullName;
+    const isSignup = userData.userRole && userData.fullName && userData.password;
     
     // Check if user exists
     const { data: existingProfile, error: profileError } = await supabase
@@ -141,14 +170,26 @@ export const UserProvider = ({ children }) => {
       .maybeSingle();
 
     if (existingProfile) {
-      // Existing user - log them in
-      const session = {
-        userId: existingProfile.id,
-        phone: normalizedPhone,
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      };
+      // Existing user - log them in via Supabase Auth
+      const fakeEmail = `${normalizedPhone}@phone.linedup.app`;
       
-      localStorage.setItem('linedup_session', JSON.stringify(session));
+      // Try to sign in - the password was set during signup
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: fakeEmail,
+        password: existingProfile.id, // Use user ID as password for OTP login
+      });
+
+      if (signInError) {
+        // Fallback to localStorage session if password doesn't match
+        console.log('Supabase sign in failed, using localStorage session');
+        const session = {
+          userId: existingProfile.id,
+          phone: normalizedPhone,
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        };
+        localStorage.setItem('linedup_session', JSON.stringify(session));
+      }
+      
       setUser({ id: existingProfile.id, phone: normalizedPhone });
       setProfile(existingProfile);
 
@@ -156,30 +197,31 @@ export const UserProvider = ({ children }) => {
     } else {
       // User doesn't exist
       if (!isSignup) {
-        // Trying to login without account - reject
         throw new Error('משתמש לא קיים. נא להירשם תחילה');
       }
       
-      // Check terms acceptance for signup
       if (!userData.acceptedTerms) {
         throw new Error('נא לאשר את תנאי השימוש');
       }
       
-      // New user - create account
+      // New user - create account with their password
       const fakeEmail = `${normalizedPhone}@phone.linedup.app`;
-      const tempPassword = `temp_${normalizedPhone}_${Date.now()}`;
+      const userPassword = userData.password;
 
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: fakeEmail,
-        password: tempPassword,
+        password: userPassword,
       });
 
-      if (signUpError) throw new Error('Failed to create account');
+      if (signUpError) {
+        console.error('Signup error:', signUpError);
+        throw new Error('שגיאה ביצירת חשבון. נסה שוב');
+      }
 
       const userId = authData.user?.id;
       if (!userId) throw new Error('Failed to create user');
 
-      const { data: newProfile, error: profileError } = await supabase
+      const { data: newProfile, error: newProfileError } = await supabase
         .from('profiles')
         .insert({
           id: userId,
@@ -193,20 +235,46 @@ export const UserProvider = ({ children }) => {
         .select()
         .single();
 
-      if (profileError) throw new Error('Failed to create profile');
+      if (newProfileError) {
+        console.error('Profile creation error:', newProfileError);
+        throw new Error('שגיאה ביצירת פרופיל');
+      }
 
-      const session = {
-        userId: userId,
-        phone: normalizedPhone,
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      };
-      
-      localStorage.setItem('linedup_session', JSON.stringify(session));
       setUser({ id: userId, phone: normalizedPhone });
       setProfile(newProfile);
 
       return { success: true, isNewUser: true, profile: newProfile };
     }
+  };
+
+  const loginWithPassword = async (phone, password) => {
+    const normalizedPhone = normalizePhone(phone);
+    const fakeEmail = `${normalizedPhone}@phone.linedup.app`;
+
+    // Sign in with Supabase Auth
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email: fakeEmail,
+      password: password,
+    });
+
+    if (signInError) {
+      console.error('Login error:', signInError);
+      throw new Error('מספר טלפון או סיסמה שגויים');
+    }
+
+    const userId = signInData.user?.id;
+    if (!userId) throw new Error('שגיאה בהתחברות');
+
+    // Fetch profile
+    const profileData = await fetchProfile(userId);
+    if (!profileData) {
+      throw new Error('לא נמצא פרופיל משתמש');
+    }
+
+    setUser({ id: userId, phone: normalizedPhone });
+    setProfile(profileData);
+
+    return { success: true, profile: profileData };
   };
 
   const updateUser = async (data) => {
@@ -253,6 +321,7 @@ export const UserProvider = ({ children }) => {
       isAuthenticated,
       sendOTP,
       verifyOTP,
+      loginWithPassword,
       updateUser, 
       logout, 
       refetchUser: fetchUser 

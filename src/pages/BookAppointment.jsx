@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, parseISO, addMonths, subMonths, startOfDay, startOfWeek, endOfWeek } from "date-fns";
 import { he } from "date-fns/locale";
 import { generateGoogleCalendarLink } from "@/utils/calendarLinks";
+import WaitingListModal from "@/components/WaitingListModal";
 
 // WhatsApp Service API
 const WHATSAPP_API_URL = 'https://linedup-official-production.up.railway.app';
@@ -36,12 +37,17 @@ export default function BookAppointment() {
   // Waiting list state
   const [waitingListStatus, setWaitingListStatus] = useState({ joining: false, joined: false, error: null });
   const [waitingListSuccess, setWaitingListSuccess] = useState(false);
+  const [waitingListModalOpen, setWaitingListModalOpen] = useState(false);
 
   // Load business automatically from user's joined businesses
   useEffect(() => {
     const loadBusiness = async () => {
-      if (user?.joined_business_id && user.joined_business_id) {
+      console.log('📦 BookAppointment - Loading business, user:', user);
+      console.log('📦 joined_business_id:', user?.joined_business_id);
+      
+      if (user?.joined_business_id) {
         const businesses = await base44.entities.Business.filter({ id: user.joined_business_id });
+        console.log('📦 Loaded businesses:', businesses);
         if (businesses.length > 0) {
           setSelectedBusiness(businesses[0]);
         }
@@ -49,7 +55,7 @@ export default function BookAppointment() {
     };
     
     loadBusiness();
-  }, [user?.joined_businesses]);
+  }, [user?.joined_business_id]);
 
   // Check for reschedule parameter and pre-load booking
   useEffect(() => {
@@ -57,8 +63,9 @@ export default function BookAppointment() {
     const rescheduleId = urlParams.get('reschedule');
     const serviceId = urlParams.get('service');
     const preselectedDate = urlParams.get('date');
+    const preselectedTime = urlParams.get('time');
     
-    console.log('📋 URL Params:', { rescheduleId, serviceId, preselectedDate });
+    console.log('📋 URL Params:', { rescheduleId, serviceId, preselectedDate, preselectedTime });
     
     if (rescheduleId) {
       console.log('✏️ Starting reschedule process for booking:', rescheduleId);
@@ -135,6 +142,12 @@ export default function BookAppointment() {
         console.error('Invalid date format:', preselectedDate);
       }
     }
+    
+    // Handle pre-selected time from waiting list notification
+    if (preselectedTime && !rescheduleId) {
+      console.log('⏰ Pre-selecting time from URL:', preselectedTime);
+      setSelectedTime(preselectedTime);
+    }
   }, []);
 
   // Check if user is already on waiting list for selected date
@@ -163,14 +176,26 @@ export default function BookAppointment() {
     checkWaitingList();
   }, [selectedBusiness, selectedDate, user?.phone]);
 
-  const { data: services = [], isLoading: servicesLoading } = useQuery({
+  const { data: services = [], isLoading: servicesLoading, refetch: refetchServices } = useQuery({
     queryKey: ['services', selectedBusiness?.id],
-    queryFn: () => base44.entities.Service.filter({ business_id: selectedBusiness.id }),
-    enabled: !!selectedBusiness && step >= 2,
+    queryFn: async () => {
+      console.log('🛎️ Fetching services for business:', selectedBusiness?.id);
+      const result = await base44.entities.Service.filter({ business_id: selectedBusiness.id });
+      console.log('🛎️ Services loaded:', result);
+      return result;
+    },
+    enabled: !!selectedBusiness?.id && step >= 2,
     staleTime: 10 * 60 * 1000,
     cacheTime: 15 * 60 * 1000,
-    keepPreviousData: true,
   });
+
+  // Refetch services when business is loaded
+  useEffect(() => {
+    if (selectedBusiness?.id && step >= 2) {
+      console.log('🔄 Triggering services refetch for business:', selectedBusiness.id);
+      refetchServices();
+    }
+  }, [selectedBusiness?.id, step, refetchServices]);
 
   const { data: staff = [], isLoading: staffLoading } = useQuery({
     queryKey: ['staff', selectedBusiness?.id],
@@ -197,7 +222,7 @@ export default function BookAppointment() {
     }
   }, [staff, step, selectedStaff]);
 
-  const { data: existingBookings = [] } = useQuery({
+  const { data: existingBookings = [], refetch: refetchExistingBookings } = useQuery({
     queryKey: ['existing-bookings', selectedStaff?.id, selectedDate],
     queryFn: async () => {
       // Get both confirmed and pending_approval bookings
@@ -210,11 +235,19 @@ export default function BookAppointment() {
       return allBookings.filter(b => b.status === 'confirmed' || b.status === 'pending_approval');
     },
     enabled: !!selectedBusiness && !!selectedStaff && !!selectedDate && step >= 4,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 0, // Always fetch fresh data
     cacheTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
     keepPreviousData: true,
   });
+
+  // Refetch bookings when entering step 5 (time selection)
+  useEffect(() => {
+    if (step === 5 && selectedDate && selectedStaff) {
+      console.log('🔄 Refreshing available time slots for step 5');
+      refetchExistingBookings();
+    }
+  }, [step, selectedDate, selectedStaff]);
 
   // Query for schedule overrides
   const { data: scheduleOverrides = [] } = useQuery({
@@ -363,10 +396,13 @@ export default function BookAppointment() {
         }
       }
       
-      // Notify waiting list if date changed (old date now has a slot)
-      if (data.oldDate !== data.date) {
+      // Notify waiting list if date or time changed (old slot now available)
+      if (data.oldDate !== data.date || data.oldTime !== data.time) {
         try {
-          console.log('📋 Date changed, checking waiting list for old date:', data.oldDate);
+          const freedTime = data.oldTime; // The time that became available
+          const freedDuration = data.duration || 30;
+          console.log('📋 Slot freed, checking waiting list for old date:', data.oldDate, 'time:', freedTime);
+          
           const waitingList = await base44.entities.WaitingList.filter({
             business_id: data.business_id,
             date: data.oldDate,
@@ -375,7 +411,55 @@ export default function BookAppointment() {
           
           console.log(`📋 Found ${waitingList.length} people on waiting list for old date`);
           
-          for (const entry of waitingList) {
+          // Get all bookings for this date to check available time
+          const allBookings = await base44.entities.Booking.filter({
+            business_id: data.business_id,
+            date: data.oldDate
+          });
+          
+          // Filter out cancelled bookings and the rescheduled one
+          const activeBookings = allBookings.filter(b => 
+            b.status !== 'cancelled' && b.id !== data.id
+          );
+          
+          // Filter waiting list entries where:
+          // 1. Freed time is within their preferred range
+          // 2. Their service duration fits starting from freed time
+          const matchingEntries = waitingList.filter(entry => {
+            const fromTime = entry.from_time || '00:00';
+            const toTime = entry.to_time || '23:59';
+            const serviceDuration = entry.service_duration || 30;
+            
+            // Check if freed time is within the entry's preferred range
+            if (freedTime < fromTime || freedTime > toTime) {
+              return false;
+            }
+            
+            // Check if service duration fits starting from freed time
+            const [freedH, freedM] = freedTime.split(':').map(Number);
+            const freedStart = freedH * 60 + freedM;
+            const serviceEnd = freedStart + serviceDuration;
+            
+            // Check if there's a booking that would conflict
+            const hasConflict = activeBookings.some(b => {
+              const [bH, bM] = b.time.split(':').map(Number);
+              const bookingStart = bH * 60 + bM;
+              const bookingEnd = bookingStart + (b.duration || 30);
+              return (freedStart < bookingEnd && serviceEnd > bookingStart);
+            });
+            
+            if (hasConflict) {
+              console.log(`⏭️ Skipping ${entry.client_name}: ${serviceDuration}min service doesn't fit at ${freedTime}`);
+              return false;
+            }
+            
+            console.log(`✅ ${entry.client_name}: ${serviceDuration}min service FITS at ${freedTime}`);
+            return true;
+          });
+          
+          console.log(`📋 ${matchingEntries.length} entries match time AND have enough duration`);
+          
+          for (const entry of matchingEntries) {
             if (entry.client_phone) {
               try {
                 await fetch(`${WHATSAPP_API_URL}/api/send-waiting-list`, {
@@ -385,15 +469,17 @@ export default function BookAppointment() {
                     phone: entry.client_phone,
                     clientName: entry.client_name,
                     date: data.oldDate,
+                    time: freedTime,
                     serviceName: entry.service_name || data.service_name,
                     templateId: 'HXd75dea9bfaea32988c7532ecc6969b34'
                   })
                 });
-                console.log(`✅ Waiting list notification sent to ${entry.client_name}`);
+                console.log(`✅ Waiting list notification sent to ${entry.client_name} for time ${freedTime}`);
                 
                 await base44.entities.WaitingList.update(entry.id, {
                   status: 'notified',
-                  notified_date: new Date().toISOString()
+                  notified_date: new Date().toISOString(),
+                  notified_time: freedTime
                 });
               } catch (error) {
                 console.error(`❌ Failed to notify ${entry.client_name}:`, error);
@@ -442,37 +528,20 @@ export default function BookAppointment() {
     },
   });
 
-  // Join waiting list function
-  const joinWaitingList = async () => {
-    if (!selectedBusiness || !selectedDate || !user) return;
-    
-    setWaitingListStatus({ joining: true, joined: false, error: null });
-    
+  // Join waiting list function (called from modal)
+  const joinWaitingList = async (waitingListData) => {
     try {
-      await base44.entities.WaitingList.create({
-        business_id: selectedBusiness.id,
-        client_phone: user.phone,
-        client_name: user.name,
-        service_id: selectedService?.id || null,
-        service_name: selectedService?.name || null,
-        date: format(selectedDate, 'yyyy-MM-dd'),
-        status: 'waiting'
-      });
+      await base44.entities.WaitingList.create(waitingListData);
       
-      setWaitingListStatus({ joining: false, joined: true, error: null });
-      console.log('✅ Added to waiting list');
+      console.log('✅ Added to waiting list:', waitingListData);
       
       // Invalidate waiting list query so MyBookings shows the new entry
       queryClient.invalidateQueries({ queryKey: ['my-waiting-list'] });
       
-      // Show success screen
-      setWaitingListSuccess(true);
-      setTimeout(() => {
-        navigate("/MyBookings");
-      }, 3000);
+      return { success: true };
     } catch (error) {
       console.error('❌ Failed to join waiting list:', error);
-      setWaitingListStatus({ joining: false, joined: false, error: 'Failed to join waiting list' });
+      throw error;
     }
   };
 
@@ -1128,6 +1197,8 @@ const handleBooking = async () => {
                     <button
                       key={date.toString()}
                       onClick={() => {
+                        // Invalidate bookings cache to force fresh fetch
+                        queryClient.invalidateQueries({ queryKey: ['existing-bookings'] });
                         setSelectedDate(date);
                         setStep(5);
                       }}
@@ -1189,35 +1260,16 @@ const handleBooking = async () => {
                     <h3 className="font-bold text-lg text-blue-400">רשימת המתנה</h3>
                   </div>
                   
-                  {waitingListStatus.joined ? (
-                    <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/30 rounded-xl p-4">
-                      <CheckCircle className="w-6 h-6 text-green-400" />
-                      <div>
-                        <p className="text-green-400 font-medium">נרשמת לרשימת ההמתנה!</p>
-                        <p className="text-[#94A3B8] text-sm">נודיע לך בהודעת WhatsApp אם יתפנה מקום</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <p className="text-[#94A3B8] text-sm mb-4">
-                        הצטרף לרשימת ההמתנה ונודיע לך בהודעת WhatsApp אם יתפנה מקום
-                      </p>
-                      <Button
-                        onClick={joinWaitingList}
-                        disabled={waitingListStatus.joining}
-                        className="w-full h-12 rounded-xl bg-blue-500 hover:bg-blue-600 font-medium"
-                      >
-                        {waitingListStatus.joining ? (
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                        ) : (
-                          <>
-                            <Bell className="w-4 h-4 ml-2" />
-                            הצטרף לרשימת ההמתנה
-                          </>
-                        )}
-                      </Button>
-                    </>
-                  )}
+                  <p className="text-[#94A3B8] text-sm mb-4">
+                    הצטרף לרשימת ההמתנה ונודיע לך בהודעת WhatsApp כשיתפנה מקום בטווח השעות שתבחר
+                  </p>
+                  <Button
+                    onClick={() => setWaitingListModalOpen(true)}
+                    className="w-full h-12 rounded-xl bg-blue-500 hover:bg-blue-600 font-medium"
+                  >
+                    <Bell className="w-4 h-4 ml-2" />
+                    הצטרף לרשימת ההמתנה
+                  </Button>
                 </div>
 
                 {/* Loading alternatives */}
@@ -1312,7 +1364,7 @@ const handleBooking = async () => {
             ) : (
               <>
                 {/* Time slots without max-height restriction */}
-                <div className="space-y-2 mb-6">
+                <div className="space-y-2 mb-4">
                   {generateTimeSlots().map((time) => (
                     <button
                       key={time}
@@ -1328,6 +1380,15 @@ const handleBooking = async () => {
                     </button>
                   ))}
                 </div>
+
+                {/* Waiting List Option - Always visible */}
+                <button
+                  onClick={() => setWaitingListModalOpen(true)}
+                  className="w-full py-3 px-4 rounded-xl bg-[#1A1F35]/50 border border-dashed border-blue-500/50 text-blue-400 hover:bg-blue-500/10 transition-all flex items-center justify-center gap-2 mb-6"
+                >
+                  <Bell className="w-4 h-4" />
+                  <span className="text-sm">לא מתאים? הצטרף לרשימת המתנה לשעות אחרות</span>
+                </button>
 
                 {selectedTime && (
                   <>
@@ -1393,6 +1454,21 @@ const handleBooking = async () => {
           </div>
         )}
       </div>
+
+      {/* Waiting List Modal */}
+      <WaitingListModal
+        isOpen={waitingListModalOpen}
+        onClose={() => setWaitingListModalOpen(false)}
+        business={selectedBusiness}
+        services={services}
+        selectedService={selectedService}
+        selectedDate={selectedDate}
+        selectedStaff={selectedStaff}
+        existingBookings={existingBookings || []}
+        user={user}
+        onJoin={joinWaitingList}
+        getScheduleForDate={getScheduleForDate}
+      />
     </div>
   );
 }

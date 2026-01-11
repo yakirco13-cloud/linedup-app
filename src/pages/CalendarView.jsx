@@ -182,11 +182,15 @@ export default function CalendarView() {
         bookingDate.setHours(hours, minutes, 0, 0);
         
         const now = new Date();
+        const cancelledTime = booking.time; // e.g., "18:30"
+        const cancelledDuration = booking.duration || 30; // Duration of cancelled booking
         
         if (bookingDate < now) {
           console.log('⏭️ Booking time has passed, skipping waiting list notification');
         } else {
-          console.log('📋 Checking waiting list for date:', booking.date);
+          console.log('📋 Checking waiting list for date:', booking.date, 'time:', cancelledTime);
+          
+          // Get all waiting list entries for this date
           const waitingList = await base44.entities.WaitingList.filter({
             business_id: booking.business_id,
             date: booking.date,
@@ -195,7 +199,57 @@ export default function CalendarView() {
           
           console.log(`📋 Found ${waitingList.length} people on waiting list`);
           
-          for (const entry of waitingList) {
+          // Get all bookings for this date to check available time
+          const allBookings = await base44.entities.Booking.filter({
+            business_id: booking.business_id,
+            date: booking.date
+          });
+          
+          // Filter out cancelled bookings (including the one we just cancelled)
+          const activeBookings = allBookings.filter(b => 
+            b.status !== 'cancelled' && b.id !== booking.id
+          );
+          
+          // Filter waiting list entries where:
+          // 1. Cancelled time is within their preferred range
+          // 2. Their service duration fits starting from cancelled time
+          const matchingEntries = waitingList.filter(entry => {
+            const fromTime = entry.from_time || '00:00';
+            const toTime = entry.to_time || '23:59';
+            const serviceDuration = entry.service_duration || 30;
+            
+            // Check if cancelled time is within the entry's preferred range
+            if (cancelledTime < fromTime || cancelledTime > toTime) {
+              return false;
+            }
+            
+            // Check if service duration fits starting from cancelled time
+            const [cancelH, cancelM] = cancelledTime.split(':').map(Number);
+            const cancelStart = cancelH * 60 + cancelM;
+            const serviceEnd = cancelStart + serviceDuration;
+            
+            // Check if there's a booking that would conflict with this service
+            const hasConflict = activeBookings.some(b => {
+              const [bH, bM] = b.time.split(':').map(Number);
+              const bookingStart = bH * 60 + bM;
+              const bookingEnd = bookingStart + (b.duration || 30);
+              
+              // Conflict if service would overlap with existing booking
+              return (cancelStart < bookingEnd && serviceEnd > bookingStart);
+            });
+            
+            if (hasConflict) {
+              console.log(`⏭️ Skipping ${entry.client_name}: ${serviceDuration}min service doesn't fit at ${cancelledTime}`);
+              return false;
+            }
+            
+            console.log(`✅ ${entry.client_name}: ${serviceDuration}min service FITS at ${cancelledTime}`);
+            return true;
+          });
+          
+          console.log(`📋 ${matchingEntries.length} entries match time AND have enough duration`);
+          
+          for (const entry of matchingEntries) {
             if (entry.client_phone) {
               try {
                 await fetch(`${WHATSAPP_API_URL}/api/send-waiting-list`, {
@@ -205,16 +259,18 @@ export default function CalendarView() {
                     phone: entry.client_phone,
                     clientName: entry.client_name,
                     date: booking.date,
+                    time: cancelledTime,
                     serviceName: entry.service_name || booking.service_name,
                     templateId: 'HXd75dea9bfaea32988c7532ecc6969b34'
                   })
                 });
-                console.log(`✅ Waiting list notification sent to ${entry.client_name}`);
+                console.log(`✅ Waiting list notification sent to ${entry.client_name} for time ${cancelledTime}`);
                 
                 // Update status to notified
                 await base44.entities.WaitingList.update(entry.id, {
                   status: 'notified',
-                  notified_date: new Date().toISOString()
+                  notified_date: new Date().toISOString(),
+                  notified_time: cancelledTime
                 });
               } catch (error) {
                 console.error(`❌ Failed to notify ${entry.client_name}:`, error);
@@ -237,21 +293,65 @@ export default function CalendarView() {
       ...data,
       business_id: business.id
     }),
-    onSuccess: () => {
+    onSuccess: async (result, variables) => {
+      console.log('🟢🟢🟢 Schedule Override CREATED - onSuccess triggered! 🟢🟢🟢');
+      console.log('📅 Result:', result);
+      console.log('📅 Variables:', JSON.stringify(variables, null, 2));
+      
       queryClient.invalidateQueries({ queryKey: ['schedule-overrides'] });
       setShowOverrideModal(false);
       setSelectedOverrideDate(null);
       setEditingOverride(null);
+      
+      // Check if this override OPENS availability (not a day off and has shifts)
+      console.log('📅 Checking conditions:');
+      console.log('📅 - is_day_off:', variables.is_day_off, '(should be false/undefined)');
+      console.log('📅 - shifts:', variables.shifts);
+      console.log('📅 - shifts length:', variables.shifts?.length);
+      
+      if (!variables.is_day_off && variables.shifts && variables.shifts.length > 0) {
+        const firstShift = variables.shifts[0];
+        const lastShift = variables.shifts[variables.shifts.length - 1];
+        console.log('✅ CONDITIONS MET - Will notify waiting list!');
+        console.log('📅 Date:', variables.date);
+        console.log('📅 From:', firstShift.start, 'To:', lastShift.end);
+        await notifyWaitingListForScheduleChange(variables.date, firstShift.start, lastShift.end);
+      } else {
+        console.log('❌ CONDITIONS NOT MET - NOT notifying waiting list');
+        console.log('📅 Reason: is_day_off=', variables.is_day_off, ', shifts=', variables.shifts);
+      }
     },
   });
 
   const updateOverrideMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.ScheduleOverride.update(id, data),
-    onSuccess: () => {
+    onSuccess: async (result, variables) => {
+      console.log('🟡🟡🟡 Schedule Override UPDATED - onSuccess triggered! 🟡🟡🟡');
+      console.log('📅 Result:', result);
+      console.log('📅 Variables:', JSON.stringify(variables, null, 2));
+      
       queryClient.invalidateQueries({ queryKey: ['schedule-overrides'] });
       setShowOverrideModal(false);
       setSelectedOverrideDate(null);
       setEditingOverride(null);
+      
+      // Check if this override OPENS availability (not a day off and has shifts)
+      console.log('📅 Checking conditions:');
+      console.log('📅 - is_day_off:', variables.data.is_day_off, '(should be false/undefined)');
+      console.log('📅 - shifts:', variables.data.shifts);
+      console.log('📅 - shifts length:', variables.data.shifts?.length);
+      
+      if (!variables.data.is_day_off && variables.data.shifts && variables.data.shifts.length > 0) {
+        const firstShift = variables.data.shifts[0];
+        const lastShift = variables.data.shifts[variables.data.shifts.length - 1];
+        console.log('✅ CONDITIONS MET - Will notify waiting list!');
+        console.log('📅 Date:', variables.data.date);
+        console.log('📅 From:', firstShift.start, 'To:', lastShift.end);
+        await notifyWaitingListForScheduleChange(variables.data.date, firstShift.start, lastShift.end);
+      } else {
+        console.log('❌ CONDITIONS NOT MET - NOT notifying waiting list');
+        console.log('📅 Reason: is_day_off=', variables.data.is_day_off, ', shifts=', variables.data.shifts);
+      }
     },
   });
 
@@ -264,6 +364,121 @@ export default function CalendarView() {
       setEditingOverride(null);
     },
   });
+
+  // Notify waiting list when schedule changes open new availability
+  const notifyWaitingListForScheduleChange = async (date, startTime, endTime) => {
+    try {
+      console.log('🔔 notifyWaitingListForScheduleChange called!');
+      console.log('🔔 Parameters - date:', date, 'startTime:', startTime, 'endTime:', endTime);
+      console.log('🔔 Business ID:', business.id);
+      
+      const waitingList = await base44.entities.WaitingList.filter({
+        business_id: business.id,
+        date: date,
+        status: 'waiting'
+      });
+      
+      console.log('🔔 Waiting list query result:', waitingList);
+      
+      if (waitingList.length === 0) {
+        console.log('🔔 No one on waiting list for this date');
+        return;
+      }
+      
+      console.log(`🔔 Found ${waitingList.length} people on waiting list`);
+      
+      // Get existing bookings for this date
+      const existingBookings = await base44.entities.Booking.filter({
+        business_id: business.id,
+        date: date
+      });
+      
+      console.log('🔔 Existing bookings for date:', existingBookings);
+      
+      const activeBookings = existingBookings.filter(b => b.status !== 'cancelled');
+      console.log('🔔 Active bookings:', activeBookings.length);
+      
+      // Check each waiting list entry
+      for (const entry of waitingList) {
+        console.log('🔔 Processing waiting list entry:', entry);
+        const fromTime = entry.from_time || '00:00';
+        const toTime = entry.to_time || '23:59';
+        const serviceDuration = entry.service_duration || 30;
+        
+        console.log(`🔔 Entry wants: ${fromTime}-${toTime}, service duration: ${serviceDuration}min`);
+        
+        // Check if the new schedule overlaps with their preferred time range
+        if (endTime <= fromTime || startTime >= toTime) {
+          console.log(`⏭️ Skipping ${entry.client_name}: schedule ${startTime}-${endTime} doesn't overlap with their range ${fromTime}-${toTime}`);
+          continue;
+        }
+        
+        // Find the first available slot in their range that fits their service
+        const overlapStart = startTime > fromTime ? startTime : fromTime;
+        const overlapEnd = endTime < toTime ? endTime : toTime;
+        
+        console.log(`🔔 Overlap range: ${overlapStart}-${overlapEnd}`);
+        
+        // Check if there's a slot that fits their service duration
+        const [overlapStartH, overlapStartM] = overlapStart.split(':').map(Number);
+        const [overlapEndH, overlapEndM] = overlapEnd.split(':').map(Number);
+        const overlapStartMinutes = overlapStartH * 60 + overlapStartM;
+        const overlapEndMinutes = overlapEndH * 60 + overlapEndM;
+        
+        let foundSlot = null;
+        
+        for (let slotMinutes = overlapStartMinutes; slotMinutes + serviceDuration <= overlapEndMinutes; slotMinutes += 15) {
+          const slotH = Math.floor(slotMinutes / 60);
+          const slotM = slotMinutes % 60;
+          const slotTime = `${slotH.toString().padStart(2, '0')}:${slotM.toString().padStart(2, '0')}`;
+          const slotEndMinutes = slotMinutes + serviceDuration;
+          
+          // Check if this slot conflicts with any existing booking
+          const hasConflict = activeBookings.some(b => {
+            const [bH, bM] = b.time.split(':').map(Number);
+            const bookingStart = bH * 60 + bM;
+            const bookingEnd = bookingStart + (b.duration || 30);
+            return (slotMinutes < bookingEnd && slotEndMinutes > bookingStart);
+          });
+          
+          if (!hasConflict) {
+            foundSlot = slotTime;
+            break;
+          }
+        }
+        
+        if (foundSlot && entry.client_phone) {
+          try {
+            await fetch(`${WHATSAPP_API_URL}/api/send-waiting-list`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                phone: entry.client_phone,
+                clientName: entry.client_name,
+                date: date,
+                time: foundSlot,
+                serviceName: entry.service_name,
+                templateId: 'HXd75dea9bfaea32988c7532ecc6969b34'
+              })
+            });
+            console.log(`✅ Waiting list notification sent to ${entry.client_name} for time ${foundSlot}`);
+            
+            await base44.entities.WaitingList.update(entry.id, {
+              status: 'notified',
+              notified_date: new Date().toISOString(),
+              notified_time: foundSlot
+            });
+          } catch (error) {
+            console.error(`❌ Failed to notify ${entry.client_name}:`, error);
+          }
+        } else if (!foundSlot) {
+          console.log(`⏭️ Skipping ${entry.client_name}: no ${serviceDuration}min slot fits in ${overlapStart}-${overlapEnd}`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error notifying waiting list for schedule change:', error);
+    }
+  };
 
   // Helper to get override for a specific date
   const getOverrideForDate = (date) => {

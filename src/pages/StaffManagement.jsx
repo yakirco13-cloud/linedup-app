@@ -311,7 +311,7 @@ export default function StaffManagement() {
       <div className="max-w-2xl mx-auto">
         <button
           onClick={() => navigate(createPageUrl("Settings"))}
-          className="flex items-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors"
+          className="flex items-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors py-2 px-1 -ml-1 min-h-[44px]"
         >
           <ArrowRight className="w-5 h-5" />
           <span>חזרה</span>
@@ -469,7 +469,9 @@ export default function StaffManagement() {
           </div>
         ) : (
           <div className="space-y-3">
-            {staff.map((staffMember) => (
+            {staff
+              .filter(staffMember => !editingStaff || staffMember.id !== editingStaff.id)
+              .map((staffMember) => (
               <div key={staffMember.id} className="bg-[#1A1F35] rounded-2xl p-5 border border-gray-800">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
