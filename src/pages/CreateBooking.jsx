@@ -9,11 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowRight, Loader2, CheckCircle, UserPlus, Users, Search, Clock, Bell, BellOff } from "lucide-react";
-import { format } from "date-fns";
+import { ArrowRight, Loader2, CheckCircle, UserPlus, Users, Search, Clock, Bell, BellOff, Repeat, Calendar } from "lucide-react";
+import { format, addDays, addWeeks, getDay } from "date-fns";
+import { he } from "date-fns/locale";
 
-// WhatsApp Service API
-const WHATSAPP_API_URL = 'https://linedup-official-production.up.railway.app';
+// Import centralized services
+import { sendConfirmation, sendUpdate } from "@/services/whatsappService";
 
 export default function CreateBooking() {
   const navigate = useNavigate();
@@ -29,6 +30,12 @@ export default function CreateBooking() {
   const [selectedMinute, setSelectedMinute] = useState('00');
   const [urlParamsProcessed, setUrlParamsProcessed] = useState(false);
   const [sendNotification, setSendNotification] = useState(false); // Toggle for walk-in notifications
+  
+  // Recurring appointment states
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringFrequency, setRecurringFrequency] = useState('weekly');
+  const [recurringPreview, setRecurringPreview] = useState([]);
+  const [creatingRecurring, setCreatingRecurring] = useState(false);
 
   const [formData, setFormData] = useState({
     client_name: "",
@@ -115,15 +122,23 @@ export default function CreateBooking() {
     queryFn: async () => {
       const bookings = await base44.entities.Booking.filter({ business_id: business.id });
       const uniqueClients = {};
+      
       bookings.forEach(booking => {
-        if (booking.client_email && !uniqueClients[booking.client_email] && booking.client_name) {
-          uniqueClients[booking.client_email] = {
-            name: booking.client_name,
-            email: booking.client_email,
-            phone: booking.client_phone || ""
-          };
+        // Use phone as primary identifier for clients
+        // Skip walkin bookings (no phone or walkin email pattern)
+        const isWalkin = booking.client_email?.includes('walkin_');
+        
+        if (booking.client_name && booking.client_phone && !isWalkin) {
+          if (!uniqueClients[booking.client_phone]) {
+            uniqueClients[booking.client_phone] = {
+              name: booking.client_name,
+              email: booking.client_email || "",
+              phone: booking.client_phone
+            };
+          }
         }
       });
+      
       return Object.values(uniqueClients);
     },
     enabled: !!business?.id,
@@ -190,6 +205,41 @@ export default function CreateBooking() {
     });
   };
 
+  // Calculate recurring dates based on booking window
+  const calculateRecurringDates = () => {
+    if (!formData.date || !isRecurring) return [];
+    
+    const startDate = new Date(formData.date);
+    const dayOfWeek = getDay(startDate);
+    const bookingWindowDays = business?.booking_window_enabled ? (business?.booking_window_days || 30) : 90;
+    const maxDate = addDays(new Date(), bookingWindowDays);
+    
+    const dates = [];
+    let currentDate = startDate;
+    
+    while (currentDate <= maxDate) {
+      dates.push(new Date(currentDate));
+      
+      if (recurringFrequency === 'weekly') {
+        currentDate = addWeeks(currentDate, 1);
+      } else if (recurringFrequency === 'biweekly') {
+        currentDate = addWeeks(currentDate, 2);
+      }
+    }
+    
+    return dates;
+  };
+
+  // Update recurring preview when date/frequency changes
+  useEffect(() => {
+    if (isRecurring && formData.date) {
+      const dates = calculateRecurringDates();
+      setRecurringPreview(dates);
+    } else {
+      setRecurringPreview([]);
+    }
+  }, [isRecurring, formData.date, recurringFrequency, business?.booking_window_days]);
+
   // Check for conflicts when date/time/service changes
   useEffect(() => {
     if (formData.date && selectedTime && selectedService?.duration) {
@@ -206,7 +256,7 @@ export default function CreateBooking() {
 
 
   const bookingMutation = useMutation({
-    mutationFn: (data) => {
+    mutationFn: async (data) => {
       if (editMode) {
         return base44.entities.Booking.update(editingBookingId, data);
       }
@@ -221,45 +271,26 @@ export default function CreateBooking() {
       const shouldSendNotification = clientPhone && (!isWalkin || (isWalkin && sendNotification));
       
       if (shouldSendNotification) {
-        try {
-          if (editMode) {
-            // Send update notification
-            console.log('📱 Sending WhatsApp update notification (owner action)...');
-            await fetch(`${WHATSAPP_API_URL}/api/send-update`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                phone: clientPhone,
-                clientName: formData.client_name,
-                businessName: business.name,
-                whatsappEnabled: true
-              })
-            });
-            console.log('✅ WhatsApp update notification sent');
-          } else {
-            // Send confirmation notification
-            console.log('📱 Sending WhatsApp confirmation (owner action)...');
-            await fetch(`${WHATSAPP_API_URL}/api/send-confirmation`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                phone: clientPhone,
-                clientName: formData.client_name,
-                businessName: business.name,
-                date: formData.date,
-                time: selectedTime,
-                whatsappEnabled: true
-              })
-            });
-            console.log('✅ WhatsApp confirmation sent');
-          }
-        } catch (error) {
-          console.error('❌ Failed to send WhatsApp:', error);
+        if (editMode) {
+          await sendUpdate({
+            phone: clientPhone,
+            clientName: formData.client_name,
+            businessName: business.name
+          });
+        } else {
+          await sendConfirmation({
+            phone: clientPhone,
+            clientName: formData.client_name,
+            businessName: business.name,
+            date: formData.date,
+            time: selectedTime
+          });
         }
       }
       
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
-      queryClient.invalidateQueries({ queryKey: ['all-bookings'] }); // Invalidate all-bookings for conflict check
+      queryClient.invalidateQueries({ queryKey: ['all-bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['recurring-appointments'] });
       setSuccess(true);
       setTimeout(() => {
         navigate(createPageUrl("CalendarView"));
@@ -267,8 +298,99 @@ export default function CreateBooking() {
     },
   });
 
-  const handleClientSelect = (clientEmail) => {
-    const client = previousClients.find(c => c.email === clientEmail);
+  // Create recurring appointment rule and all initial bookings
+  const createRecurringAppointment = async () => {
+    if (!isRecurring || recurringPreview.length === 0) return null;
+    
+    setCreatingRecurring(true);
+    
+    try {
+      const selectedStaff = staff.find(s => s.id === formData.staff_id);
+      const dayOfWeek = getDay(new Date(formData.date));
+      
+      // 1. Create the recurring rule
+      const recurringRule = await base44.entities.RecurringAppointment.create({
+        business_id: business.id,
+        client_phone: formData.client_phone || "",
+        client_name: formData.client_name,
+        service_id: formData.service_id,
+        service_name: selectedService?.name,
+        staff_id: formData.staff_id,
+        staff_name: selectedStaff?.name,
+        day_of_week: dayOfWeek,
+        time: selectedTime,
+        duration: selectedService?.duration || 30,
+        frequency: recurringFrequency,
+        biweekly_start_date: recurringFrequency === 'biweekly' ? formData.date : null,
+        is_active: true,
+        notes: formData.notes,
+        last_booking_date: recurringPreview[recurringPreview.length - 1].toISOString().split('T')[0]
+      });
+      
+      console.log('✅ Created recurring rule:', recurringRule);
+      
+      // 2. Create all the bookings
+      const bookingsCreated = [];
+      for (const date of recurringPreview) {
+        try {
+          const dateStr = format(date, 'yyyy-MM-dd');
+          const bookingData = {
+            business_id: business.id,
+            client_name: formData.client_name,
+            client_phone: formData.client_phone || "",
+            service_id: formData.service_id,
+            service_name: selectedService?.name,
+            staff_id: formData.staff_id,
+            staff_name: selectedStaff?.name,
+            date: dateStr,
+            time: selectedTime,
+            duration: selectedService?.duration || 30,
+            status: 'confirmed',
+            notes: formData.notes,
+            is_first_booking: false,
+            booked_by_owner: true
+          };
+          
+          const booking = await base44.entities.Booking.create(bookingData);
+          bookingsCreated.push(booking);
+          console.log(`✅ Created booking for ${dateStr}`);
+        } catch (error) {
+          console.error(`❌ Failed to create booking for ${format(date, 'yyyy-MM-dd')}:`, error);
+        }
+      }
+      
+      // 3. Send single WhatsApp confirmation for recurring (only if phone exists and notifications enabled)
+      if (formData.client_phone && sendNotification) {
+        await sendConfirmation({
+          phone: formData.client_phone,
+          clientName: formData.client_name,
+          businessName: business.name,
+          date: formData.date,
+          time: selectedTime,
+          serviceName: `${selectedService?.name} (תור חוזר - ${recurringPreview.length} תורים)`
+        });
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['all-bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['recurring-appointments'] });
+      
+      setSuccess(true);
+      setTimeout(() => {
+        navigate(createPageUrl("CalendarView"));
+      }, 1500);
+      
+      return { rule: recurringRule, bookings: bookingsCreated };
+    } catch (error) {
+      console.error('❌ Failed to create recurring appointment:', error);
+      throw error;
+    } finally {
+      setCreatingRecurring(false);
+    }
+  };
+
+  const handleClientSelect = (clientPhone) => {
+    const client = previousClients.find(c => c.phone === clientPhone);
     if (client) {
       setFormData(prev => ({
         ...prev,
@@ -302,6 +424,12 @@ export default function CreateBooking() {
       );
       
       if (!shouldContinue) return;
+    }
+
+    // If recurring is enabled, use the recurring flow
+    if (isRecurring && recurringPreview.length > 0) {
+      await createRecurringAppointment();
+      return;
     }
 
     const selectedStaff = staff.find(s => s.id === formData.staff_id);
@@ -341,7 +469,11 @@ export default function CreateBooking() {
       <div className="min-h-screen bg-[#0C0F1D] flex items-center justify-center p-6">
         <div className="text-center">
           <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-4" />
-          <h2 className="text-3xl font-bold mb-2">{editMode ? 'התור עודכן בהצלחה!' : 'התור נקבע בהצלחה!'}</h2>
+          <h2 className="text-3xl font-bold mb-2">
+            {editMode ? 'התור עודכן בהצלחה!' : 
+             isRecurring ? `נקבעו ${recurringPreview.length} תורים בהצלחה!` : 
+             'התור נקבע בהצלחה!'}
+          </h2>
           <p className="text-[#94A3B8]">חוזר ליומן...</p>
         </div>
       </div>
@@ -418,11 +550,11 @@ export default function CreateBooking() {
                         {filteredClients.length === 0 ? (
                           <p className="text-[#94A3B8] text-sm text-center py-4">לא נמצאו לקוחות</p>
                         ) : (
-                          filteredClients.map((client) => (
+                          filteredClients.map((client, index) => (
                             <button
-                              key={client.email}
+                              key={client.phone || `client-${index}`}
                               type="button"
-                              onClick={() => handleClientSelect(client.email)}
+                              onClick={() => handleClientSelect(client.phone)}
                               className="w-full text-right p-4 rounded-xl transition-all bg-[#0C0F1D] border-2 border-gray-700 hover:border-[#FF6B35]"
                             >
                               <div className="flex items-center gap-3">
@@ -683,6 +815,94 @@ export default function CreateBooking() {
             </div>
           </div>
 
+          {/* Recurring Appointment Section - Only show for new bookings (not edit mode) */}
+          {!editMode && formData.date && (
+            <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <Repeat className={`w-6 h-6 ${isRecurring ? 'text-[#FF6B35]' : 'text-[#94A3B8]'}`} />
+                  <div>
+                    <h2 className="text-xl font-bold">תור חוזר</h2>
+                    <p className="text-sm text-[#94A3B8]">קבע תורים אוטומטיים לאותו יום ושעה</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsRecurring(!isRecurring)}
+                  className={`relative w-14 h-8 rounded-full transition-colors ${
+                    isRecurring ? 'bg-[#FF6B35]' : 'bg-gray-600'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-transform ${
+                      isRecurring ? 'right-1' : 'left-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {isRecurring && (
+                <div className="space-y-4 mt-4 pt-4 border-t border-gray-700">
+                  {/* Frequency Selection */}
+                  <div className="space-y-2">
+                    <Label className="text-white">תדירות</Label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setRecurringFrequency('weekly')}
+                        className={`p-3 rounded-xl border-2 transition-all ${
+                          recurringFrequency === 'weekly'
+                            ? 'border-[#FF6B35] bg-[#FF6B35]/10'
+                            : 'border-gray-700 bg-[#0C0F1D]'
+                        }`}
+                      >
+                        <span className="text-white font-medium">כל שבוע</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRecurringFrequency('biweekly')}
+                        className={`p-3 rounded-xl border-2 transition-all ${
+                          recurringFrequency === 'biweekly'
+                            ? 'border-[#FF6B35] bg-[#FF6B35]/10'
+                            : 'border-gray-700 bg-[#0C0F1D]'
+                        }`}
+                      >
+                        <span className="text-white font-medium">כל שבועיים</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Preview of recurring dates */}
+                  {recurringPreview.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-white flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-[#FF6B35]" />
+                        תורים שייקבעו ({recurringPreview.length} תורים)
+                      </Label>
+                      <div className="bg-[#0C0F1D] rounded-xl p-3 max-h-40 overflow-y-auto">
+                        <div className="space-y-2">
+                          {recurringPreview.map((date, index) => (
+                            <div key={index} className="flex items-center justify-between text-sm">
+                              <span className="text-white">
+                                {format(date, 'EEEE', { locale: he })}
+                              </span>
+                              <span className="text-[#94A3B8]">
+                                {format(date, 'd/M/yyyy')} בשעה {selectedHour}:{selectedMinute}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-xs text-[#94A3B8]">
+                        💡 תורים חדשים ייקבעו אוטומטית כשיפתחו תאריכים נוספים
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Appointment Summary */}
           {(selectedService && formData.date && selectedTime && formData.client_name) && (
             <div className="bg-[#1A1F35] border-2 border-gray-800 rounded-2xl p-5">
@@ -725,6 +945,7 @@ export default function CreateBooking() {
             type="submit"
             disabled={
               bookingMutation.isPending || 
+              creatingRecurring ||
               !formData.service_id || 
               !formData.date || 
               !selectedHour ||
@@ -735,10 +956,15 @@ export default function CreateBooking() {
             className="w-full h-14 rounded-xl text-white font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}
           >
-            {bookingMutation.isPending ? (
-              <Loader2 className="w-6 h-6 animate-spin" />
+            {bookingMutation.isPending || creatingRecurring ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-6 h-6 animate-spin" />
+                {creatingRecurring && <span>יוצר {recurringPreview.length} תורים...</span>}
+              </div>
             ) : (
-              editMode ? 'עדכן תור' : 'צור תור'
+              editMode ? 'עדכן תור' : 
+              isRecurring ? `צור ${recurringPreview.length} תורים חוזרים` : 
+              'צור תור'
             )}
           </Button>
         </form>

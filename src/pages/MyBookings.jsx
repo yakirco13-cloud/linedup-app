@@ -10,8 +10,10 @@ import { format, parseISO } from "date-fns";
 import { he } from "date-fns/locale";
 import { generateGoogleCalendarLink } from "@/utils/calendarLinks";
 
-// WhatsApp Service API
-const WHATSAPP_API_URL = 'https://linedup-official-production.up.railway.app';
+// Import centralized services
+import { sendCancellation } from "@/services/whatsappService";
+import { notifyWaitingListForOpenedSlot } from "@/services/waitingListService";
+import { parseDate } from "@/services/dateService";
 
 export default function MyBookings() {
   const navigate = useNavigate();
@@ -188,96 +190,39 @@ export default function MyBookings() {
       // Send WhatsApp cancellation notification
       const business = businesses.find(b => b.id === booking.business_id);
       if (booking.client_phone && user?.whatsapp_notifications_enabled !== false) {
-        try {
-          console.log('📱 Sending WhatsApp cancellation notification...');
-          await fetch(`${WHATSAPP_API_URL}/api/send-update`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              phone: booking.client_phone,
-              clientName: booking.client_name,
-              businessName: business?.name || 'העסק',
-              whatsappEnabled: user?.whatsapp_notifications_enabled !== false
-            })
-          });
-          console.log('✅ WhatsApp cancellation notification sent');
-        } catch (error) {
-          console.error('❌ Failed to send WhatsApp cancellation:', error);
-        }
+        await sendCancellation({
+          phone: booking.client_phone,
+          clientName: booking.client_name,
+          businessName: business?.name || 'העסק',
+          date: booking.date,
+          time: booking.time
+        });
       }
       
-      // Notify waiting list - but only if booking time hasn't passed and service is available
+      // Notify waiting list - but only if booking time hasn't passed
       try {
-        // Check if the booking time has already passed
-        let bookingDate;
-        if (booking.date && booking.date.includes('/')) {
-          const [d, m, y] = booking.date.split('/');
-          bookingDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
-        } else {
-          bookingDate = parseISO(booking.date);
-        }
-        
-        const [hours, minutes] = booking.time.split(':').map(Number);
-        bookingDate.setHours(hours, minutes, 0, 0);
-        
-        const now = new Date();
-        
-        if (bookingDate < now) {
-          console.log('⏭️ Booking time has passed, skipping waiting list notification');
-        } else {
-          console.log('📋 Checking waiting list for date:', booking.date);
-          const waitingList = await base44.entities.WaitingList.filter({
-            business_id: booking.business_id,
-            date: booking.date,
-            status: 'waiting'
-          });
+        const bookingDate = parseDate(booking.date);
+        if (bookingDate) {
+          const [hours, minutes] = booking.time.split(':').map(Number);
+          bookingDate.setHours(hours, minutes, 0, 0);
           
-          console.log(`📋 Found ${waitingList.length} people on waiting list`);
-          
-          // Get all services for duration lookup
-          const services = await base44.entities.Service.filter({ business_id: booking.business_id });
-          
-          for (const entry of waitingList) {
-            // Get the service duration for this waiting list entry
-            const entryService = services.find(s => s.id === entry.service_id);
-            const serviceDuration = entryService?.duration || 30;
+          if (bookingDate >= new Date()) {
+            // Calculate the end time of the freed slot
+            const cancelledDuration = booking.duration || 30;
+            const [h, m] = booking.time.split(':').map(Number);
+            const endMinutes = h * 60 + m + cancelledDuration;
+            const endH = Math.floor(endMinutes / 60);
+            const endM = endMinutes % 60;
+            const endTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
             
-            // Check if their specific service now has availability
-            const hasAvailability = await checkServiceAvailability(
-              booking.business_id,
-              entry.service_id,
-              serviceDuration,
-              booking.date,
-              booking.staff_id
-            );
-            
-            if (hasAvailability && entry.client_phone) {
-              try {
-                console.log(`✅ Service ${entry.service_name} has availability, notifying ${entry.client_name}`);
-                await fetch(`${WHATSAPP_API_URL}/api/send-waiting-list`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    phone: entry.client_phone,
-                    clientName: entry.client_name,
-                    date: booking.date,
-                    serviceName: entry.service_name || booking.service_name,
-                    templateId: 'HXd75dea9bfaea32988c7532ecc6969b34'
-                  })
-                });
-                console.log(`✅ Waiting list notification sent to ${entry.client_name}`);
-                
-                // Update status to notified
-                await base44.entities.WaitingList.update(entry.id, {
-                  status: 'notified',
-                  notified_date: new Date().toISOString()
-                });
-              } catch (error) {
-                console.error(`❌ Failed to notify ${entry.client_name}:`, error);
-              }
-            } else {
-              console.log(`⏭️ Service ${entry.service_name} still has no availability for ${entry.client_name}`);
-            }
+            await notifyWaitingListForOpenedSlot({
+              businessId: booking.business_id,
+              date: booking.date,
+              startTime: booking.time,
+              endTime
+            });
+          } else {
+            console.log('⏭️ Booking time has passed, skipping waiting list notification');
           }
         }
       } catch (error) {

@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle, XCircle, Clock, User, Calendar, Loader2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { he } from "date-fns/locale";
-import { sendConfirmation, sendUpdate } from "@/lib/supabase";
+
+// Import centralized services
+import { sendConfirmation, sendCancellation } from "@/services/whatsappService";
 
 export default function ApprovalManagement() {
   const navigate = useNavigate();
@@ -46,26 +48,17 @@ export default function ApprovalManagement() {
     onSuccess: async (booking) => {
       // Send WhatsApp confirmation to client
       if (booking.client_phone) {
-        try {
-          console.log('📱 Sending WhatsApp approval confirmation...');
-          await sendConfirmation({
-            phone: booking.client_phone,
-            clientName: booking.client_name,
-            businessName: business?.name || 'העסק',
-            date: booking.date,
-            time: booking.time,
-            serviceName: booking.service_name,
-            businessId: business?.id
-          });
-          console.log('✅ WhatsApp approval confirmation sent');
-        } catch (error) {
-          console.error('❌ Failed to send WhatsApp:', error);
-        }
+        await sendConfirmation({
+          phone: booking.client_phone,
+          clientName: booking.client_name,
+          businessName: business?.name || 'העסק',
+          date: booking.date,
+          time: booking.time
+        });
       }
       
       queryClient.invalidateQueries({ queryKey: ['pending-bookings'] });
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
-      queryClient.invalidateQueries({ queryKey: ['message-usage'] });
     },
   });
 
@@ -77,19 +70,11 @@ export default function ApprovalManagement() {
     onSuccess: async (booking) => {
       // Send WhatsApp rejection notification to client
       if (booking.client_phone) {
-        try {
-          console.log('📱 Sending WhatsApp rejection notification...');
-          await sendUpdate({
-            phone: booking.client_phone,
-            clientName: booking.client_name,
-            businessName: business?.name || 'העסק',
-            message: 'התור שלך נדחה',
-            businessId: business?.id
-          });
-          console.log('✅ WhatsApp rejection notification sent');
-        } catch (error) {
-          console.error('❌ Failed to send WhatsApp:', error);
-        }
+        await sendCancellation({
+          phone: booking.client_phone,
+          clientName: booking.client_name,
+          businessName: business?.name || 'העסק'
+        });
       }
       
       queryClient.invalidateQueries({ queryKey: ['pending-bookings'] });
@@ -114,7 +99,7 @@ export default function ApprovalManagement() {
       <div className="max-w-2xl mx-auto">
         <button
           onClick={() => navigate(createPageUrl("Settings"))}
-          className="flex items-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors"
+          className="flex items-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors py-2 px-1 -ml-1 min-h-[44px]"
         >
           <ArrowRight className="w-5 h-5" />
           <span>חזרה</span>

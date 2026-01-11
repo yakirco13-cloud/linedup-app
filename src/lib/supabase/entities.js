@@ -101,6 +101,7 @@ export const WaitingList = createEntity('waiting_list');
 export const Subscription = createEntity('subscriptions');
 export const Payment = createEntity('payments');
 export const ScheduleOverride = createEntity('schedule_overrides');
+export const RecurringAppointment = createEntity('recurring_appointments');
 
 export const entities = {
   Business,
@@ -112,6 +113,7 @@ export const entities = {
   Subscription,
   Payment,
   ScheduleOverride,
+  RecurringAppointment,
 };
 
 export default entities;

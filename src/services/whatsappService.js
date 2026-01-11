@@ -1,0 +1,245 @@
+/**
+ * Centralized WhatsApp Service
+ * All WhatsApp message sending goes through here
+ * 
+ * This ensures:
+ * - Consistent API URL usage
+ * - Centralized error handling
+ * - Future message tracking integration
+ * - Single place to update templates
+ */
+
+// Use environment variable or fallback to production URL
+const WHATSAPP_API_URL = import.meta.env.VITE_WHATSAPP_API_URL || 'https://linedup-official-production.up.railway.app';
+
+// API Key for secure communication with Railway server
+const API_KEY = import.meta.env.VITE_WHATSAPP_API_KEY || '';
+
+/**
+ * Base function for making WhatsApp API calls
+ * @param {string} endpoint - API endpoint (e.g., '/api/send-confirmation')
+ * @param {object} data - Request body
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+async function sendRequest(endpoint, data) {
+  try {
+    console.log(`📱 WhatsApp Service: Calling ${endpoint}`, data);
+    
+    const headers = { 'Content-Type': 'application/json' };
+    
+    // Add API key if configured
+    if (API_KEY) {
+      headers['X-API-Key'] = API_KEY;
+    }
+    
+    const response = await fetch(`${WHATSAPP_API_URL}${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data)
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ WhatsApp API error (${response.status}):`, errorText);
+      return { success: false, error: `HTTP ${response.status}: ${errorText}` };
+    }
+    
+    const result = await response.json().catch(() => ({}));
+    console.log(`✅ WhatsApp Service: ${endpoint} success`, result);
+    return { success: true, data: result };
+  } catch (error) {
+    console.error(`❌ WhatsApp Service error:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Send OTP code for phone verification
+ * @param {string} phone - Phone number
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+export async function sendOTP(phone) {
+  return sendRequest('/api/otp/send', { phone });
+}
+
+/**
+ * Verify OTP code
+ * @param {string} phone - Phone number
+ * @param {string} code - OTP code entered by user
+ * @returns {Promise<{success: boolean, verified?: boolean, error?: string}>}
+ */
+export async function verifyOTP(phone, code) {
+  return sendRequest('/api/otp/verify', { phone, code });
+}
+
+/**
+ * Send booking confirmation message
+ * @param {object} params
+ * @param {string} params.phone - Client phone number
+ * @param {string} params.clientName - Client name
+ * @param {string} params.businessName - Business name
+ * @param {string} params.date - Booking date
+ * @param {string} params.time - Booking time
+ * @param {string} [params.serviceName] - Service name (optional)
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+export async function sendConfirmation({ phone, clientName, businessName, date, time, serviceName }) {
+  if (!phone) {
+    console.log('⏭️ WhatsApp: No phone number, skipping confirmation');
+    return { success: false, error: 'No phone number' };
+  }
+  
+  return sendRequest('/api/send-confirmation', {
+    phone,
+    clientName,
+    businessName,
+    date,
+    time,
+    serviceName,
+    whatsappEnabled: true
+  });
+}
+
+/**
+ * Send booking cancellation message
+ * @param {object} params
+ * @param {string} params.phone - Client phone number
+ * @param {string} params.clientName - Client name
+ * @param {string} params.businessName - Business name
+ * @param {string} params.date - Booking date
+ * @param {string} params.time - Booking time
+ * @param {string} [params.serviceName] - Service name (optional)
+ * @param {string} [params.cancelledBy] - Who cancelled ('client' or 'owner')
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+export async function sendCancellation({ phone, clientName, businessName, date, time, serviceName, cancelledBy = 'owner' }) {
+  if (!phone) {
+    console.log('⏭️ WhatsApp: No phone number, skipping cancellation');
+    return { success: false, error: 'No phone number' };
+  }
+  
+  // Uses /api/send-update endpoint (same template for updates/cancellations)
+  return sendRequest('/api/send-update', {
+    phone,
+    clientName,
+    businessName,
+    whatsappEnabled: true
+  });
+}
+
+/**
+ * Send booking update message (reschedule notification)
+ * @param {object} params
+ * @param {string} params.phone - Client phone number
+ * @param {string} params.clientName - Client name
+ * @param {string} params.businessName - Business name
+ * @param {string} [params.oldDate] - Old booking date
+ * @param {string} [params.oldTime] - Old booking time
+ * @param {string} [params.newDate] - New booking date
+ * @param {string} [params.newTime] - New booking time
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+export async function sendUpdate({ phone, clientName, businessName, oldDate, oldTime, newDate, newTime }) {
+  if (!phone) {
+    console.log('⏭️ WhatsApp: No phone number, skipping update');
+    return { success: false, error: 'No phone number' };
+  }
+  
+  return sendRequest('/api/send-update', {
+    phone,
+    clientName,
+    businessName,
+    oldDate,
+    oldTime,
+    newDate,
+    newTime,
+    whatsappEnabled: true
+  });
+}
+
+/**
+ * Send waiting list notification (slot became available)
+ * @param {object} params
+ * @param {string} params.phone - Client phone number
+ * @param {string} params.clientName - Client name
+ * @param {string} params.date - Date with available slot
+ * @param {string} params.time - Available time
+ * @param {string} [params.serviceName] - Service name (optional)
+ * @param {string} [params.templateId] - WhatsApp template ID
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+export async function sendWaitingListNotification({ phone, clientName, date, time, serviceName, templateId = 'HXd75dea9bfaea32988c7532ecc6969b34' }) {
+  if (!phone) {
+    console.log('⏭️ WhatsApp: No phone number, skipping waiting list notification');
+    return { success: false, error: 'No phone number' };
+  }
+  
+  return sendRequest('/api/send-waiting-list', {
+    phone,
+    clientName,
+    date,
+    time,
+    serviceName,
+    templateId
+  });
+}
+
+/**
+ * Send reminder message
+ * @param {object} params
+ * @param {string} params.phone - Client phone number
+ * @param {string} params.clientName - Client name
+ * @param {string} params.businessName - Business name
+ * @param {string} params.date - Booking date
+ * @param {string} params.time - Booking time
+ * @param {string} [params.serviceName] - Service name (optional)
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+export async function sendReminder({ phone, clientName, businessName, date, time, serviceName }) {
+  if (!phone) {
+    console.log('⏭️ WhatsApp: No phone number, skipping reminder');
+    return { success: false, error: 'No phone number' };
+  }
+  
+  return sendRequest('/api/send-reminder', {
+    phone,
+    clientName,
+    businessName,
+    date,
+    time,
+    serviceName,
+    whatsappEnabled: true
+  });
+}
+
+/**
+ * Send broadcast message to multiple recipients
+ * @param {object} params
+ * @param {string[]} params.phones - Array of phone numbers
+ * @param {string} params.message - Message content
+ * @param {string} params.businessName - Business name
+ * @returns {Promise<{success: boolean, sent: number, failed: number, error?: string}>}
+ */
+export async function sendBroadcast({ phones, message, businessName }) {
+  if (!phones || phones.length === 0) {
+    return { success: false, sent: 0, failed: 0, error: 'No phone numbers' };
+  }
+  
+  return sendRequest('/api/send-broadcast', {
+    phones,
+    message,
+    businessName
+  });
+}
+
+export default {
+  sendOTP,
+  verifyOTP,
+  sendConfirmation,
+  sendCancellation,
+  sendUpdate,
+  sendWaitingListNotification,
+  sendReminder,
+  sendBroadcast,
+  WHATSAPP_API_URL
+};

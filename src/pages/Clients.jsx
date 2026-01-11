@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, User, Phone, Mail, Calendar, Loader2, Search, Send, MessageSquare } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { format, parseISO } from "date-fns";
 import { he } from "date-fns/locale";
-import { sendBroadcast } from "@/lib/supabase";
+
+// Import centralized services
+import { sendBroadcast } from "@/services/whatsappService";
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -49,12 +51,13 @@ export default function Clients() {
     const clientMap = {};
     
     bookings.forEach(booking => {
-      // Skip walk-in clients
-      if (!booking.client_email || booking.client_email.includes('walkin_')) return;
+      // Skip walk-in clients (no phone or walkin email pattern)
+      if (!booking.client_phone) return;
+      if (booking.client_email?.includes('walkin_')) return;
       
-      if (!clientMap[booking.client_email]) {
-        clientMap[booking.client_email] = {
-          email: booking.client_email,
+      if (!clientMap[booking.client_phone]) {
+        clientMap[booking.client_phone] = {
+          email: booking.client_email || "",
           name: booking.client_name,
           phone: booking.client_phone,
           totalBookings: 0,
@@ -65,7 +68,7 @@ export default function Clients() {
         };
       }
       
-      const client = clientMap[booking.client_email];
+      const client = clientMap[booking.client_phone];
       client.totalBookings++;
       
       if (booking.status === 'completed') {
@@ -113,7 +116,7 @@ export default function Clients() {
       <div className="max-w-2xl mx-auto">
         <button
           onClick={() => navigate(createPageUrl("BusinessDashboard"))}
-          className="flex items-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors h-12"
+          className="flex items-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors py-2 px-1 -ml-1 min-h-[44px]"
         >
           <ArrowRight className="w-5 h-5" />
           <span className="font-medium">חזרה</span>
@@ -130,7 +133,7 @@ export default function Clients() {
           <div className="bg-[#1A1F35] rounded-2xl p-4 border-2 border-gray-800">
             <p className="text-[#94A3B8] text-sm mb-1">סך תורים</p>
             <p className="text-3xl font-bold text-white">
-              {bookings.filter(b => !b.client_email?.includes('walkin_')).length}
+              {bookings.filter(b => b.client_phone && !b.client_email?.includes('walkin_')).length}
             </p>
           </div>
         </div>
@@ -197,19 +200,22 @@ export default function Clients() {
                     setBroadcastResult(null);
                     
                     try {
-                      const clientPhones = clients.filter(c => c.phone).map(c => c.phone);
+                      const clientsWithPhone = clients.filter(c => c.phone).map(c => ({
+                        phone: c.phone,
+                        name: c.name
+                      }));
                       
                       const result = await sendBroadcast({
-                        phones: clientPhones,
-                        businessName: business.name,
+                        phones: clientsWithPhone.map(c => c.phone),
+                        recipients: clientsWithPhone,
                         message: broadcastMessage,
-                        businessId: business.id
+                        businessName: business.name
                       });
                       
                       if (result.success) {
                         setBroadcastResult({
                           success: true,
-                          message: `✅ ההודעה נשלחה ל-${result.sent} לקוחות!`
+                          message: `✅ ההודעה נשלחה ל-${result.data?.sent || 0} לקוחות!`
                         });
                         setBroadcastMessage("");
                         setTimeout(() => {
@@ -219,9 +225,7 @@ export default function Clients() {
                       } else {
                         setBroadcastResult({
                           success: false,
-                          message: result.limitReached 
-                            ? `❌ הגעת למגבלת ההודעות החודשית. נשלחו ${result.sent} הודעות.`
-                            : `❌ שגיאה בשליחה`
+                          message: `❌ שגיאה: ${result.error}`
                         });
                       }
                     } catch (error) {

@@ -209,12 +209,21 @@ export default function WaitingListModal({
                   value={format(date, 'yyyy-MM-dd')}
                   onChange={(e) => setDate(new Date(e.target.value))}
                   min={format(new Date(), 'yyyy-MM-dd')}
+                  max={business?.booking_window_enabled && business?.booking_window_days > 0 
+                    ? format(new Date(Date.now() + business.booking_window_days * 24 * 60 * 60 * 1000), 'yyyy-MM-dd')
+                    : undefined}
                   className="w-full bg-[#0C0F1D] border border-gray-700 rounded-xl p-3 text-white focus:border-[#FF6B35] outline-none"
                   dir="ltr"
                 />
                 <p className="text-xs text-[#94A3B8]">
                   {format(date, 'EEEE, d בMMMM yyyy', { locale: he })}
                 </p>
+                {business?.booking_window_enabled && business?.booking_window_days > 0 && (
+                  <p className="text-xs text-[#94A3B8] flex items-center gap-1">
+                    <span>🔒</span>
+                    ניתן להירשם עד {business.booking_window_days} ימים מראש
+                  </p>
+                )}
               </div>
 
               {/* Time Range */}

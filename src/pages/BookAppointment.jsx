@@ -12,8 +12,9 @@ import { he } from "date-fns/locale";
 import { generateGoogleCalendarLink } from "@/utils/calendarLinks";
 import WaitingListModal from "@/components/WaitingListModal";
 
-// WhatsApp Service API
-const WHATSAPP_API_URL = 'https://linedup-official-production.up.railway.app';
+// Import centralized services
+import { sendConfirmation, sendUpdate } from "@/services/whatsappService";
+import { notifyWaitingListForOpenedSlot } from "@/services/waitingListService";
 
 export default function BookAppointment() {
   const navigate = useNavigate();
@@ -309,27 +310,14 @@ export default function BookAppointment() {
       
       // Send WhatsApp confirmation if booking is confirmed and user has phone
       if (data.status === 'confirmed' && data.client_phone && user?.whatsapp_notifications_enabled !== false) {
-        try {
-          console.log('📱 Sending WhatsApp confirmation...');
-          await fetch(`${WHATSAPP_API_URL}/api/send-confirmation`, {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              
-            },
-            body: JSON.stringify({
-              phone: data.client_phone,
-              clientName: data.client_name,
-              businessName: selectedBusiness.name,
-              date: data.date,
-              time: data.time,
-              whatsappEnabled: user?.whatsapp_notifications_enabled !== false
-            })
-          });
-          console.log('✅ WhatsApp confirmation sent');
-        } catch (error) {
-          console.error('❌ Failed to send WhatsApp confirmation:', error);
-        }
+        await sendConfirmation({
+          phone: data.client_phone,
+          clientName: data.client_name,
+          businessName: selectedBusiness.name,
+          date: data.date,
+          time: data.time,
+          serviceName: data.service_name
+        });
       }
       
       // Create notification for business owner
@@ -371,138 +359,40 @@ export default function BookAppointment() {
     },
     onSuccess: async (data) => {
       console.log('✅ Booking updated successfully:', data);
-      console.log('📊 Full booking data:', JSON.stringify(data, null, 2));
       
       // Send WhatsApp update notification
       if (data.client_phone && user?.whatsapp_notifications_enabled !== false) {
-        try {
-          console.log('📱 Sending WhatsApp update notification...');
-          await fetch(`${WHATSAPP_API_URL}/api/send-update`, {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              
-            },
-            body: JSON.stringify({
-              phone: data.client_phone,
-              clientName: data.client_name,
-              businessName: selectedBusiness.name,
-              whatsappEnabled: user?.whatsapp_notifications_enabled !== false
-            })
-          });
-          console.log('✅ WhatsApp update notification sent');
-        } catch (error) {
-          console.error('❌ Failed to send WhatsApp update:', error);
-        }
-      }
-      
-      // Notify waiting list if date or time changed (old slot now available)
-      if (data.oldDate !== data.date || data.oldTime !== data.time) {
-        try {
-          const freedTime = data.oldTime; // The time that became available
-          const freedDuration = data.duration || 30;
-          console.log('📋 Slot freed, checking waiting list for old date:', data.oldDate, 'time:', freedTime);
-          
-          const waitingList = await base44.entities.WaitingList.filter({
-            business_id: data.business_id,
-            date: data.oldDate,
-            status: 'waiting'
-          });
-          
-          console.log(`📋 Found ${waitingList.length} people on waiting list for old date`);
-          
-          // Get all bookings for this date to check available time
-          const allBookings = await base44.entities.Booking.filter({
-            business_id: data.business_id,
-            date: data.oldDate
-          });
-          
-          // Filter out cancelled bookings and the rescheduled one
-          const activeBookings = allBookings.filter(b => 
-            b.status !== 'cancelled' && b.id !== data.id
-          );
-          
-          // Filter waiting list entries where:
-          // 1. Freed time is within their preferred range
-          // 2. Their service duration fits starting from freed time
-          const matchingEntries = waitingList.filter(entry => {
-            const fromTime = entry.from_time || '00:00';
-            const toTime = entry.to_time || '23:59';
-            const serviceDuration = entry.service_duration || 30;
-            
-            // Check if freed time is within the entry's preferred range
-            if (freedTime < fromTime || freedTime > toTime) {
-              return false;
-            }
-            
-            // Check if service duration fits starting from freed time
-            const [freedH, freedM] = freedTime.split(':').map(Number);
-            const freedStart = freedH * 60 + freedM;
-            const serviceEnd = freedStart + serviceDuration;
-            
-            // Check if there's a booking that would conflict
-            const hasConflict = activeBookings.some(b => {
-              const [bH, bM] = b.time.split(':').map(Number);
-              const bookingStart = bH * 60 + bM;
-              const bookingEnd = bookingStart + (b.duration || 30);
-              return (freedStart < bookingEnd && serviceEnd > bookingStart);
-            });
-            
-            if (hasConflict) {
-              console.log(`⏭️ Skipping ${entry.client_name}: ${serviceDuration}min service doesn't fit at ${freedTime}`);
-              return false;
-            }
-            
-            console.log(`✅ ${entry.client_name}: ${serviceDuration}min service FITS at ${freedTime}`);
-            return true;
-          });
-          
-          console.log(`📋 ${matchingEntries.length} entries match time AND have enough duration`);
-          
-          for (const entry of matchingEntries) {
-            if (entry.client_phone) {
-              try {
-                await fetch(`${WHATSAPP_API_URL}/api/send-waiting-list`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    phone: entry.client_phone,
-                    clientName: entry.client_name,
-                    date: data.oldDate,
-                    time: freedTime,
-                    serviceName: entry.service_name || data.service_name,
-                    templateId: 'HXd75dea9bfaea32988c7532ecc6969b34'
-                  })
-                });
-                console.log(`✅ Waiting list notification sent to ${entry.client_name} for time ${freedTime}`);
-                
-                await base44.entities.WaitingList.update(entry.id, {
-                  status: 'notified',
-                  notified_date: new Date().toISOString(),
-                  notified_time: freedTime
-                });
-              } catch (error) {
-                console.error(`❌ Failed to notify ${entry.client_name}:`, error);
-              }
-            }
-          }
-        } catch (error) {
-          console.error('❌ Error notifying waiting list:', error);
-        }
-      }
-      
-      // Create notification for business owner about rescheduling
-      try {
-        console.log('📢 Creating reschedule notification for business:', data.business_id);
-        console.log('📝 Notification data:', {
-          business_id: data.business_id,
-          client_name: data.client_name,
-          service_name: data.service_name,
+        await sendUpdate({
+          phone: data.client_phone,
+          clientName: data.client_name,
+          businessName: selectedBusiness.name,
           oldDate: data.oldDate,
           oldTime: data.oldTime,
           newDate: data.date,
           newTime: data.time
         });
+      }
+      
+      // Notify waiting list if date or time changed (old slot now available)
+      if (data.oldDate !== data.date || data.oldTime !== data.time) {
+        const freedDuration = data.duration || 30;
+        const [h, m] = data.oldTime.split(':').map(Number);
+        const endMinutes = h * 60 + m + freedDuration;
+        const endH = Math.floor(endMinutes / 60);
+        const endM = endMinutes % 60;
+        const endTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
+        
+        await notifyWaitingListForOpenedSlot({
+          businessId: data.business_id,
+          date: data.oldDate,
+          startTime: data.oldTime,
+          endTime
+        });
+      }
+      
+      // Create notification for business owner about rescheduling
+      try {
+        console.log('📢 Creating reschedule notification for business:', data.business_id);
         const notification = await base44.entities.Notification.create({
           business_id: data.business_id,
           type: 'booking_rescheduled',
@@ -1193,6 +1083,14 @@ const handleBooking = async () => {
                   const isPast = date < startOfDay(new Date());
                   const isAvailable = getAvailableDates().some(d => isSameDay(d, date));
                   
+                  // Check booking window limit
+                  const bookingWindowDays = selectedBusiness?.booking_window_days || 0;
+                  const bookingWindowEnabled = selectedBusiness?.booking_window_enabled;
+                  const maxDate = bookingWindowEnabled && bookingWindowDays > 0 
+                    ? addDays(startOfDay(new Date()), bookingWindowDays)
+                    : null;
+                  const isBeyondWindow = maxDate && date > maxDate;
+                  
                   return (
                     <button
                       key={date.toString()}
@@ -1203,22 +1101,37 @@ const handleBooking = async () => {
                         setSelectedDate(date);
                         setStep(5);
                       }}
-                      disabled={isPast || !isAvailable}
+                      disabled={isPast || !isAvailable || isBeyondWindow}
                       className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all ${
-                        dayIsToday && isAvailable && !isPast
+                        dayIsToday && isAvailable && !isPast && !isBeyondWindow
                           ? 'bg-gradient-to-r from-[#FF6B35] to-[#FF1744] text-white font-bold scale-105'
-                          : isAvailable && !isPast
+                          : isAvailable && !isPast && !isBeyondWindow
                             ? 'bg-[#0C0F1D] text-white hover:bg-[#FF6B35]/20 hover:scale-105'
-                            : 'bg-[#1A1F35]/50 text-[#94A3B8]/50 cursor-not-allowed'
+                            : isBeyondWindow && isAvailable
+                              ? 'bg-[#1A1F35]/30 text-[#94A3B8]/30 cursor-not-allowed border border-dashed border-gray-700'
+                              : 'bg-[#1A1F35]/50 text-[#94A3B8]/50 cursor-not-allowed'
                       } ${selectedDate && isSameDay(selectedDate, date) && 'border-2 border-[#FF6B35]'}
                         disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                       <span className="text-lg">{format(date, 'd')}</span>
+                      {isBeyondWindow && isAvailable && (
+                        <span className="text-[8px] text-[#94A3B8]/50">🔒</span>
+                      )}
                     </button>
                   );
                 })}
               </div>
             </div>
+
+            {/* Booking window notice */}
+            {selectedBusiness?.booking_window_enabled && selectedBusiness?.booking_window_days > 0 && (
+              <div className="mt-4 p-3 bg-[#1A1F35] rounded-xl border border-gray-700 flex items-center gap-2 text-sm">
+                <span className="text-lg">🔒</span>
+                <span className="text-[#94A3B8]">
+                  ניתן לקבוע תורים עד {selectedBusiness.booking_window_days} ימים מראש
+                </span>
+              </div>
+            )}
 
             {getAvailableDates().length === 0 && (
               <div className="text-center py-12 bg-[#1A1F35] rounded-2xl border border-gray-800 mt-6">
