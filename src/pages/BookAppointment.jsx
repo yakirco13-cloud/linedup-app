@@ -1197,8 +1197,9 @@ const handleBooking = async () => {
                     <button
                       key={date.toString()}
                       onClick={() => {
-                        // Invalidate bookings cache to force fresh fetch
+                        // Invalidate caches to force fresh fetch
                         queryClient.invalidateQueries({ queryKey: ['existing-bookings'] });
+                        queryClient.invalidateQueries({ queryKey: ['schedule-overrides'] });
                         setSelectedDate(date);
                         setStep(5);
                       }}

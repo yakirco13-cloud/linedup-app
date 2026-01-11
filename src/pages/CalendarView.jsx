@@ -357,11 +357,44 @@ export default function CalendarView() {
 
   const deleteOverrideMutation = useMutation({
     mutationFn: (id) => base44.entities.ScheduleOverride.delete(id),
-    onSuccess: () => {
+    onSuccess: async () => {
+      console.log('🔴🔴🔴 Schedule Override DELETED! 🔴🔴🔴');
+      
+      // Get the date from editingOverride before clearing it
+      const deletedDate = editingOverride?.date;
+      console.log('📅 Deleted override was for date:', deletedDate);
+      
       queryClient.invalidateQueries({ queryKey: ['schedule-overrides'] });
       setShowOverrideModal(false);
       setSelectedOverrideDate(null);
       setEditingOverride(null);
+      
+      // When override is deleted, it reverts to default business hours
+      // This might OPEN more availability, so check waiting list
+      if (deletedDate && business?.working_hours) {
+        // Get the day of week for the deleted date
+        const dateObj = new Date(deletedDate);
+        const dayIndex = dateObj.getDay();
+        const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const dayKey = dayKeys[dayIndex];
+        const defaultHours = business.working_hours[dayKey];
+        
+        console.log('📅 Default hours for', dayKey, ':', defaultHours);
+        
+        if (defaultHours?.enabled && defaultHours?.shifts?.length > 0) {
+          const firstShift = defaultHours.shifts[0];
+          const lastShift = defaultHours.shifts[defaultHours.shifts.length - 1];
+          console.log('✅ Reverting to default hours - will notify waiting list');
+          console.log('📅 From:', firstShift.start, 'To:', lastShift.end);
+          await notifyWaitingListForScheduleChange(deletedDate, firstShift.start, lastShift.end);
+        } else if (defaultHours?.enabled && defaultHours?.start && defaultHours?.end) {
+          // Old format
+          console.log('✅ Reverting to default hours (old format) - will notify waiting list');
+          await notifyWaitingListForScheduleChange(deletedDate, defaultHours.start, defaultHours.end);
+        } else {
+          console.log('❌ Default hours not enabled or not found for', dayKey);
+        }
+      }
     },
   });
 
