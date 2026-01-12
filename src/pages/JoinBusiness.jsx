@@ -105,7 +105,7 @@ export default function JoinBusiness() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] p-4 pb-24 pt-safe">
+    <div className="min-h-screen bg-[#0C0F1D] p-4 pt-safe">
       <div className="max-w-md mx-auto">
         <button
           onClick={() => navigate(createPageUrl("ClientDashboard"))}

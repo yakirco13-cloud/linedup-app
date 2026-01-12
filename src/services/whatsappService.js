@@ -105,25 +105,21 @@ export async function sendConfirmation({ phone, clientName, businessName, date, 
  * @param {object} params
  * @param {string} params.phone - Client phone number
  * @param {string} params.clientName - Client name
- * @param {string} params.businessName - Business name
+ * @param {string} params.serviceName - Service name
  * @param {string} params.date - Booking date
- * @param {string} params.time - Booking time
- * @param {string} [params.serviceName] - Service name (optional)
- * @param {string} [params.cancelledBy] - Who cancelled ('client' or 'owner')
  * @returns {Promise<{success: boolean, error?: string}>}
  */
-export async function sendCancellation({ phone, clientName, businessName, date, time, serviceName, cancelledBy = 'owner' }) {
+export async function sendCancellation({ phone, clientName, serviceName, date }) {
   if (!phone) {
     console.log('⏭️ WhatsApp: No phone number, skipping cancellation');
     return { success: false, error: 'No phone number' };
   }
   
-  // Uses /api/send-update endpoint (same template for updates/cancellations)
-  return sendRequest('/api/send-update', {
+  return sendRequest('/api/send-cancellation', {
     phone,
-    clientName,
-    businessName,
-    whatsappEnabled: true
+    clientName: clientName || 'לקוח',
+    serviceName: serviceName || 'תור',
+    date
   });
 }
 
@@ -163,12 +159,10 @@ export async function sendUpdate({ phone, clientName, businessName, oldDate, old
  * @param {string} params.phone - Client phone number
  * @param {string} params.clientName - Client name
  * @param {string} params.date - Date with available slot
- * @param {string} params.time - Available time
  * @param {string} [params.serviceName] - Service name (optional)
- * @param {string} [params.templateId] - WhatsApp template ID
  * @returns {Promise<{success: boolean, error?: string}>}
  */
-export async function sendWaitingListNotification({ phone, clientName, date, time, serviceName, templateId = 'HXd75dea9bfaea32988c7532ecc6969b34' }) {
+export async function sendWaitingListNotification({ phone, clientName, date, serviceName }) {
   if (!phone) {
     console.log('⏭️ WhatsApp: No phone number, skipping waiting list notification');
     return { success: false, error: 'No phone number' };
@@ -178,9 +172,7 @@ export async function sendWaitingListNotification({ phone, clientName, date, tim
     phone,
     clientName,
     date,
-    time,
-    serviceName,
-    templateId
+    serviceName
   });
 }
 

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl, formatTime } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { ArrowRight, Calendar, Clock, User, X, Loader2, Edit, Bell, Trash2, CalendarPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format, parseISO } from "date-fns";
@@ -13,7 +13,7 @@ import { generateGoogleCalendarLink } from "@/utils/calendarLinks";
 // Import centralized services
 import { sendCancellation } from "@/services/whatsappService";
 import { notifyWaitingListForOpenedSlot } from "@/services/waitingListService";
-import { parseDate } from "@/services/dateService";
+import { parseDate, toISO, formatNumeric } from "@/services/dateService";
 
 export default function MyBookings() {
   const navigate = useNavigate();
@@ -26,10 +26,10 @@ export default function MyBookings() {
     queryFn: () => base44.entities.Booking.filter({ client_phone: user.phone }, '-date', 20),
     enabled: !!user?.phone,
     staleTime: 5 * 1000,
-    cacheTime: 10 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     refetchInterval: 20000,
     refetchOnWindowFocus: true,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
   const { data: businesses = [] } = useQuery({
@@ -47,8 +47,8 @@ export default function MyBookings() {
     },
     enabled: bookings.length > 0,
     staleTime: 10 * 60 * 1000,
-    cacheTime: 15 * 60 * 1000,
-    keepPreviousData: true,
+    gcTime: 15 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
   // Fetch waiting list entries for this user (both waiting and notified)
@@ -66,14 +66,8 @@ export default function MyBookings() {
       
       // Auto-delete expired entries (date < today)
       const expiredEntries = allEntries.filter(entry => {
-        let entryDate;
-        if (entry.date && entry.date.includes('/')) {
-          const [d, m, y] = entry.date.split('/');
-          entryDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
-        } else {
-          entryDate = new Date(entry.date);
-        }
-        return entryDate < today;
+        const entryDate = parseDate(entry.date);
+        return entryDate && entryDate < today;
       });
       
       // Delete expired entries in background
@@ -88,14 +82,8 @@ export default function MyBookings() {
       
       // Return only non-expired entries
       return allEntries.filter(entry => {
-        let entryDate;
-        if (entry.date && entry.date.includes('/')) {
-          const [d, m, y] = entry.date.split('/');
-          entryDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
-        } else {
-          entryDate = new Date(entry.date);
-        }
-        return entryDate >= today;
+        const entryDate = parseDate(entry.date);
+        return entryDate && entryDate >= today;
       });
     },
     enabled: !!user?.phone,
@@ -188,14 +176,12 @@ export default function MyBookings() {
     },
     onSuccess: async (booking) => {
       // Send WhatsApp cancellation notification
-      const business = businesses.find(b => b.id === booking.business_id);
       if (booking.client_phone && user?.whatsapp_notifications_enabled !== false) {
         await sendCancellation({
           phone: booking.client_phone,
-          clientName: booking.client_name,
-          businessName: business?.name || 'העסק',
-          date: booking.date,
-          time: booking.time
+          clientName: booking.client_name || 'לקוח',
+          serviceName: booking.service_name || 'תור',
+          date: booking.date
         });
       }
       
@@ -353,7 +339,7 @@ export default function MyBookings() {
   const displayedBookings = filter === 'upcoming' ? upcomingBookings : pastBookings;
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] p-4 pb-24 pt-safe">
+    <div className="min-h-screen bg-[#0C0F1D] p-4 pt-safe">
       <div className="max-w-2xl mx-auto">
         <button
           onClick={() => navigate("/ClientDashboard")}
@@ -401,26 +387,11 @@ export default function MyBookings() {
             <div className="space-y-3">
               {waitingListEntries
                 .filter(entry => {
-                  // Only show future dates - handle both date formats
-                  let entryDate;
-                  if (entry.date && entry.date.includes('/')) {
-                    const [d, m, y] = entry.date.split('/');
-                    entryDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
-                  } else {
-                    entryDate = new Date(entry.date);
-                  }
-                  return entryDate >= new Date(new Date().toDateString());
+                  // Only show future dates
+                  const entryDate = parseDate(entry.date);
+                  return entryDate && entryDate >= new Date(new Date().toDateString());
                 })
                 .map((entry) => {
-                  // Parse date for display
-                  let displayDate;
-                  if (entry.date && entry.date.includes('/')) {
-                    const [d, m, y] = entry.date.split('/');
-                    displayDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
-                  } else {
-                    displayDate = parseISO(entry.date);
-                  }
-                  
                   return (
                 <div
                   key={entry.id}
@@ -448,7 +419,7 @@ export default function MyBookings() {
                       )}
                       <div className="flex items-center gap-3 text-[#94A3B8] mb-1">
                         <Calendar className="w-4 h-4" />
-                        <span>{format(displayDate, 'EEEE, d.M.yyyy', { locale: he })}</span>
+                        <span>{format(parseDate(entry.date), 'EEEE', { locale: he })}, {formatNumeric(entry.date)}</span>
                       </div>
                       {(entry.from_time || entry.to_time) && (
                         <div className="flex items-center gap-3 text-[#94A3B8]">

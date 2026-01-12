@@ -308,7 +308,7 @@ export default function BusinessSettings() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] pb-24">
+    <div className="min-h-screen bg-[#0C0F1D] ">
       <style>{`
         /* Fix Switch white dot positioning - override Tailwind's translate-x-4 */
         button[role="switch"] span[data-state] {

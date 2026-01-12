@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
@@ -15,11 +15,13 @@ import { he } from "date-fns/locale";
 
 // Import centralized services
 import { sendConfirmation, sendUpdate } from "@/services/whatsappService";
+import { formatNumeric } from "@/services/dateService";
 
 export default function CreateBooking() {
   const navigate = useNavigate();
   const { user } = useUser();
   const queryClient = useQueryClient();
+  const submitLockRef = useRef(false); // Synchronous lock to prevent double-submit
   const [success, setSuccess] = useState(false);
   const [clientType, setClientType] = useState('existing');
   const [editMode, setEditMode] = useState(false);
@@ -291,10 +293,16 @@ export default function CreateBooking() {
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       queryClient.invalidateQueries({ queryKey: ['all-bookings'] });
       queryClient.invalidateQueries({ queryKey: ['recurring-appointments'] });
+      submitLockRef.current = false; // Reset lock on success
       setSuccess(true);
       setTimeout(() => {
         navigate(createPageUrl("CalendarView"));
       }, 1500);
+    },
+    onError: (error) => {
+      console.error('❌ Booking failed:', error);
+      submitLockRef.current = false; // Reset lock on error
+      alert('שגיאה ביצירת התור. אנא נסה שנית.');
     },
   });
 
@@ -375,6 +383,7 @@ export default function CreateBooking() {
       queryClient.invalidateQueries({ queryKey: ['all-bookings'] });
       queryClient.invalidateQueries({ queryKey: ['recurring-appointments'] });
       
+      submitLockRef.current = false; // Reset lock on success
       setSuccess(true);
       setTimeout(() => {
         navigate(createPageUrl("CalendarView"));
@@ -383,6 +392,8 @@ export default function CreateBooking() {
       return { rule: recurringRule, bookings: bookingsCreated };
     } catch (error) {
       console.error('❌ Failed to create recurring appointment:', error);
+      submitLockRef.current = false; // Reset lock on error
+      alert('שגיאה ביצירת תור חוזר. אנא נסה שנית.');
       throw error;
     } finally {
       setCreatingRecurring(false);
@@ -405,6 +416,15 @@ export default function CreateBooking() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Synchronous lock check - prevents double-submit
+    if (submitLockRef.current) {
+      console.log('⚠️ Submit already in progress (ref), ignoring');
+      return;
+    }
+    
+    // Lock immediately
+    submitLockRef.current = true;
+
     // Check for conflicts and show warning
     if (conflictWarning) {
       const conflictBookingEnd = new Date(`${conflictWarning.date}T${conflictWarning.time}`);
@@ -423,7 +443,10 @@ export default function CreateBooking() {
         `האם להמשיך בכל זאת?`
       );
       
-      if (!shouldContinue) return;
+      if (!shouldContinue) {
+        submitLockRef.current = false; // Unlock on cancel
+        return;
+      }
     }
 
     // If recurring is enabled, use the recurring flow
@@ -481,7 +504,7 @@ export default function CreateBooking() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] p-6 pb-24">
+    <div className="min-h-screen bg-[#0C0F1D] p-6">
       <div className="max-w-2xl mx-auto">
         <button
           onClick={() => navigate(createPageUrl("CalendarView"))}
@@ -922,7 +945,7 @@ export default function CreateBooking() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-[#94A3B8]">מועד</span>
                   <span className="font-semibold">
-                    {formData.date ? new Date(formData.date).toLocaleDateString('he-IL', { day: 'numeric', month: 'long' }) : ''}, {selectedTime}
+                    {formatNumeric(formData.date)}, {selectedTime}
                   </span>
                 </div>
                 

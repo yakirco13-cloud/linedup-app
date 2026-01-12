@@ -2,12 +2,30 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useUser } from "@/components/UserContext";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, LogOut, Briefcase, Globe, Settings as SettingsIcon, RefreshCw, Clock, CheckCircle, Edit, Loader2, MessageSquare } from "lucide-react";
+import { 
+  User, 
+  LogOut, 
+  Briefcase, 
+  Globe, 
+  RefreshCw, 
+  Clock, 
+  CheckCircle, 
+  Loader2, 
+  MessageSquare,
+  ChevronLeft,
+  HelpCircle,
+  FileText,
+  Users,
+  Store,
+  Palette,
+  X,
+  Repeat
+} from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
 export default function Settings() {
@@ -16,12 +34,13 @@ export default function Settings() {
   const queryClient = useQueryClient();
   const [switching, setSwitching] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [profileForm, setProfileForm] = useState({
     name: user?.name || "",
     phone: user?.phone || ""
   });
 
-  // Update form when user data changes
   useEffect(() => {
     if (user && !editingProfile) {
       setProfileForm({
@@ -40,12 +59,11 @@ export default function Settings() {
     },
     enabled: !!user?.business_id && user?.user_role === 'business_owner',
     staleTime: 10 * 60 * 1000,
-    cacheTime: 15 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
     refetchOnWindowFocus: true,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
-  // Get client's joined business
   const { data: joinedBusiness } = useQuery({
     queryKey: ['joined-business', user?.email],
     queryFn: async () => {
@@ -55,9 +73,9 @@ export default function Settings() {
     },
     enabled: !!user?.joined_business_id && user.joined_business_id && user?.user_role === 'client',
     staleTime: 10 * 60 * 1000,
-    cacheTime: 15 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
     refetchOnWindowFocus: true,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
   const profileUpdateMutation = useMutation({
@@ -71,56 +89,44 @@ export default function Settings() {
   });
 
   const handleLogout = async () => {
-    if (window.confirm('האם אתה בטוח שברצונך להתנתק?')) {
-      await logout();
-      window.location.href = createPageUrl("Welcome");
-    }
+    await logout();
+    window.location.href = createPageUrl("Welcome");
   };
 
   const handleSwitchRole = async () => {
-    if (window.confirm('האם אתה בטוח שברצונך להחליף תפקיד?')) {
-      setSwitching(true);
-      const newRole = user.user_role === 'business_owner' ? 'client' : 'business_owner';
-      
-      await updateUser({ user_role: newRole });
-      await refetchUser();
-      
-      if (newRole === 'business_owner') {
-        const businesses = await base44.entities.Business.filter({ owner_id: user.id });
-        if (businesses.length === 0) {
-          navigate(createPageUrl("BusinessSetup"));
-        } else {
-          navigate(createPageUrl("BusinessDashboard"));
-        }
+    setSwitching(true);
+    const newRole = user.user_role === 'business_owner' ? 'client' : 'business_owner';
+    
+    await updateUser({ user_role: newRole });
+    await refetchUser();
+    
+    if (newRole === 'business_owner') {
+      const businesses = await base44.entities.Business.filter({ owner_id: user.id });
+      if (businesses.length === 0) {
+        navigate(createPageUrl("BusinessSetup"));
       } else {
-        navigate(createPageUrl("ClientDashboard"));
+        navigate(createPageUrl("BusinessDashboard"));
       }
-      setSwitching(false);
+    } else {
+      navigate(createPageUrl("ClientDashboard"));
     }
+    setSwitching(false);
   };
 
   const handleLeaveBusiness = async () => {
-    if (window.confirm('האם אתה בטוח שברצונך לעזוב את העסק? תוכל להצטרף לעסק אחר אחר כך.')) {
-      try {
-        if (!user || !joinedBusiness) {
-          console.error("User or joined business not available.");
-          alert('שגיאה: פרטי משתמש או עסק חסרים.');
-          return;
-        }
-        // Remove the business - set joined_business_id to null
-        await updateUser({ joined_business_id: null });
-        await refetchUser();
-        
-        // Invalidate queries related to business to ensure fresh data if the user joins a new one
-        queryClient.invalidateQueries(['joined-business', user.phone]);
-        queryClient.invalidateQueries(['business', user.business_id]);
-        
-        // Navigate to ClientDashboard which will show the join business screen
-        navigate(createPageUrl("ClientDashboard"));
-      } catch (error) {
-        console.error('Error leaving business:', error);
-        alert('שגיאה בעזיבת העסק. נסה שוב.');
+    try {
+      if (!user || !joinedBusiness) {
+        console.error("User or joined business not available.");
+        return;
       }
+      await updateUser({ joined_business_id: null });
+      await refetchUser();
+      queryClient.invalidateQueries(['joined-business', user.phone]);
+      queryClient.invalidateQueries(['business', user.business_id]);
+      setShowLeaveConfirm(false);
+      navigate(createPageUrl("ClientDashboard"));
+    } catch (error) {
+      console.error('Error leaving business:', error);
     }
   };
 
@@ -132,263 +138,310 @@ export default function Settings() {
     });
   };
 
-  return (
-    <div className="min-h-screen bg-[#0C0F1D] p-4 pb-24 pt-safe">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8 pt-4">הגדרות</h1>
+  const getInitials = (name) => {
+    if (!name) return '?';
+    const parts = name.split(' ');
+    if (parts.length >= 2) {
+      return parts[0][0] + parts[1][0];
+    }
+    return name.substring(0, 2);
+  };
 
-        {/* User Info */}
-        <div className="bg-[#1A1F35] rounded-2xl p-4 mb-6 border border-gray-800">
-          {editingProfile ? (
+  // Menu Item Component
+  const MenuItem = ({ icon: Icon, label, value, onClick, showArrow = true }) => (
+    <button 
+      onClick={onClick}
+      className="w-full flex items-center gap-4 px-4 py-4 hover:bg-white/5 active:bg-white/10 transition-colors"
+    >
+      <Icon className="w-5 h-5 text-[#FF6B35]" />
+      <span className="flex-1 text-right text-white">{label}</span>
+      {value && <span className="text-[#64748B] text-sm">{value}</span>}
+      {showArrow && <ChevronLeft className="w-5 h-5 text-[#64748B]" />}
+    </button>
+  );
+
+  // Destructive Menu Item
+  const DestructiveItem = ({ icon: Icon, label, onClick }) => (
+    <button 
+      onClick={onClick}
+      className="w-full flex items-center gap-4 px-4 py-4 hover:bg-red-500/10 active:bg-red-500/15 transition-colors"
+    >
+      <Icon className="w-5 h-5 text-red-400" />
+      <span className="flex-1 text-right text-red-400">{label}</span>
+    </button>
+  );
+
+  // Card Component
+  const Card = ({ title, children }) => (
+    <div className="mb-5">
+      {title && <p className="text-[#94A3B8] text-sm mb-2 px-1">{title}</p>}
+      <div className="bg-[#1A1F35] rounded-2xl overflow-hidden border border-white/5 divide-y divide-white/5">
+        {children}
+      </div>
+    </div>
+  );
+
+  // Confirmation Modal
+  const ConfirmModal = ({ show, onClose, onConfirm, title, message, confirmText }) => {
+    if (!show) return null;
+    
+    return (
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+        <div className="bg-[#1A1F35] rounded-2xl max-w-sm w-full p-6 border border-white/10">
+          <h2 className="text-lg font-bold text-white text-center mb-2">{title}</h2>
+          <p className="text-[#94A3B8] text-center text-sm mb-6">{message}</p>
+          <div className="flex gap-3">
+            <Button
+              onClick={onClose}
+              variant="outline"
+              className="flex-1 h-11 rounded-xl border-white/10 bg-transparent text-white hover:bg-white/5"
+            >
+              ביטול
+            </Button>
+            <Button
+              onClick={onConfirm}
+              className="flex-1 h-11 rounded-xl font-semibold"
+              style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}
+            >
+              {confirmText}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0C0F1D] pt-safe">
+      {/* Modals */}
+      <ConfirmModal
+        show={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={handleLogout}
+        title="התנתקות"
+        message="האם אתה בטוח שברצונך להתנתק מהחשבון?"
+        confirmText="התנתק"
+      />
+      <ConfirmModal
+        show={showLeaveConfirm}
+        onClose={() => setShowLeaveConfirm(false)}
+        onConfirm={handleLeaveBusiness}
+        title="עזיבת העסק"
+        message="האם אתה בטוח שברצונך לעזוב את העסק? תוכל להצטרף לעסק אחר."
+        confirmText="עזוב"
+      />
+
+      <div className="max-w-2xl mx-auto px-5 pb-8">
+        <h1 className="text-2xl font-bold text-white pt-4 mb-6">הגדרות</h1>
+
+        {/* Profile Section */}
+        {editingProfile ? (
+          <div className="bg-[#1A1F35] rounded-2xl p-5 mb-5 border border-white/5">
+            <div className="flex items-center justify-between mb-6">
+              <button
+                onClick={() => {
+                  setEditingProfile(false);
+                  setProfileForm({ name: user?.name || "", phone: user?.phone || "" });
+                }}
+                className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+              <h2 className="text-lg font-bold text-white">עריכת פרופיל</h2>
+              <div className="w-9" />
+            </div>
+            
             <form onSubmit={handleProfileUpdate} className="space-y-5">
-              <h2 className="text-xl font-bold mb-6">ערוך פרופיל</h2>
-              
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-white text-base font-medium">שם</Label>
+                <Label htmlFor="name" className="text-[#94A3B8] text-sm">שם מלא</Label>
                 <Input
                   id="name"
                   value={profileForm.name}
                   onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
-                  className="bg-[#0C0F1D] border-gray-700 text-white h-12 rounded-xl focus:border-[#FF6B35] focus:ring-[#FF6B35] transition-colors"
+                  className="bg-[#0C0F1D] border-white/10 text-white h-12 rounded-xl focus:border-[#FF6B35] focus:ring-[#FF6B35]/20"
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone" className="text-white text-base font-medium">טלפון</Label>
+                <Label htmlFor="phone" className="text-[#94A3B8] text-sm">מספר טלפון</Label>
                 <Input
                   id="phone"
                   type="tel"
                   value={profileForm.phone}
                   onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                  className="bg-[#0C0F1D] border-gray-700 text-white h-12 rounded-xl focus:border-[#FF6B35] focus:ring-[#FF6B35] transition-colors"
+                  className="bg-[#0C0F1D] border-white/10 text-white h-12 rounded-xl focus:border-[#FF6B35] focus:ring-[#FF6B35]/20"
+                  dir="ltr"
                   required
                 />
               </div>
 
-              <div className="flex gap-3 pt-4">
-                <Button
-                  type="submit"
-                  disabled={profileUpdateMutation.isPending}
-                  className="flex-1 h-12 rounded-xl font-semibold hover:scale-105 active:scale-95 transition-transform"
-                  style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}
-                >
-                  {profileUpdateMutation.isPending ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    'שמור'
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    setEditingProfile(false);
-                    setProfileForm({ name: user?.name || "", phone: user?.phone || "" });
-                  }}
-                  variant="outline"
-                  className="flex-1 h-12 rounded-xl border-gray-700 bg-transparent text-white hover:bg-[#0C0F1D] hover:scale-105 active:scale-95 transition-all"
-                >
-                  ביטול
-                </Button>
-              </div>
+              <Button
+                type="submit"
+                disabled={profileUpdateMutation.isPending}
+                className="w-full h-12 rounded-xl font-semibold hover:scale-[1.02] active:scale-[0.98] transition-transform"
+                style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}
+              >
+                {profileUpdateMutation.isPending ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  'שמור שינויים'
+                )}
+              </Button>
             </form>
-          ) : (
-            <>
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#FF6B35] to-[#FF1744] flex items-center justify-center">
-                  <User className="w-10 h-10 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-xl font-bold mb-1">{user?.name || user?.full_name}</h2>
-                  <p className="text-[#94A3B8] text-sm" dir="ltr">{user?.phone ? `0${user.phone.slice(3)}` : ''}</p>
-                </div>
-                <Button
-                  onClick={() => setEditingProfile(true)}
-                  variant="ghost"
-                  size="sm"
-                  className="text-[#FF6B35] hover:text-[#FF6B35]/80 hover:bg-[#FF6B35]/10 h-10 w-10 rounded-xl hover:scale-110 transition-all"
-                >
-                  <Edit className="w-5 h-5" />
-                </Button>
+          </div>
+        ) : (
+          <Card>
+            <button 
+              onClick={() => setEditingProfile(true)}
+              className="w-full flex items-center gap-4 p-4 hover:bg-white/5 transition-colors"
+            >
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#FF6B35] to-[#FF1744] flex items-center justify-center flex-shrink-0">
+                <span className="text-lg font-bold text-white">
+                  {getInitials(user?.name || user?.full_name)}
+                </span>
               </div>
-
-              <div className="pt-5 border-t border-gray-800 space-y-4">
-                <div className="flex items-center justify-between py-2">
-                  <div className="flex items-center gap-3">
-                    <Briefcase className="w-5 h-5 text-[#94A3B8]" />
-                    <span className="text-white font-medium">תפקיד</span>
-                  </div>
-                  <span className="text-[#94A3B8]">
-                    {user?.user_role === 'business_owner' ? 'בעל עסק' : 'לקוח'}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between py-2">
-                  <div className="flex items-center gap-3">
-                    <Globe className="w-5 h-5 text-[#94A3B8]" />
-                    <span className="text-white font-medium">שפה</span>
-                  </div>
-                  <span className="text-[#94A3B8]">עברית</span>
-                </div>
+              <div className="flex-1 text-right min-w-0">
+                <h2 className="font-bold text-white truncate">
+                  {user?.name || user?.full_name}
+                </h2>
+                <p className="text-[#64748B] text-sm" dir="ltr">
+                  {user?.phone ? `0${user.phone.slice(3)}` : ''}
+                </p>
               </div>
-
-              {user?.is_admin && (
-                <Button
-                  onClick={handleSwitchRole}
-                  disabled={switching}
-                  className="w-full mt-6 gap-2 h-12 rounded-xl bg-blue-600 hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all font-semibold"
-                >
-                  <RefreshCw className={`w-5 h-5 ${switching ? 'animate-spin' : ''}`} />
-                  <span>החלף תפקיד ל{user?.user_role === 'business_owner' ? 'לקוח' : 'בעל עסק'}</span>
-                </Button>
-              )}
-            </>
-          )}
-        </div>
+              <ChevronLeft className="w-5 h-5 text-[#64748B] flex-shrink-0" />
+            </button>
+          </Card>
+        )}
 
         {/* Business Owner Settings */}
         {user?.user_role === 'business_owner' && business && (
-          <>
-            <div className="bg-[#1A1F35] rounded-2xl p-6 mb-6 border border-gray-800">
-              <h3 className="font-bold mb-6 flex items-center gap-2 text-lg">
-                <SettingsIcon className="w-6 h-6 text-[#FF6B35]" />
-                ניהול העסק
-              </h3>
-              
-              <div className="space-y-3">
-                <Button
-                  onClick={() => navigate(createPageUrl("BusinessSettings"))}
-                  variant="ghost"
-                  className="w-full justify-start gap-3 h-12 hover:bg-[#FF6B35]/10 text-white hover:text-white rounded-xl font-medium hover:scale-[1.02] transition-all"
-                >
-                  <Briefcase className="w-5 h-5" />
-                  <span>עריכת פרטי העסק</span>
-                </Button>
-
-                <Button
-                  onClick={() => navigate(createPageUrl("ServiceManagement"))}
-                  variant="ghost"
-                  className="w-full justify-start gap-3 h-12 hover:bg-[#FF6B35]/10 text-white hover:text-white rounded-xl font-medium hover:scale-[1.02] transition-all"
-                >
-                  <SettingsIcon className="w-5 h-5" />
-                  <span>ניהול שירותים</span>
-                </Button>
-
-                <Button
-                  onClick={() => navigate(createPageUrl("StaffManagement"))}
-                  variant="ghost"
-                  className="w-full justify-start gap-3 h-12 hover:bg-[#FF6B35]/10 text-white hover:text-white rounded-xl font-medium hover:scale-[1.02] transition-all"
-                >
-                  <User className="w-5 h-5" />
-                  <span>ניהול עובדים</span>
-                </Button>
-
-                <Button
-                  onClick={() => navigate(createPageUrl("ApprovalManagement"))}
-                  variant="ghost"
-                  className="w-full justify-start gap-3 h-12 hover:bg-[#FF6B35]/10 text-white hover:text-white rounded-xl font-medium hover:scale-[1.02] transition-all"
-                >
-                  <CheckCircle className="w-5 h-5" />
-                  <span>אישור לקוחות ותורים</span>
-                </Button>
-
-                <Button
-                  onClick={() => navigate(createPageUrl("BusinessPolicies"))}
-                  variant="ghost"
-                  className="w-full justify-start gap-3 h-12 hover:bg-[#FF6B35]/10 text-white hover:text-white rounded-xl font-medium hover:scale-[1.02] transition-all"
-                >
-                  <Clock className="w-5 h-5" />
-                  <span>מדיניות ביטולים</span>
-                </Button>
-              </div>
-            </div>
-          </>
+          <Card title="ניהול העסק">
+            <MenuItem 
+              icon={Briefcase} 
+              label="פרטי העסק" 
+              onClick={() => navigate(createPageUrl("BusinessSettings"))}
+            />
+            <MenuItem 
+              icon={Palette} 
+              label="שירותים" 
+              onClick={() => navigate(createPageUrl("ServiceManagement"))}
+            />
+            <MenuItem 
+              icon={Users} 
+              label="צוות עובדים" 
+              onClick={() => navigate(createPageUrl("StaffManagement"))}
+            />
+            <MenuItem 
+              icon={CheckCircle} 
+              label="אישורים" 
+              onClick={() => navigate(createPageUrl("ApprovalManagement"))}
+            />
+            <MenuItem 
+              icon={Clock} 
+              label="מדיניות ביטולים" 
+              onClick={() => navigate(createPageUrl("BusinessPolicies"))}
+            />
+            <MenuItem 
+              icon={Repeat} 
+              label="תורים חוזרים" 
+              onClick={() => navigate(createPageUrl("RecurringManagement"))}
+            />
+          </Card>
         )}
 
         {/* Client Business Settings */}
         {user?.user_role === 'client' && joinedBusiness && (
-          <div className="bg-[#1A1F35] rounded-2xl p-6 mb-6 border border-gray-800">
-            <h3 className="font-bold mb-4 flex items-center gap-2 text-lg">
-              <Briefcase className="w-6 h-6 text-[#FF6B35]" />
-              העסק שלי
-            </h3>
-            
-            <div className="bg-[#0C0F1D] rounded-xl p-4 mb-4 border border-gray-800">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#FF6B35] to-[#FF1744] flex items-center justify-center">
-                  <Briefcase className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-white">{joinedBusiness.name}</h4>
-                  <p className="text-[#94A3B8] text-sm">{joinedBusiness.phone}</p>
-                </div>
+          <Card title="העסק שלי">
+            <div className="flex items-center gap-4 px-4 py-4">
+              <Store className="w-5 h-5 text-[#FF6B35]" />
+              <div className="flex-1 text-right min-w-0">
+                <p className="font-medium text-white truncate">{joinedBusiness.name}</p>
+                <p className="text-[#64748B] text-sm" dir="ltr">{joinedBusiness.phone}</p>
               </div>
             </div>
-
-            <Button
-              onClick={handleLeaveBusiness}
-              variant="ghost"
-              className="w-full justify-start gap-3 h-12 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl font-medium hover:scale-[1.02] transition-all"
-            >
-              <LogOut className="w-5 h-5" />
-              <span>עזוב את העסק</span>
-            </Button>
-          </div>
-        )}
-
-        {/* WhatsApp Notifications Settings - Only show for clients */}
-        {user?.user_role === 'client' && (
-        <div className="bg-[#1A1F35] rounded-2xl p-6 mb-6 border border-gray-800">
-          <h3 className="font-bold mb-4 flex items-center gap-2 text-lg">
-            <MessageSquare className="w-6 h-6 text-green-500" />
-            התראות WhatsApp
-          </h3>
-          
-          <div className="flex flex-row-reverse items-center gap-4 py-3">
-            <Switch
-              checked={user?.whatsapp_notifications_enabled !== false}
-              onCheckedChange={async (checked) => {
-                try {
-                  await updateUser({ whatsapp_notifications_enabled: checked });
-                  await refetchUser();
-                } catch (error) {
-                  console.error('Failed to update WhatsApp preference:', error);
-                }
-              }}
-              className="data-[state=checked]:bg-green-500
-              [&>span]:transition-transform
-              data-[state=checked]:[&>span]:-translate-x-4
-              "
+            <DestructiveItem 
+              icon={LogOut} 
+              label="עזוב את העסק" 
+              onClick={() => setShowLeaveConfirm(true)}
             />
-            <div className="flex-1 text-right">
-              <p className="text-white font-medium">קבלת הודעות WhatsApp</p>
-              <p className="text-[#94A3B8] text-sm mt-1">
-                קבל תזכורות, אישורים ועדכונים ב-WhatsApp
-              </p>
-            </div>
-          </div>
-        </div>
+          </Card>
         )}
 
-        {/* Account Actions */}
-        <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800">
-          <h3 className="font-bold mb-4 text-lg">פעולות</h3>
-          
-          <Button
-            onClick={handleLogout}
-            variant="ghost"
-            className="w-full justify-start gap-3 h-12 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl font-medium hover:scale-[1.02] transition-all"
-          >
-            <LogOut className="w-5 h-5" />
-            <span>התנתק</span>
-          </Button>
-        </div>
+        {/* Notifications - Client only */}
+        {user?.user_role === 'client' && (
+          <Card title="התראות">
+            <div className="flex items-center gap-4 px-4 py-4">
+              <MessageSquare className="w-5 h-5 text-[#FF6B35]" />
+              <div className="flex-1 text-right">
+                <p className="text-white">הודעות WhatsApp</p>
+                <p className="text-[#64748B] text-sm">תזכורות ועדכונים</p>
+              </div>
+              <Switch
+                checked={user?.whatsapp_notifications_enabled !== false}
+                onCheckedChange={async (checked) => {
+                  try {
+                    await updateUser({ whatsapp_notifications_enabled: checked });
+                    await refetchUser();
+                  } catch (error) {
+                    console.error('Failed to update WhatsApp preference:', error);
+                  }
+                }}
+                className="data-[state=checked]:bg-[#FF6B35] data-[state=unchecked]:bg-[#3F4553]"
+              />
+            </div>
+          </Card>
+        )}
+
+        {/* General Settings */}
+        <Card title="כללי">
+          <MenuItem 
+            icon={Globe} 
+            label="שפה" 
+            value="עברית"
+            onClick={() => {}}
+            showArrow={false}
+          />
+          <MenuItem 
+            icon={HelpCircle} 
+            label="עזרה" 
+            onClick={() => {}}
+          />
+          <MenuItem 
+            icon={FileText} 
+            label="תנאי שימוש" 
+            onClick={() => navigate(createPageUrl("TermsOfService"))}
+          />
+        </Card>
+
+        {/* Admin Switch Role */}
+        {user?.is_admin && (
+          <Card title="מנהל">
+            <button
+              onClick={handleSwitchRole}
+              disabled={switching}
+              className="w-full flex items-center gap-4 px-4 py-4 hover:bg-white/5 active:bg-white/10 transition-colors"
+            >
+              <RefreshCw className={`w-5 h-5 text-[#FF6B35] ${switching ? 'animate-spin' : ''}`} />
+              <span className="flex-1 text-right text-white">
+                החלף ל{user?.user_role === 'business_owner' ? 'לקוח' : 'בעל עסק'}
+              </span>
+              <ChevronLeft className="w-5 h-5 text-[#64748B]" />
+            </button>
+          </Card>
+        )}
+
+        {/* Logout */}
+        <Card>
+          <DestructiveItem 
+            icon={LogOut} 
+            label="התנתק" 
+            onClick={() => setShowLogoutConfirm(true)}
+          />
+        </Card>
 
         {/* App Info */}
-        <div className="text-center mt-12 mb-8">
-          <p className="text-[#94A3B8] text-sm">LinedUp v1.0</p>
-          <p className="text-[#64748B] text-xs mt-1">מערכת ניהול תורים חכמה</p>
-        </div>
+        <p className="text-center text-[#3F4553] text-sm mt-6 pb-4">LinedUp v1.0</p>
       </div>
     </div>
   );

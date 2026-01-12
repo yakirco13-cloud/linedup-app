@@ -1,20 +1,26 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl, formatTime } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Loader2, Plus, Home, X, Edit, Trash2, Calendar, Clock, Scissors, Bell, RefreshCw, Settings2 } from "lucide-react";
 import NotificationDropdown from "../components/NotificationDropdown";
 import ScheduleOverrideModal from "../components/ScheduleOverrideModal";
 import { Button } from "@/components/ui/button";
-import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, isSameDay, isToday, parseISO, addDays } from "date-fns";
+import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, isSameDay, isToday, parseISO, addDays, subDays, isValid } from "date-fns";
 import { he } from "date-fns/locale";
 
 // Import centralized services
 import { sendCancellation } from "@/services/whatsappService";
 import { notifyWaitingListForOpenedSlot } from "@/services/waitingListService";
-import { toISO, parseDate, getDayKey } from "@/services/dateService";
+import { toISO, parseDate, getDayKey, formatNumeric } from "@/services/dateService";
+
+// --- CONSTANTS ---
+const HOUR_HEIGHT = 52;
+const MIN_SWIPE_DISTANCE = 50;
+const START_HOUR = 8;
+const END_HOUR = 22;
 
 export default function CalendarView() {
   const navigate = useNavigate();
@@ -41,8 +47,6 @@ export default function CalendarView() {
   const [selectedOverrideDate, setSelectedOverrideDate] = useState(null);
   const [editingOverride, setEditingOverride] = useState(null);
 
-  const minSwipeDistance = 50;
-
   const { data: business } = useQuery({
     queryKey: ['business', user?.business_id],
     queryFn: async () => {
@@ -51,8 +55,8 @@ export default function CalendarView() {
     },
     enabled: !!user?.business_id,
     staleTime: 10 * 60 * 1000,
-    cacheTime: 15 * 60 * 1000,
-    keepPreviousData: true,
+    gcTime: 15 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
   // Fetch services for colors
@@ -115,20 +119,15 @@ export default function CalendarView() {
         }
         
         // Date filter: include all future dates + last 30 days
-        let bookingDateStr = b.date;
-        if (b.date && b.date.includes('/')) {
-          const [d, m, y] = b.date.split('/');
-          bookingDateStr = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-        }
-        
+        const bookingDateStr = toISO(b.date);
         return bookingDateStr >= pastDateStr;
       });
     },
     enabled: !!business?.id,
     staleTime: 2 * 60 * 1000,
-    cacheTime: 5 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
   // Fetch notifications for the bell icon
@@ -154,9 +153,8 @@ export default function CalendarView() {
         await sendCancellation({
           phone: booking.client_phone,
           clientName: booking.client_name,
-          businessName: business?.name || 'העסק',
-          date: booking.date,
-          time: booking.time
+          serviceName: booking.service_name || 'תור',
+          date: booking.date
         });
       }
       
@@ -283,6 +281,7 @@ export default function CalendarView() {
 
   // Helper to get override for a specific date
   const getOverrideForDate = (date) => {
+    if (!isValid(date)) return null;
     const dateStr = format(date, 'yyyy-MM-dd');
     return scheduleOverrides.find(o => o.date === dateStr);
   };
@@ -319,40 +318,26 @@ export default function CalendarView() {
     : allDaysInWeek;
 
   const displayDays = viewMode === 'day' ? [currentDate] : [...daysInWeek].reverse();
-  const hours = Array.from({ length: 14 }, (_, i) => i + 8);
+  const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => i + START_HOUR);
 
   // Helper to parse date - handles both DD/MM/YYYY and YYYY-MM-DD formats
-  const parseBookingDate = (dateStr) => {
-    if (!dateStr) return new Date();
-    
-    if (dateStr.includes('/')) {
-      // Format: DD/MM/YYYY
-      const [d, m, y] = dateStr.split('/');
-      return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
-    }
-    // Format: YYYY-MM-DD (ISO)
-    return parseISO(dateStr);
-  };
-
-  // FIXED: Handle both DD/MM/YYYY and YYYY-MM-DD date formats
-  // Handle both date formats: YYYY-MM-DD and DD/MM/YYYY
+  // Get bookings for a specific day
   const getBookingsForDay = (day) => {
+    if (!isValid(day)) return [];
     const dayStr = format(day, 'yyyy-MM-dd');
-    const dayParts = dayStr.split('-');
-    const dayStrAlt = `${dayParts[2]}/${dayParts[1]}/${dayParts[0]}`;
-    
     return bookings.filter(booking => {
-      return booking.date === dayStr || booking.date === dayStrAlt;
+      const bookingDateISO = toISO(booking.date);
+      return bookingDateISO === dayStr;
     });
   };
 
   const getBookingPosition = (booking) => {
     const [hours, minutes] = booking.time.split(':').map(Number);
     const totalMinutes = hours * 60 + minutes;
-    const startMinutes = 8 * 60;
+    const startMinutes = START_HOUR * 60;
     const minutesFromStart = totalMinutes - startMinutes;
-    const position = (minutesFromStart / 60) * 52;
-    const height = (booking.duration / 60) * 52;
+    const position = (minutesFromStart / 60) * HOUR_HEIGHT;
+    const height = (booking.duration / 60) * HOUR_HEIGHT;
 
     return { top: position, height: Math.max(height, 20) };
   };
@@ -446,8 +431,8 @@ export default function CalendarView() {
     }
     
     const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
+    const isLeftSwipe = distance > MIN_SWIPE_DISTANCE;
+    const isRightSwipe = distance < -MIN_SWIPE_DISTANCE;
     
     if (isLeftSwipe || isRightSwipe) {
       // Animate to full swipe
@@ -619,7 +604,7 @@ export default function CalendarView() {
                     <Calendar className="w-4 h-4" />
                     <span className="text-sm">תאריך</span>
                   </div>
-                  <span className="font-semibold">{format(parseBookingDate(selectedBooking.date), 'd בMMMM yyyy', { locale: he })}</span>
+                  <span className="font-semibold">{formatNumeric(selectedBooking.date)}</span>
                 </div>
 
                 <div className="flex items-center justify-between py-2">
@@ -794,7 +779,7 @@ export default function CalendarView() {
                 <div
                   key={hour}
                   className="h-13 flex items-center justify-center border-t border-gray-800 first:border-t-0"
-                  style={{ height: '52px' }}
+                  style={{ height: `${HOUR_HEIGHT}px` }}
                 >
                   <span className="text-xs text-[#94A3B8] font-medium">
                     {String(hour).padStart(2, '0')}:00
@@ -804,7 +789,7 @@ export default function CalendarView() {
             </div>
 
             {/* Day Columns */}
-            <div className="flex-1 relative" style={{ minHeight: `${hours.length * 52}px` }}>
+            <div className="flex-1 relative" style={{ minHeight: `${hours.length * HOUR_HEIGHT}px` }}>
               <div className="grid h-full" style={{ gridTemplateColumns: viewMode === 'week' ? `repeat(6, 1fr)` : '1fr' }}>
                 {displayDays.map((day) => {
                   const dayBookings = getBookingsForDay(day);
@@ -821,7 +806,7 @@ export default function CalendarView() {
                           className={`border-t border-gray-800 first:border-t-0 relative hover:bg-white/5 cursor-pointer transition-colors group ${
                             dayIsToday ? 'bg-[#FF6B35]/5' : ''
                           }`}
-                          style={{ height: '52px' }}
+                          style={{ height: `${HOUR_HEIGHT}px` }}
                           onClick={() => navigate(createPageUrl("CreateBooking") + `?date=${format(day, 'yyyy-MM-dd')}&time=${String(hour).padStart(2, '0')}:00`)}
                         >
                           <span className="absolute inset-0 flex items-center justify-center text-[#94A3B8] text-xs opacity-0 group-hover:opacity-100 transition-opacity">
@@ -887,3 +872,28 @@ export default function CalendarView() {
     </div>
   );
 }
+
+// --- Helper Components ---
+
+const InfoRow = ({ icon: Icon, label, value }) => (
+  <div className="flex items-center justify-between py-2">
+    <div className="flex items-center gap-2 text-[#94A3B8]">
+      <Icon className="w-4 h-4" />
+      <span className="text-sm">{label}</span>
+    </div>
+    <span className="font-semibold">{value}</span>
+  </div>
+);
+
+const ViewToggle = ({ active, label, onClick }) => (
+  <button
+    onClick={onClick}
+    className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
+      active
+        ? 'bg-gradient-to-r from-[#FF6B35] to-[#FF1744] text-white scale-105'
+        : 'bg-[#0C0F1D] text-[#94A3B8] border-2 border-gray-800 hover:border-[#FF6B35]'
+    }`}
+  >
+    {label}
+  </button>
+);

@@ -146,6 +146,17 @@ export function formatNumeric(dateInput) {
 }
 
 /**
+ * Format date as short numeric display (day.month only)
+ * @param {string|Date} dateInput - Date to format
+ * @returns {string} - Formatted date string (e.g., "14.1")
+ */
+export function formatShort(dateInput) {
+  const date = parseDate(dateInput);
+  if (!date) return '';
+  return format(date, 'd.M');
+}
+
+/**
  * Get day of week index (0 = Sunday, 6 = Saturday)
  * @param {string|Date} dateInput - Date to check
  * @returns {number} - Day index (0-6)
@@ -225,6 +236,7 @@ export default {
   formatHebrew,
   formatHebrewShort,
   formatNumeric,
+  formatShort,
   getDayOfWeek,
   getDayKey,
   normalizeBookingDate,

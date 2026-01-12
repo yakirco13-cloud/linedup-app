@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { ArrowRight, User, Phone, Mail, Calendar, Loader2, Search, Send, MessageSquare } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -32,8 +32,8 @@ export default function Clients() {
     },
     enabled: !!user?.business_id,
     staleTime: 10 * 60 * 1000,
-    cacheTime: 15 * 60 * 1000,
-    keepPreviousData: true,
+    gcTime: 15 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
   const { data: bookings = [], isLoading } = useQuery({
@@ -41,9 +41,9 @@ export default function Clients() {
     queryFn: () => base44.entities.Booking.filter({ business_id: business.id }, '-created_at', 500),
     enabled: !!business?.id,
     staleTime: 5 * 60 * 1000,
-    cacheTime: 10 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: true,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
   // Extract unique clients and their statistics
@@ -112,7 +112,7 @@ export default function Clients() {
   });
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] p-4 pb-24 pt-safe">
+    <div className="min-h-screen bg-[#0C0F1D] p-4 pt-safe">
       <div className="max-w-2xl mx-auto">
         <button
           onClick={() => navigate(createPageUrl("BusinessDashboard"))}

@@ -147,7 +147,7 @@ function AppContent({ children }) {
 
   return (
     <div className="min-h-screen bg-[#0C0F1D] text-white" dir="rtl">
-      <main className={showNav ? "pb-20" : ""}>
+      <main className={showNav ? "pb-24" : ""}>
         {children}
       </main>
       
@@ -205,33 +205,14 @@ function AppContent({ children }) {
           user-select: text;
         }
 
-        /* Safe area for iPhone notch and top */
-        .safe-area-inset-bottom {
-          padding-bottom: env(safe-area-inset-bottom);
-        }
-
-        /* Nav safe area - extends background to absolute bottom */
-        .nav-safe-area {
-          padding-bottom: env(safe-area-inset-bottom, 0px);
-        }
-        
-        .nav-safe-area::after {
-          content: '';
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          height: env(safe-area-inset-bottom, 0px);
-          background: inherit;
-          transform: translateY(100%);
-        }
-
+        /* Safe area padding - applied to page containers */
         .pt-safe {
-          padding-top: env(safe-area-inset-top);
+          padding-top: max(16px, env(safe-area-inset-top, 16px));
         }
 
+        /* Bottom padding for pages with nav - Layout handles this now */
         .pb-safe {
-          padding-bottom: calc(80px + env(safe-area-inset-bottom));
+          padding-bottom: env(safe-area-inset-bottom, 0px);
         }
 
         /* Prevent zoom on input focus */

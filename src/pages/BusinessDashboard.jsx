@@ -3,16 +3,17 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl, formatTime } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { Calendar, Loader2, Clock, Wallet, Plus, Check, Phone, X, MessageCircle, Share2, Copy, ChevronLeft, TrendingUp, Bell, Send, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { format, parseISO, startOfDay, addDays } from "date-fns";
+import { format, startOfDay, addDays } from "date-fns";
 import { he } from "date-fns/locale";
 import NotificationDropdown from "../components/NotificationDropdown";
 import MessageUsageCard from "@/components/MessageUsageCard";
 
 // Import centralized services
 import { sendConfirmation, sendCancellation } from "@/services/whatsappService";
+import { toISO, formatNumeric, parseDate, formatShort } from "@/services/dateService";
 
 export default function BusinessDashboard() {
   const navigate = useNavigate();
@@ -52,7 +53,7 @@ export default function BusinessDashboard() {
     staleTime: 5 * 1000,
     refetchInterval: 15000,
     refetchOnWindowFocus: true,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
   // Fetch notifications for the bell icon
@@ -67,29 +68,19 @@ export default function BusinessDashboard() {
   // Calculate unread count for badge
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
-  // Helper to normalize date format
-  const normalizeDate = (dateStr) => {
-    if (!dateStr) return '';
-    if (dateStr.includes('/')) {
-      const [d, m, y] = dateStr.split('/');
-      return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-    }
-    return dateStr;
-  };
-
   // Separate pending and confirmed bookings for today
   const today = format(new Date(), 'yyyy-MM-dd');
   const pendingBookings = allBookings.filter(b => {
-    const bookingDate = normalizeDate(b.date);
+    const bookingDate = toISO(b.date);
     return b.status === 'pending_approval' && bookingDate >= today;
   }).sort((a, b) => {
-    const dateA = new Date(`${normalizeDate(a.date)}T${a.time}`);
-    const dateB = new Date(`${normalizeDate(b.date)}T${b.time}`);
+    const dateA = new Date(`${toISO(a.date)}T${a.time}`);
+    const dateB = new Date(`${toISO(b.date)}T${b.time}`);
     return dateA - dateB;
   });
 
   const todayConfirmedBookings = allBookings.filter(b => {
-    const bookingDate = normalizeDate(b.date);
+    const bookingDate = toISO(b.date);
     return bookingDate === today && b.status === 'confirmed';
   }).sort((a, b) => {
     const [hoursA, minutesA] = a.time.split(':').map(Number);
@@ -100,7 +91,7 @@ export default function BusinessDashboard() {
   // Calculate stats - simplified
   const todayStats = {
     appointments: allBookings.filter(b => {
-      const bookingDate = normalizeDate(b.date);
+      const bookingDate = toISO(b.date);
       return bookingDate === today && (b.status === 'confirmed' || b.status === 'completed');
     }).length,
     pending: pendingBookings.length
@@ -112,7 +103,7 @@ export default function BusinessDashboard() {
 
   const weekStats = {
     appointments: allBookings.filter(b => {
-      const bookingDate = normalizeDate(b.date);
+      const bookingDate = toISO(b.date);
       return bookingDate >= weekAgoStr && (b.status === 'confirmed' || b.status === 'completed');
     }).length
   };
@@ -123,7 +114,7 @@ export default function BusinessDashboard() {
 
   const monthStats = {
     appointments: allBookings.filter(b => {
-      const bookingDate = normalizeDate(b.date);
+      const bookingDate = toISO(b.date);
       return bookingDate >= monthStartStr && (b.status === 'confirmed' || b.status === 'completed');
     }).length
   };
@@ -211,16 +202,6 @@ export default function BusinessDashboard() {
     }
   };
 
-  // Helper to parse date for display
-  const parseBookingDate = (dateStr) => {
-    if (!dateStr) return new Date();
-    if (dateStr.includes('/')) {
-      const [d, m, y] = dateStr.split('/');
-      return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
-    }
-    return parseISO(dateStr);
-  };
-
   const isLoading = businessLoading || bookingsLoading;
 
   useEffect(() => {
@@ -247,7 +228,7 @@ export default function BusinessDashboard() {
   }
 
   return (
-    <div className={`min-h-screen bg-[#0C0F1D] pb-24 pt-safe ${showNotifications ? 'overflow-hidden h-screen' : ''}`}>
+    <div className={`min-h-screen bg-[#0C0F1D] pt-safe ${showNotifications ? 'overflow-hidden h-screen' : ''}`}>
       {showNotifications && (
         <NotificationDropdown
           businessId={business?.id}
@@ -357,7 +338,7 @@ export default function BusinessDashboard() {
                         <h3 className="font-bold text-base mb-0.5">{booking.client_name || 'לקוח'}</h3>
                         <p className="text-sm text-[#94A3B8] mb-1">{booking.service_name}</p>
                         <div className="flex items-center gap-2 text-xs text-[#94A3B8]">
-                          <span>{format(parseBookingDate(booking.date), 'd.M', { locale: he })}</span>
+                          <span>{formatShort(booking.date)}</span>
                           <span>•</span>
                           <span>{formatTime(booking.time)}</span>
                           <span>•</span>

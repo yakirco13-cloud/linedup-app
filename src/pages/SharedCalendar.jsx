@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Calendar, Clock, Loader2, ChevronLeft, ChevronRight, Building2, RefreshCw } from "lucide-react";
-import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, isSameDay, isToday, parseISO, addDays } from "date-fns";
+import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, isSameDay, isToday, addDays } from "date-fns";
 import { he } from "date-fns/locale";
+import { parseDate, formatNumeric, toISO } from "@/services/dateService";
 
 export default function SharedCalendar() {
   const [shareToken, setShareToken] = useState(null);
@@ -45,12 +46,7 @@ export default function SharedCalendar() {
           return false;
         }
         
-        let bookingDateStr = b.date;
-        if (b.date && b.date.includes('/')) {
-          const [d, m, y] = b.date.split('/');
-          bookingDateStr = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-        }
-        
+        const bookingDateStr = toISO(b.date);
         return bookingDateStr >= pastDateStr;
       });
     },
@@ -70,24 +66,13 @@ export default function SharedCalendar() {
   const displayDays = viewMode === 'day' ? [currentDate] : [...daysInWeek].reverse();
   const hours = Array.from({ length: 14 }, (_, i) => i + 8);
 
-  // Handle both date formats: YYYY-MM-DD and DD/MM/YYYY
+  // Get bookings for a specific day
   const getBookingsForDay = (day) => {
     const dayStr = format(day, 'yyyy-MM-dd');
-    const dayParts = dayStr.split('-');
-    const dayStrAlt = `${dayParts[2]}/${dayParts[1]}/${dayParts[0]}`;
-    
     return bookings.filter(booking => {
-      return booking.date === dayStr || booking.date === dayStrAlt;
+      const bookingDateISO = toISO(booking.date);
+      return bookingDateISO === dayStr;
     });
-  };
-
-  const parseBookingDate = (dateStr) => {
-    if (!dateStr) return new Date();
-    if (dateStr.includes('/')) {
-      const [d, m, y] = dateStr.split('/');
-      return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
-    }
-    return parseISO(dateStr);
   };
 
   const getBookingPosition = (booking) => {
@@ -264,7 +249,7 @@ export default function SharedCalendar() {
                     <Calendar className="w-4 h-4" />
                     <span className="text-sm">תאריך</span>
                   </div>
-                  <span className="font-semibold">{format(parseBookingDate(selectedBooking.date), 'd בMMMM yyyy', { locale: he })}</span>
+                  <span className="font-semibold">{formatNumeric(selectedBooking.date)}</span>
                 </div>
 
                 <div className="flex items-center justify-between py-2">

@@ -3,12 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Calendar, Clock, Plus, MessageCircle, Phone, MapPin, CheckCircle, X, Navigation, Edit, Scissors, Wallet, Bell, Sparkles } from "lucide-react";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { Calendar, Clock, Plus, MessageCircle, Phone, MapPin, CheckCircle, X, Navigation, Edit, Scissors, Wallet, Bell, Sparkles, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format, isToday, isTomorrow, parseISO } from "date-fns";
 import { he } from "date-fns/locale";
 import page from "@/components/Page";
+import { formatNumeric } from "@/services/dateService";
 
 export default function ClientDashboard() {
   const navigate = useNavigate();
@@ -18,8 +19,6 @@ export default function ClientDashboard() {
   // Waiting list popup state
   const [waitingListPopup, setWaitingListPopup] = useState(null);
   const [popupDismissed, setPopupDismissed] = useState(false);
-
-
 
   // Get barbershop (assume first/only business)
   const { data: business, refetch: refetchBusiness, isLoading: businessLoading } = useQuery({
@@ -36,9 +35,9 @@ export default function ClientDashboard() {
     },
     enabled: !!user?.phone,
     staleTime: 10 * 60 * 1000,
-    cacheTime: 15 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
     refetchOnWindowFocus: true,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
   // Refetch business when user or joined_businesses changes
@@ -63,10 +62,10 @@ export default function ClientDashboard() {
     },
     enabled: !!user?.phone,
     staleTime: 5 * 1000,
-    cacheTime: 5 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
     refetchInterval: 20000,
     refetchOnWindowFocus: true,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
   // Get appointment history - ONLY for current business
@@ -78,7 +77,7 @@ export default function ClientDashboard() {
       const allBookings = await base44.entities.Booking.filter(
         { 
           client_phone: user.phone,
-          business_id: business.id  // Filter by current business
+          business_id: business.id
         },
         '-date',
         20
@@ -89,9 +88,9 @@ export default function ClientDashboard() {
     },
     enabled: !!user?.phone && !!business?.id,
     staleTime: 5 * 60 * 1000,
-    cacheTime: 10 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: true,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
   // Get most frequently booked services
@@ -117,7 +116,6 @@ export default function ClientDashboard() {
         .map(([id]) => id);
 
       if (topServiceIds.length === 0) {
-        // If no completed bookings, show the first 4 services of the business
         const allServices = await base44.entities.Service.filter({ business_id: business.id });
         return allServices.slice(0, 4);
       }
@@ -129,42 +127,38 @@ export default function ClientDashboard() {
     },
     enabled: !!user?.phone && !!business?.id,
     staleTime: 10 * 60 * 1000,
-    cacheTime: 15 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
     refetchOnWindowFocus: true,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
-  // Check waiting list entries that have been NOTIFIED (slot actually opened)
+  // Check waiting list entries that have been NOTIFIED
   useEffect(() => {
     const checkWaitingListNotifications = async () => {
       if (!user?.phone || !business?.id || popupDismissed) return;
       
       try {
-        // Get user's waiting list entries that have been NOTIFIED (a real slot opened)
         const notifiedEntries = await base44.entities.WaitingList.filter({
           client_phone: user.phone,
           business_id: business.id,
-          status: 'notified'  // Only entries where we actually notified them of availability
+          status: 'notified'
         });
         
         if (notifiedEntries.length === 0) return;
         
-        // Find first future date entry
         for (const entry of notifiedEntries) {
           const entryDate = new Date(entry.date);
           const today = new Date(new Date().toDateString());
           
-          // Skip past dates
           if (entryDate < today) continue;
           
-          // Show popup for this notified entry
           setWaitingListPopup({
             date: entry.date,
             time: entry.notified_time || null,
             serviceName: entry.service_name,
             entryId: entry.id
           });
-          break; // Show popup for first available
+          break;
         }
       } catch (error) {
         console.error('Error checking waiting list notifications:', error);
@@ -174,7 +168,6 @@ export default function ClientDashboard() {
     checkWaitingListNotifications();
   }, [user?.phone, business?.id, popupDismissed]);
 
-  // Check if user has any completed bookings
   const hasCompletedBookings = recentAppointments.some(b => b.status === 'completed');
 
   // Cancel mutation
@@ -184,7 +177,6 @@ export default function ClientDashboard() {
       return booking;
     },
     onSuccess: async (booking) => {
-      // Create notification for business owner about cancellation
       try {
         console.log('📢 Creating cancellation notification for business:', booking.business_id);
         const notification = await base44.entities.Notification.create({
@@ -222,7 +214,6 @@ export default function ClientDashboard() {
   };
 
   const handleRescheduleAppointment = () => {
-    // Navigate to edit booking page with the booking ID
     navigate(createPageUrl("BookAppointment") + `?reschedule=${nextAppointment.id}`);
   };
 
@@ -238,10 +229,8 @@ export default function ClientDashboard() {
     
     if (enabledDays.length === 0) return 'לא זמין כרגע';
     
-    // Get first enabled day's hours
     const firstDaySchedule = business.working_hours[enabledDays[0]];
     
-    // Check if it has shifts array or direct start/end
     if (firstDaySchedule.shifts && Array.isArray(firstDaySchedule.shifts) && firstDaySchedule.shifts.length > 0) {
       const firstShift = firstDaySchedule.shifts[0];
       return `${firstShift.start} - ${firstShift.end}`;
@@ -252,11 +241,16 @@ export default function ClientDashboard() {
     return 'לא זמין כרגע';
   };
 
-  // First time user - no business joined
+  // ====== IMPROVEMENT #1: Better loading state ======
   if (businessLoading) {
     return (
       <div className="min-h-screen bg-[#0C0F1D] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#FF6B35]"></div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#FF6B35] to-[#FF1744] flex items-center justify-center animate-pulse">
+            <Scissors className="w-6 h-6 text-white" />
+          </div>
+          <div className="w-8 h-8 border-2 border-[#FF6B35] border-t-transparent rounded-full animate-spin" />
+        </div>
       </div>
     );
   }
@@ -268,13 +262,13 @@ export default function ClientDashboard() {
           <div className="w-24 h-24 mx-auto mb-8 rounded-3xl bg-gradient-to-br from-[#FF6B35] to-[#FF1744] flex items-center justify-center">
             <Calendar className="w-12 h-12 text-white" />
           </div>
-          <h1 className="text-3xl font-bold mb-4">ברוכים הבאים ל-LinedUp!</h1>
+          <h1 className="text-3xl font-bold mb-4 text-white">ברוכים הבאים ל-LinedUp!</h1>
           <p className="text-[#94A3B8] text-lg leading-relaxed mb-12">
             הצטרף למספרה כדי להתחיל לקבוע תורים
           </p>
           <Button
             onClick={() => navigate(createPageUrl("JoinBusiness"))}
-            className="h-14 px-8 rounded-xl text-lg font-semibold hover:scale-105 transition-transform"
+            className="h-14 px-8 rounded-xl text-lg font-semibold hover:scale-105 active:scale-95 transition-transform"
             style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}
           >
             <Plus className="w-6 h-6 ml-2" />
@@ -289,7 +283,7 @@ export default function ClientDashboard() {
     <div className="min-h-screen bg-[#0C0F1D]" style={{ minHeight: '100vh', backgroundColor: '#0C0F1D' }}>
       {/* Waiting List Availability Popup */}
       {waitingListPopup && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
           <div className="bg-[#1A1F35] rounded-3xl max-w-md w-full border-2 border-green-500/50 overflow-hidden animate-in fade-in zoom-in duration-300">
             {/* Header with sparkle effect */}
             <div className="bg-gradient-to-r from-green-500/20 to-blue-500/20 p-6 text-center">
@@ -332,7 +326,6 @@ export default function ClientDashboard() {
               <div className="space-y-3">
                 <Button
                   onClick={async () => {
-                    // Update waiting list status to 'booked' when they click to book
                     try {
                       await base44.entities.WaitingList.update(waitingListPopup.entryId, {
                         status: 'booked'
@@ -340,7 +333,6 @@ export default function ClientDashboard() {
                     } catch (e) {
                       console.error('Failed to update waiting list status:', e);
                     }
-                    // Include time if available so BookAppointment can pre-select it
                     const timeParam = waitingListPopup.time ? `&time=${waitingListPopup.time}` : '';
                     navigate(`/BookAppointment?date=${waitingListPopup.date}${timeParam}`);
                   }}
@@ -456,7 +448,7 @@ export default function ClientDashboard() {
                 </div>
               </div>
               
-              {/* Service info bar */}
+              {/* Service info bar - IMPROVEMENT #2: Larger touch targets (44px min) */}
               <div 
                 className="p-4 rounded-2xl flex items-center justify-between"
                 style={{ background: 'rgba(255,255,255,0.05)' }}
@@ -465,14 +457,16 @@ export default function ClientDashboard() {
                   <button 
                     onClick={handleCancelAppointment}
                     disabled={cancelMutation.isPending}
-                    className="w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+                    aria-label="בטל תור"
+                    className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 hover:scale-105 active:scale-95 disabled:opacity-50"
                     style={{ background: 'rgba(239,68,68,0.15)' }}
                   >
                     <X className="w-5 h-5 text-red-400" />
                   </button>
                   <button 
                     onClick={handleRescheduleAppointment}
-                    className="w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+                    aria-label="שנה תור"
+                    className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 hover:scale-105 active:scale-95"
                     style={{ background: 'rgba(255,107,53,0.15)' }}
                   >
                     <Edit className="w-5 h-5 text-[#FF6B35]" />
@@ -517,20 +511,44 @@ export default function ClientDashboard() {
         </div>
       </div>
 
-      {/* ============ REST OF CONTENT - Directly after header, no gap ============ */}
-      <div className="px-4 pt-4">
+      {/* ============ REST OF CONTENT ============ */}
+      <div className="px-4 pt-4 space-y-6">
+        
+        {/* ====== IMPROVEMENT #3: Quick contact moved up ====== */}
+        <div className="grid grid-cols-2 gap-3">
+          <a
+            href={`https://wa.me/${formatPhoneForWhatsApp(business.phone)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 h-12 bg-[#25D366] hover:bg-[#25D366]/90 rounded-xl text-white font-semibold transition-all active:scale-[0.98]"
+          >
+            <MessageCircle className="w-5 h-5" />
+            WhatsApp
+          </a>
+          <a
+            href={`tel:${business.phone}`}
+            className="flex items-center justify-center gap-2 h-12 rounded-xl text-white font-semibold transition-all active:scale-[0.98]"
+            style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}
+          >
+            <Phone className="w-5 h-5" />
+            התקשר
+          </a>
+        </div>
+
         {/* ============ SERVICES GRID ============ */}
         {frequentServices.length > 0 && (
-          <div className="mb-6">
+          <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-white">
                 {hasCompletedBookings ? 'קבע שוב' : 'השירותים שלנו'}
               </h2>
+              {/* IMPROVEMENT #4: Added chevron for better affordance */}
               <button 
                 onClick={() => navigate(createPageUrl("BookAppointment"))}
-                className="text-[#FF6B35] text-sm font-medium"
+                className="text-[#FF6B35] text-sm font-medium flex items-center gap-1 hover:text-[#FF8555] transition-colors"
               >
                 הכל
+                <ChevronLeft className="w-4 h-4" />
               </button>
             </div>
 
@@ -539,7 +557,7 @@ export default function ClientDashboard() {
                 <button
                   key={service.id}
                   onClick={() => handleRebookService(service.id)}
-                  className="bg-[#1A1F35] rounded-2xl p-4 text-right transition-all hover:scale-[1.02] active:scale-[0.98] relative"
+                  className="group bg-[#1A1F35] rounded-2xl p-4 text-right transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] relative"
                   style={{ 
                     border: index === 0 ? '1px solid rgba(255,107,53,0.4)' : '1px solid rgba(255,255,255,0.05)'
                   }}
@@ -557,7 +575,8 @@ export default function ClientDashboard() {
                     </span>
                   )}
                   
-                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#FF6B35]/20 to-[#FF1744]/20 flex items-center justify-center mb-3">
+                  {/* IMPROVEMENT #5: Icon scales on hover */}
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#FF6B35]/20 to-[#FF1744]/20 flex items-center justify-center mb-3 transition-transform duration-150 group-hover:scale-110">
                     <Scissors className="w-5 h-5 text-[#FF6B35]" />
                   </div>
                   <h3 className="font-semibold text-white mb-1">{service.name}</h3>
@@ -576,14 +595,16 @@ export default function ClientDashboard() {
 
         {/* ============ APPOINTMENT HISTORY ============ */}
         {recentAppointments.length > 0 && (
-          <div className="bg-[#1A1F35] rounded-2xl p-5 mb-6">
+          <div className="bg-[#1A1F35] rounded-2xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-white">היסטוריית תורים</h2>
+              {/* IMPROVEMENT #4: Added chevron */}
               <button
                 onClick={() => navigate(createPageUrl("MyBookings"))}
-                className="text-[#FF6B35] text-sm font-medium"
+                className="text-[#FF6B35] text-sm font-medium flex items-center gap-1 hover:text-[#FF8555] transition-colors"
               >
                 ראה הכל
+                <ChevronLeft className="w-4 h-4" />
               </button>
             </div>
 
@@ -608,13 +629,14 @@ export default function ClientDashboard() {
                     <div>
                       <h3 className="font-semibold text-sm text-white">{appointment.service_name}</h3>
                       <p className="text-xs text-[#94A3B8]">
-                        {format(parseISO(appointment.date), 'd בMMMM yyyy', { locale: he })}
+                        {formatNumeric(appointment.date)}
                       </p>
                     </div>
                   </div>
+                  {/* IMPROVEMENT #6: Button instead of text link - better touch target */}
                   <button
                     onClick={() => handleRebookService(appointment.service_id)}
-                    className="text-[#FF6B35] text-sm font-medium flex items-center gap-1 hover:text-[#FF8555] transition-colors"
+                    className="h-9 px-3 rounded-lg bg-[#FF6B35]/10 text-[#FF6B35] text-sm font-medium flex items-center gap-1.5 hover:bg-[#FF6B35]/20 transition-colors"
                   >
                     <Calendar className="w-4 h-4" />
                     קבע שוב
@@ -639,7 +661,7 @@ export default function ClientDashboard() {
           
           <div className="p-5">
             {/* Working Hours */}
-            <div className="flex items-center gap-3 mb-5">
+            <div className="flex items-center gap-3">
               <div 
                 className="w-11 h-11 rounded-xl flex items-center justify-center"
                 style={{ background: 'rgba(255,107,53,0.15)' }}
@@ -649,34 +671,16 @@ export default function ClientDashboard() {
               <div>
                 <p className="text-[#94A3B8] text-xs">שעות פעילות</p>
                 <p className="text-white text-sm font-medium flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-green-400"></span>
+                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
                   {getWorkingHoursDisplay() || 'לא זמין כרגע'}
                 </p>
               </div>
             </div>
-            
-            {/* Contact Buttons */}
-            <div className="grid grid-cols-2 gap-3">
-              <a
-                href={`https://wa.me/${formatPhoneForWhatsApp(business.phone)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 h-12 bg-[#25D366] hover:bg-[#25D366]/90 rounded-xl text-white font-semibold transition-all active:scale-[0.98]"
-              >
-                <MessageCircle className="w-5 h-5" />
-                WhatsApp
-              </a>
-              <a
-                href={`tel:${business.phone}`}
-                className="flex items-center justify-center gap-2 h-12 rounded-xl text-white font-semibold transition-all active:scale-[0.98]"
-                style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}
-              >
-                <Phone className="w-5 h-5" />
-                התקשר
-              </a>
-            </div>
           </div>
         </div>
+        
+        {/* Bottom spacing for nav bar */}
+        <div className="h-4" />
       </div>
     </div>
   );

@@ -95,7 +95,7 @@ export default function ApprovalManagement() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] p-6 pb-24">
+    <div className="min-h-screen bg-[#0C0F1D] p-6 ">
       <div className="max-w-2xl mx-auto">
         <button
           onClick={() => navigate(createPageUrl("Settings"))}

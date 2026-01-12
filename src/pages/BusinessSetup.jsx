@@ -389,7 +389,7 @@ export default function BusinessSetup() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] p-6 pb-24">
+    <div className="min-h-screen bg-[#0C0F1D] p-6 ">
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-8">
           <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-[#FF6B35] to-[#FF1744] flex items-center justify-center">

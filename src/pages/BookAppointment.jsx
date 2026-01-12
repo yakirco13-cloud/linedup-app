@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Calendar, Clock, User, Loader2, CheckCircle, Briefcase, ChevronLeft, ChevronRight, Lightbulb, Sparkles, Bell, CalendarPlus } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,6 +20,7 @@ export default function BookAppointment() {
   const navigate = useNavigate();
   const { user } = useUser();
   const queryClient = useQueryClient();
+  const bookingLockRef = useRef(false); // Synchronous lock to prevent double-clicks
   const [step, setStep] = useState(2);
   const [selectedBusiness, setSelectedBusiness] = useState(null);
   const [selectedService, setSelectedService] = useState(null);
@@ -33,6 +34,7 @@ export default function BookAppointment() {
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [rescheduleBookingId, setRescheduleBookingId] = useState(null);
   const [rescheduleLoading, setRescheduleLoading] = useState(false);
+  const [isBooking, setIsBooking] = useState(false); // Prevent double-click
   const [alternativeSuggestions, setAlternativeSuggestions] = useState({ services: [], dates: [], loading: false });
   
   // Waiting list state
@@ -187,7 +189,7 @@ export default function BookAppointment() {
     },
     enabled: !!selectedBusiness?.id && step >= 2,
     staleTime: 10 * 60 * 1000,
-    cacheTime: 15 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
   });
 
   // Refetch services when business is loaded
@@ -203,8 +205,8 @@ export default function BookAppointment() {
     queryFn: () => base44.entities.Staff.filter({ business_id: selectedBusiness.id }),
     enabled: !!selectedBusiness && step >= 3,
     staleTime: 10 * 60 * 1000,
-    cacheTime: 15 * 60 * 1000,
-    keepPreviousData: true,
+    gcTime: 15 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
   // Auto-select service if only one
@@ -237,9 +239,9 @@ export default function BookAppointment() {
     },
     enabled: !!selectedBusiness && !!selectedStaff && !!selectedDate && step >= 4,
     staleTime: 0, // Always fetch fresh data
-    cacheTime: 5 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
   // Refetch bookings when entering step 5 (time selection)
@@ -345,9 +347,17 @@ export default function BookAppointment() {
       await queryClient.refetchQueries({ queryKey: ['notifications', data.business_id] });
       setBookingStatus(data.status);
       setSuccess(true);
+      bookingLockRef.current = false;
+      setIsBooking(false); // Reset booking state
       setTimeout(() => {
         navigate("/MyBookings");
       }, 2500);
+    },
+    onError: (error) => {
+      console.error('❌ Booking failed:', error);
+      bookingLockRef.current = false;
+      setIsBooking(false); // Reset booking state on error
+      alert('שגיאה בקביעת התור. אנא נסה שנית.');
     },
   });
 
@@ -412,9 +422,17 @@ export default function BookAppointment() {
       await queryClient.refetchQueries({ queryKey: ['notifications', data.business_id] });
       setBookingStatus(data.status);
       setSuccess(true);
+      bookingLockRef.current = false;
+      setIsBooking(false); // Reset booking state
       setTimeout(() => {
         navigate("/MyBookings");
       }, 2500);
+    },
+    onError: (error) => {
+      console.error('❌ Update booking failed:', error);
+      bookingLockRef.current = false;
+      setIsBooking(false); // Reset booking state on error
+      alert('שגיאה בעדכון התור. אנא נסה שנית.');
     },
   });
 
@@ -701,11 +719,27 @@ export default function BookAppointment() {
   }, [step, selectedDate, existingBookings]);
 
 const handleBooking = async () => {
+  // Synchronous lock check - this happens before any async operation
+  if (bookingLockRef.current) {
+    console.log('⚠️ Booking locked (ref), ignoring click');
+    return;
+  }
+  
+  // Prevent double-clicks with state too
+  if (isBooking) {
+    console.log('⚠️ Booking already in progress (state), ignoring click');
+    return;
+  }
+  
   if (!user?.phone) {
     console.error("User email is not available for booking.");
     return;
   }
 
+  // Lock immediately with ref (synchronous)
+  bookingLockRef.current = true;
+  setIsBooking(true); // Lock the button (async state update)
+  
   console.log('🎬 handleBooking called');
   console.log('📝 rescheduleBookingId:', rescheduleBookingId);
   console.log('📝 isRescheduling:', isRescheduling);
@@ -743,6 +777,8 @@ const handleBooking = async () => {
     // Refresh the bookings query to update available slots
     queryClient.invalidateQueries({ queryKey: ['existing-bookings', selectedStaff?.id, selectedDate] });
     setSelectedTime(null);
+    bookingLockRef.current = false;
+    setIsBooking(false); // Unlock the button
     return;
   }
   
@@ -928,7 +964,7 @@ const handleBooking = async () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] p-4 pb-24 pt-safe">
+    <div className="min-h-screen bg-[#0C0F1D] p-4 pt-safe">
       <div className="max-w-2xl mx-auto">
         <button
           onClick={() => {
@@ -1349,11 +1385,11 @@ const handleBooking = async () => {
 
                     <Button
                       onClick={handleBooking}
-                      disabled={bookingMutation.isPending || updateBookingMutation.isPending}
+                      disabled={isBooking || bookingMutation.isPending || updateBookingMutation.isPending}
                       className="w-full h-16 rounded-xl text-white font-bold text-xl hover:scale-105 active:scale-95 transition-transform shadow-2xl"
                       style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}
                     >
-                      {(bookingMutation.isPending || updateBookingMutation.isPending) ? (
+                      {(isBooking || bookingMutation.isPending || updateBookingMutation.isPending) ? (
                         <Loader2 className="w-6 h-6 animate-spin" />
                       ) : isRescheduling ? (
                         'עדכן את התור'

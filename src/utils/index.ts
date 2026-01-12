@@ -2,7 +2,7 @@
 
 
 export function createPageUrl(pageName: string) {
-    return '/' + pageName.toLowerCase().replace(/ /g, '-');
+    return '/' + pageName.replace(/ /g, '-');
 }
 
 // Format time to HH:mm (remove seconds if present)
