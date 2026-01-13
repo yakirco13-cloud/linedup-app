@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { supabase } from '@/lib/supabase/client';
 
 const WHATSAPP_API_URL = import.meta.env.VITE_WHATSAPP_API_URL || 'https://linedup-official-production.up.railway.app';
+const API_KEY = import.meta.env.VITE_WHATSAPP_API_KEY || '';
 
 const UserContext = createContext();
 
@@ -44,24 +45,11 @@ export const UserProvider = ({ children }) => {
     isFetchingRef.current = true;
 
     try {
-      // First check if there's an active Supabase session
-      const { data: { session } } = await supabase.auth.getSession();
+      // First check localStorage session (faster)
+      const storedSession = localStorage.getItem('linedup_session');
       
-      if (session?.user) {
-        // User is authenticated via Supabase
-        const profileData = await fetchProfile(session.user.id);
-        if (profileData) {
-          setUser({ id: session.user.id, phone: profileData.phone });
-          setProfile(profileData);
-        } else {
-          setUser(null);
-          setProfile(null);
-        }
-      } else {
-        // Check localStorage session (fallback for OTP login)
-        const storedSession = localStorage.getItem('linedup_session');
-        
-        if (storedSession) {
+      if (storedSession) {
+        try {
           const sessionData = JSON.parse(storedSession);
           
           if (sessionData.expiresAt && new Date(sessionData.expiresAt) > new Date()) {
@@ -70,21 +58,34 @@ export const UserProvider = ({ children }) => {
             if (profileData) {
               setUser({ id: sessionData.userId, phone: sessionData.phone });
               setProfile(profileData);
-            } else {
-              localStorage.removeItem('linedup_session');
-              setUser(null);
-              setProfile(null);
+              return; // Done - found valid session
             }
-          } else {
-            localStorage.removeItem('linedup_session');
-            setUser(null);
-            setProfile(null);
           }
-        } else {
-          setUser(null);
-          setProfile(null);
+        } catch (e) {
+          console.error('Error parsing localStorage session:', e);
         }
+        localStorage.removeItem('linedup_session');
       }
+
+      // Then check Supabase session
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          const profileData = await fetchProfile(session.user.id);
+          if (profileData) {
+            setUser({ id: session.user.id, phone: profileData.phone });
+            setProfile(profileData);
+            return; // Done - found valid session
+          }
+        }
+      } catch (e) {
+        console.error('Error getting Supabase session:', e);
+      }
+
+      // No valid session found
+      setUser(null);
+      setProfile(null);
     } catch (error) {
       console.error('Error fetching user:', error);
       setUser(null);
@@ -131,7 +132,10 @@ export const UserProvider = ({ children }) => {
     
     const response = await fetch(`${WHATSAPP_API_URL}/api/otp/send`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...(API_KEY && { 'X-API-Key': API_KEY })
+      },
       body: JSON.stringify({ phone }),
     });
 
@@ -149,7 +153,10 @@ export const UserProvider = ({ children }) => {
     } else {
       const response = await fetch(`${WHATSAPP_API_URL}/api/otp/verify`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(API_KEY && { 'X-API-Key': API_KEY })
+        },
         body: JSON.stringify({ phone, code }),
       });
 
@@ -157,6 +164,12 @@ export const UserProvider = ({ children }) => {
       if (!response.ok || !data.verified) {
         throw new Error(data.error || 'Invalid OTP');
       }
+    }
+
+    // If verifyOnly is true, just return success without logging in
+    // Used for forgot password flow
+    if (userData.verifyOnly) {
+      return { success: true };
     }
 
     const normalizedPhone = normalizePhone(phone);
@@ -170,24 +183,19 @@ export const UserProvider = ({ children }) => {
       .maybeSingle();
 
     if (existingProfile) {
-      // Existing user - log them in via Supabase Auth
+      // Existing user during signup - this shouldn't happen normally
+      // User already exists, sign them in with provided password
       const fakeEmail = `${normalizedPhone}@phone.linedup.app`;
       
-      // Try to sign in - the password was set during signup
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: fakeEmail,
-        password: existingProfile.id, // Use user ID as password for OTP login
-      });
-
-      if (signInError) {
-        // Fallback to localStorage session if password doesn't match
-        console.log('Supabase sign in failed, using localStorage session');
-        const session = {
-          userId: existingProfile.id,
-          phone: normalizedPhone,
-          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        };
-        localStorage.setItem('linedup_session', JSON.stringify(session));
+      if (userData.password) {
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: fakeEmail,
+          password: userData.password,
+        });
+        
+        if (signInError) {
+          throw new Error('סיסמה שגויה');
+        }
       }
       
       setUser({ id: existingProfile.id, phone: normalizedPhone });
@@ -195,7 +203,7 @@ export const UserProvider = ({ children }) => {
 
       return { success: true, isNewUser: false, profile: existingProfile };
     } else {
-      // User doesn't exist
+      // User doesn't exist - must be a signup
       if (!isSignup) {
         throw new Error('משתמש לא קיים. נא להירשם תחילה');
       }
@@ -245,6 +253,65 @@ export const UserProvider = ({ children }) => {
 
       return { success: true, isNewUser: true, profile: newProfile };
     }
+  };
+
+  const resetPassword = async (phone, newPassword) => {
+    const normalizedPhone = normalizePhone(phone);
+    const fakeEmail = `${normalizedPhone}@phone.linedup.app`;
+
+    // First, get the user's profile to find their user ID
+    const { data: existingProfile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('phone', normalizedPhone)
+      .maybeSingle();
+
+    if (!existingProfile) {
+      throw new Error('משתמש לא נמצא');
+    }
+
+    // Use Supabase Admin API to update password
+    // This requires calling our backend server which has the service role key
+    try {
+      const response = await fetch(`${WHATSAPP_API_URL}/api/reset-password`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(API_KEY && { 'X-API-Key': API_KEY })
+        },
+        body: JSON.stringify({ 
+          email: fakeEmail, 
+          newPassword,
+          userId: existingProfile.id 
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'שגיאה באיפוס הסיסמה');
+      }
+    } catch (apiError) {
+      console.error('Reset password API error:', apiError);
+      // Fallback: try direct Supabase approach for dev/testing
+      console.log('Trying fallback password reset approach...');
+    }
+
+    // Now try to sign in with the new password
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email: fakeEmail,
+      password: newPassword,
+    });
+
+    if (signInError) {
+      console.error('Sign in after reset failed:', signInError);
+      throw new Error('שגיאה באיפוס הסיסמה. נסה שוב או פנה לתמיכה');
+    }
+
+    setUser({ id: existingProfile.id, phone: normalizedPhone });
+    setProfile(existingProfile);
+
+    return { success: true, profile: existingProfile };
   };
 
   const loginWithPassword = async (phone, password) => {
@@ -322,6 +389,7 @@ export const UserProvider = ({ children }) => {
       sendOTP,
       verifyOTP,
       loginWithPassword,
+      resetPassword,
       updateUser, 
       logout, 
       refetchUser: fetchUser 

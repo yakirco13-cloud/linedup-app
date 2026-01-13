@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl, formatTime } from "@/utils";
 import { base44 } from "@/api/base44Client";
@@ -8,19 +8,13 @@ import { ChevronLeft, ChevronRight, Loader2, Plus, Home, X, Edit, Trash2, Calend
 import NotificationDropdown from "../components/NotificationDropdown";
 import ScheduleOverrideModal from "../components/ScheduleOverrideModal";
 import { Button } from "@/components/ui/button";
-import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, isSameDay, isToday, parseISO, addDays, subDays, isValid } from "date-fns";
+import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, isSameDay, isToday, parseISO, addDays } from "date-fns";
 import { he } from "date-fns/locale";
 
 // Import centralized services
 import { sendCancellation } from "@/services/whatsappService";
 import { notifyWaitingListForOpenedSlot } from "@/services/waitingListService";
 import { toISO, parseDate, getDayKey, formatNumeric } from "@/services/dateService";
-
-// --- CONSTANTS ---
-const HOUR_HEIGHT = 52;
-const MIN_SWIPE_DISTANCE = 50;
-const START_HOUR = 8;
-const END_HOUR = 22;
 
 export default function CalendarView() {
   const navigate = useNavigate();
@@ -42,10 +36,22 @@ export default function CalendarView() {
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
 
+  // Drag booking state
+  const [draggingBooking, setDraggingBooking] = useState(null);
+  const [dragPreview, setDragPreview] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartPos = useRef({ x: 0, y: 0 });
+  const dragStartTime = useRef(null);
+  const dragStartDayIndex = useRef(null);
+  const dragTimeout = useRef(null);
+  const gridRef = useRef(null);
+
   // Schedule override state
   const [showOverrideModal, setShowOverrideModal] = useState(false);
   const [selectedOverrideDate, setSelectedOverrideDate] = useState(null);
   const [editingOverride, setEditingOverride] = useState(null);
+
+  const minSwipeDistance = 50;
 
   const { data: business } = useQuery({
     queryKey: ['business', user?.business_id],
@@ -153,8 +159,9 @@ export default function CalendarView() {
         await sendCancellation({
           phone: booking.client_phone,
           clientName: booking.client_name,
-          serviceName: booking.service_name || 'תור',
-          date: booking.date
+          businessName: business?.name || 'העסק',
+          date: booking.date,
+          time: booking.time
         });
       }
       
@@ -190,6 +197,16 @@ export default function CalendarView() {
       
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       setSelectedBooking(null);
+    },
+  });
+
+  // Mutation for drag-and-drop booking updates
+  const updateBookingMutation = useMutation({
+    mutationFn: async ({ id, date, time }) => {
+      await base44.entities.Booking.update(id, { date, time });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
     },
   });
 
@@ -281,7 +298,6 @@ export default function CalendarView() {
 
   // Helper to get override for a specific date
   const getOverrideForDate = (date) => {
-    if (!isValid(date)) return null;
     const dateStr = format(date, 'yyyy-MM-dd');
     return scheduleOverrides.find(o => o.date === dateStr);
   };
@@ -318,12 +334,11 @@ export default function CalendarView() {
     : allDaysInWeek;
 
   const displayDays = viewMode === 'day' ? [currentDate] : [...daysInWeek].reverse();
-  const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => i + START_HOUR);
+  const hours = Array.from({ length: 14 }, (_, i) => i + 8);
 
   // Helper to parse date - handles both DD/MM/YYYY and YYYY-MM-DD formats
   // Get bookings for a specific day
   const getBookingsForDay = (day) => {
-    if (!isValid(day)) return [];
     const dayStr = format(day, 'yyyy-MM-dd');
     return bookings.filter(booking => {
       const bookingDateISO = toISO(booking.date);
@@ -334,10 +349,10 @@ export default function CalendarView() {
   const getBookingPosition = (booking) => {
     const [hours, minutes] = booking.time.split(':').map(Number);
     const totalMinutes = hours * 60 + minutes;
-    const startMinutes = START_HOUR * 60;
+    const startMinutes = 8 * 60;
     const minutesFromStart = totalMinutes - startMinutes;
-    const position = (minutesFromStart / 60) * HOUR_HEIGHT;
-    const height = (booking.duration / 60) * HOUR_HEIGHT;
+    const position = (minutesFromStart / 60) * 52;
+    const height = (booking.duration / 60) * 52;
 
     return { top: position, height: Math.max(height, 20) };
   };
@@ -431,8 +446,8 @@ export default function CalendarView() {
     }
     
     const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > MIN_SWIPE_DISTANCE;
-    const isRightSwipe = distance < -MIN_SWIPE_DISTANCE;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
     
     if (isLeftSwipe || isRightSwipe) {
       // Animate to full swipe
@@ -506,23 +521,167 @@ export default function CalendarView() {
     );
   };
 
-  const AppointmentBlock = ({ appointment, onClick }) => {
+  // ==================== DRAG HANDLERS ====================
+  
+  const handleDragStart = useCallback((e, booking, dayIndex) => {
+    // Don't interfere with the event yet - we need to determine if it's a tap or drag
+    const touch = e.touches ? e.touches[0] : e;
+    dragStartPos.current = { x: touch.clientX, y: touch.clientY };
+    dragStartTime.current = booking.time;
+    dragStartDayIndex.current = dayIndex;
+    
+    // Set the booking we might drag
+    setDraggingBooking(booking);
+    
+    // Initialize preview at current position
+    setDragPreview({
+      time: booking.time,
+      dayIndex: dayIndex,
+      originalTime: booking.time,
+      originalDayIndex: dayIndex
+    });
+  }, []);
+
+  const handleDragMove = useCallback((e) => {
+    if (!draggingBooking || !dragPreview) return;
+    
+    const touch = e.touches ? e.touches[0] : e;
+    const deltaX = touch.clientX - dragStartPos.current.x;
+    const deltaY = touch.clientY - dragStartPos.current.y;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    
+    // Start dragging after 8px movement
+    if (!isDragging && distance > 8) {
+      setIsDragging(true);
+    }
+    
+    if (!isDragging) return;
+    
+    // Prevent scrolling while dragging
+    if (e.cancelable) e.preventDefault();
+    
+    // Calculate new time (vertical: 52px = 1 hour, snap to 15min)
+    const [startH, startM] = dragStartTime.current.split(':').map(Number);
+    const startTotalMin = startH * 60 + startM;
+    const minDelta = Math.round((deltaY / 52) * 60 / 15) * 15;
+    const newTotalMin = Math.max(8 * 60, Math.min(21 * 60, startTotalMin + minDelta));
+    const newH = Math.floor(newTotalMin / 60);
+    const newM = newTotalMin % 60;
+    const newTime = `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+    
+    // Calculate new day (horizontal: RTL - drag left = higher index in displayDays)
+    let newDayIndex = dragStartDayIndex.current;
+    if (viewMode === 'week' && gridRef.current) {
+      const dayWidth = gridRef.current.offsetWidth / displayDays.length;
+      // RTL: negative deltaX (drag left) = move to next day (higher index)
+      const daysDelta = Math.round(-deltaX / dayWidth);
+      newDayIndex = Math.max(0, Math.min(displayDays.length - 1, dragStartDayIndex.current + daysDelta));
+    }
+    
+    setDragPreview(prev => ({
+      ...prev,
+      time: newTime,
+      dayIndex: newDayIndex
+    }));
+  }, [draggingBooking, dragPreview, isDragging, viewMode, displayDays]);
+
+  const handleDragEnd = useCallback(() => {
+    if (!draggingBooking) return;
+    
+    // If we actually dragged (not just tapped)
+    if (isDragging && dragPreview) {
+      const timeChanged = dragPreview.time !== dragPreview.originalTime;
+      const dayChanged = dragPreview.dayIndex !== dragPreview.originalDayIndex;
+      
+      if (timeChanged || dayChanged) {
+        const newDate = format(displayDays[dragPreview.dayIndex], 'yyyy-MM-dd');
+        updateBookingMutation.mutate({
+          id: draggingBooking.id,
+          date: newDate,
+          time: dragPreview.time
+        });
+      }
+    }
+    
+    // Reset all drag state
+    setDraggingBooking(null);
+    setDragPreview(null);
+    setIsDragging(false);
+  }, [draggingBooking, isDragging, dragPreview, displayDays, updateBookingMutation]);
+
+  const handleBookingTap = useCallback((booking) => {
+    // Only open modal if we didn't drag
+    if (!isDragging) {
+      setSelectedBooking(booking);
+    }
+  }, [isDragging]);
+
+  // Global event listeners for drag
+  useEffect(() => {
+    if (!draggingBooking) return;
+    
+    const onMove = (e) => handleDragMove(e);
+    const onEnd = () => handleDragEnd();
+    
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onEnd);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onEnd);
+    
+    return () => {
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onEnd);
+    };
+  }, [draggingBooking, handleDragMove, handleDragEnd]);
+
+  // ==================== APPOINTMENT BLOCK ====================
+
+  const AppointmentBlock = ({ appointment, dayIndex }) => {
     const isPending = appointment.status === 'pending_approval';
     const { top, height } = getBookingPosition(appointment);
     const serviceColor = getServiceColor(appointment.service_id, appointment.service_name);
     
+    const isBeingDragged = draggingBooking?.id === appointment.id;
+    const showAtPreview = isBeingDragged && isDragging && dragPreview;
+    
+    // Calculate display position
+    let displayTop = top;
+    if (showAtPreview) {
+      const [h, m] = dragPreview.time.split(':').map(Number);
+      displayTop = ((h * 60 + m) - 8 * 60) / 60 * 52;
+    }
+    
     return (
-      <button
+      <div
+        onTouchStart={(e) => {
+          e.stopPropagation();
+          handleDragStart(e, appointment, dayIndex);
+        }}
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          handleDragStart(e, appointment, dayIndex);
+        }}
         onClick={(e) => {
           e.stopPropagation();
-          onClick();
+          if (!isDragging) {
+            handleBookingTap(appointment);
+          }
         }}
-        className={`absolute left-1 right-1 rounded-lg p-1.5 text-right overflow-hidden hover:brightness-110 transition-all shadow-lg`}
+        className={`absolute left-1 right-1 rounded-lg p-1.5 text-right overflow-hidden shadow-lg select-none
+          ${isBeingDragged && isDragging 
+            ? 'z-50 scale-105 shadow-2xl opacity-90 cursor-grabbing' 
+            : 'cursor-grab hover:brightness-110'
+          }
+          transition-shadow duration-150
+        `}
         style={{
-          top: `${top}px`,
+          top: `${displayTop}px`,
           height: `${height}px`,
           backgroundColor: isPending ? '#EAB308' : serviceColor,
           borderRight: `3px solid ${serviceColor}`,
+          transition: isBeingDragged && isDragging ? 'none' : 'transform 0.15s, box-shadow 0.15s',
         }}
       >
         {isPending && (
@@ -537,7 +696,14 @@ export default function CalendarView() {
             {appointment.service_name}
           </p>
         )}
-      </button>
+        
+        {/* Drag indicator */}
+        <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex gap-0.5 opacity-40">
+          <div className="w-1 h-1 rounded-full bg-white" />
+          <div className="w-1 h-1 rounded-full bg-white" />
+          <div className="w-1 h-1 rounded-full bg-white" />
+        </div>
+      </div>
     );
   };
 
@@ -779,7 +945,7 @@ export default function CalendarView() {
                 <div
                   key={hour}
                   className="h-13 flex items-center justify-center border-t border-gray-800 first:border-t-0"
-                  style={{ height: `${HOUR_HEIGHT}px` }}
+                  style={{ height: '52px' }}
                 >
                   <span className="text-xs text-[#94A3B8] font-medium">
                     {String(hour).padStart(2, '0')}:00
@@ -789,9 +955,9 @@ export default function CalendarView() {
             </div>
 
             {/* Day Columns */}
-            <div className="flex-1 relative" style={{ minHeight: `${hours.length * HOUR_HEIGHT}px` }}>
+            <div ref={gridRef} className="flex-1 relative" style={{ minHeight: `${hours.length * 52}px` }}>
               <div className="grid h-full" style={{ gridTemplateColumns: viewMode === 'week' ? `repeat(6, 1fr)` : '1fr' }}>
-                {displayDays.map((day) => {
+                {displayDays.map((day, dayIndex) => {
                   const dayBookings = getBookingsForDay(day);
                   const dayIsToday = isToday(day);
 
@@ -806,7 +972,7 @@ export default function CalendarView() {
                           className={`border-t border-gray-800 first:border-t-0 relative hover:bg-white/5 cursor-pointer transition-colors group ${
                             dayIsToday ? 'bg-[#FF6B35]/5' : ''
                           }`}
-                          style={{ height: `${HOUR_HEIGHT}px` }}
+                          style={{ height: '52px' }}
                           onClick={() => navigate(createPageUrl("CreateBooking") + `?date=${format(day, 'yyyy-MM-dd')}&time=${String(hour).padStart(2, '0')}:00`)}
                         >
                           <span className="absolute inset-0 flex items-center justify-center text-[#94A3B8] text-xs opacity-0 group-hover:opacity-100 transition-opacity">
@@ -815,15 +981,26 @@ export default function CalendarView() {
                         </div>
                       ))}
 
-                      {dayBookings.map((booking) => {
-                        return (
-                          <AppointmentBlock
-                            key={booking.id}
-                            appointment={booking}
-                            onClick={() => setSelectedBooking(booking)}
-                          />
-                        );
-                      })}
+                      {dayBookings.map((booking) => (
+                        <AppointmentBlock
+                          key={booking.id}
+                          appointment={booking}
+                          dayIndex={dayIndex}
+                        />
+                      ))}
+                      
+                      {/* Drag Preview Ghost - shows target position */}
+                      {isDragging && dragPreview && dragPreview.dayIndex === dayIndex && draggingBooking && (
+                        <div
+                          className="absolute left-1 right-1 rounded-lg border-2 border-dashed border-[#FF6B35] bg-[#FF6B35]/10 pointer-events-none z-40 flex items-center justify-center"
+                          style={{
+                            top: `${((parseInt(dragPreview.time.split(':')[0]) * 60 + parseInt(dragPreview.time.split(':')[1])) - 8 * 60) / 60 * 52}px`,
+                            height: `${Math.max((draggingBooking.duration / 60) * 52, 20)}px`,
+                          }}
+                        >
+                          <span className="text-[#FF6B35] text-xs font-bold">{dragPreview.time}</span>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -872,28 +1049,3 @@ export default function CalendarView() {
     </div>
   );
 }
-
-// --- Helper Components ---
-
-const InfoRow = ({ icon: Icon, label, value }) => (
-  <div className="flex items-center justify-between py-2">
-    <div className="flex items-center gap-2 text-[#94A3B8]">
-      <Icon className="w-4 h-4" />
-      <span className="text-sm">{label}</span>
-    </div>
-    <span className="font-semibold">{value}</span>
-  </div>
-);
-
-const ViewToggle = ({ active, label, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
-      active
-        ? 'bg-gradient-to-r from-[#FF6B35] to-[#FF1744] text-white scale-105'
-        : 'bg-[#0C0F1D] text-[#94A3B8] border-2 border-gray-800 hover:border-[#FF6B35]'
-    }`}
-  >
-    {label}
-  </button>
-);
