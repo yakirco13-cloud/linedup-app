@@ -13,6 +13,7 @@ import CreateBooking from "./CreateBooking";
 import JoinBusiness from "./JoinBusiness";
 import MyBookings from "./MyBookings";
 import NotificationCenter from "./NotificationCenter";
+import Pricing from "./Pricing";
 import RecurringManagement from "./RecurringManagement";
 import ServiceManagement from "./ServiceManagement";
 import Settings from "./Settings";
@@ -39,6 +40,7 @@ const PAGES = {
     JoinBusiness,
     MyBookings,
     NotificationCenter,
+    Pricing,
     RecurringManagement,
     ServiceManagement,
     Settings,
@@ -85,6 +87,7 @@ function PagesContent() {
                 <Route path="/JoinBusiness" element={<JoinBusiness />} />
                 <Route path="/MyBookings" element={<MyBookings />} />
                 <Route path="/NotificationCenter" element={<NotificationCenter />} />
+                <Route path="/Pricing" element={<Pricing />} />
                 <Route path="/RecurringManagement" element={<RecurringManagement />} />
                 <Route path="/ServiceManagement" element={<ServiceManagement />} />
                 <Route path="/Settings" element={<Settings />} />

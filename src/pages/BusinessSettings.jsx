@@ -9,7 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { ArrowRight, Briefcase, Phone, Mail, Clock, Loader2, CheckCircle, Plus, Trash2, Bell, Share2, Copy, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowRight, Briefcase, Phone, Mail, Clock, Loader2, CheckCircle, Plus, Trash2, Bell, Share2, Copy, RefreshCw, ChevronDown, ChevronUp, Calendar, ExternalLink, Smartphone } from "lucide-react";
+
+// Railway URL for calendar sync
+const RAILWAY_URL = 'https://linedup-official-production.up.railway.app';
 
 const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -36,6 +39,10 @@ export default function BusinessSettings() {
   const [shareToken, setShareToken] = useState(null);
   const [generatingToken, setGeneratingToken] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  
+  // Calendar sync state
+  const [calendarLinkCopied, setCalendarLinkCopied] = useState(false);
+  const [showCalendarInstructions, setShowCalendarInstructions] = useState(false);
 
   const [workingHours, setWorkingHours] = useState({
     sunday: { enabled: true, shifts: [{ start: "09:00", end: "17:00" }] },
@@ -622,6 +629,163 @@ export default function BusinessSettings() {
                   </>
                 )}
               </Button>
+            )}
+          </div>
+
+          {/* Google Calendar Sync Section */}
+          <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800">
+            <div className="flex items-center gap-2 mb-4">
+              <Calendar className="w-5 h-5 text-[#FF6B35]" />
+              <h2 className="text-xl font-bold">סנכרון ליומן Google</h2>
+            </div>
+            
+            <p className="text-[#94A3B8] text-sm mb-4">
+              הצג את כל התורים שלך ביומן Google, Apple או Outlook שלך
+            </p>
+
+            {business?.id && (
+              <div className="space-y-4">
+                {/* Calendar URL */}
+                <div className="bg-[#0C0F1D] rounded-xl p-4">
+                  <Label className="text-[#94A3B8] text-xs mb-2 block">קישור היומן שלך:</Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={`${RAILWAY_URL}/cal/${business.id}.ics`}
+                      readOnly
+                      className="flex-1 bg-[#1A1F35] text-[#FF6B35] text-xs p-2 rounded-lg outline-none truncate"
+                      dir="ltr"
+                    />
+                    <Button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(`${RAILWAY_URL}/cal/${business.id}.ics`);
+                          setCalendarLinkCopied(true);
+                          setTimeout(() => setCalendarLinkCopied(false), 2000);
+                        } catch (err) {
+                          console.error('Failed to copy:', err);
+                        }
+                      }}
+                      className={`h-9 px-3 rounded-lg text-xs font-medium transition-all ${
+                        calendarLinkCopied 
+                          ? 'bg-green-500 hover:bg-green-600' 
+                          : 'bg-[#FF6B35] hover:bg-[#FF8555]'
+                      }`}
+                    >
+                      {calendarLinkCopied ? (
+                        <>
+                          <CheckCircle className="w-3 h-3 ml-1" />
+                          הועתק!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3 ml-1" />
+                          העתק
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Instructions Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setShowCalendarInstructions(!showCalendarInstructions)}
+                  className="w-full text-center text-sm text-[#FF6B35] hover:text-[#FF8555] transition-colors"
+                >
+                  {showCalendarInstructions ? 'הסתר הוראות ▲' : 'איך מוסיפים ליומן? ▼'}
+                </button>
+
+                {/* Instructions */}
+                {showCalendarInstructions && (
+                  <div className="space-y-4 animate-in slide-in-from-top-2">
+                    
+                    {/* Google Calendar Instructions */}
+                    <div className="bg-[#0C0F1D] rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <img 
+                          src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg" 
+                          alt="Google Calendar" 
+                          className="w-5 h-5"
+                        />
+                        <span className="font-semibold text-white text-sm">Google Calendar</span>
+                      </div>
+                      
+                      <ol className="space-y-2 text-xs text-[#94A3B8]" dir="rtl">
+                        <li className="flex gap-2">
+                          <span className="bg-[#FF6B35] text-white w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[10px]">1</span>
+                          <span>פתח את Google Calendar במחשב</span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="bg-[#FF6B35] text-white w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[10px]">2</span>
+                          <span>בצד שמאל, ליד "יומנים אחרים", לחץ על +</span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="bg-[#FF6B35] text-white w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[10px]">3</span>
+                          <span>בחר "מכתובת URL"</span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="bg-[#FF6B35] text-white w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[10px]">4</span>
+                          <span>הדבק את הקישור שהעתקת</span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="bg-[#FF6B35] text-white w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[10px]">5</span>
+                          <span>לחץ "הוסף יומן"</span>
+                        </li>
+                      </ol>
+                      
+                      <a
+                        href="https://calendar.google.com/calendar/r/settings/addbyurl"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 flex items-center justify-center gap-2 bg-white/10 text-white text-xs px-4 py-2 rounded-lg hover:bg-white/20 transition-colors"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        פתח Google Calendar
+                      </a>
+                    </div>
+                    
+                    {/* iPhone Instructions */}
+                    <div className="bg-[#0C0F1D] rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Smartphone className="w-5 h-5 text-white" />
+                        <span className="font-semibold text-white text-sm">iPhone / iPad</span>
+                      </div>
+                      
+                      <ol className="space-y-2 text-xs text-[#94A3B8]" dir="rtl">
+                        <li className="flex gap-2">
+                          <span className="bg-[#FF6B35] text-white w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[10px]">1</span>
+                          <span>פתח את אפליקציית "הגדרות"</span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="bg-[#FF6B35] text-white w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[10px]">2</span>
+                          <span>גלול ל"יומן" → "חשבונות"</span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="bg-[#FF6B35] text-white w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[10px]">3</span>
+                          <span>לחץ "הוסף חשבון" → "אחר"</span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="bg-[#FF6B35] text-white w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[10px]">4</span>
+                          <span>בחר "הוסף מנוי ליומן"</span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="bg-[#FF6B35] text-white w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[10px]">5</span>
+                          <span>הדבק את הקישור ולחץ "הירשם"</span>
+                        </li>
+                      </ol>
+                    </div>
+                    
+                    {/* Note */}
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                      <p className="text-blue-300 text-xs">
+                        💡 היומן מתעדכן אוטומטית כל כמה שעות. תורים חדשים יופיעו בקרוב.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
