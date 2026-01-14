@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FeatureGate } from "@/components/FeatureGate";
 
 const DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 
@@ -158,6 +159,7 @@ export default function RecurringManagement() {
   }
 
   return (
+    <FeatureGate feature="recurringBookings">
     <div className="min-h-screen bg-[#0C0F1D] p-4 pt-safe">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
@@ -473,5 +475,6 @@ export default function RecurringManagement() {
         </DialogContent>
       </Dialog>
     </div>
+    </FeatureGate>
   );
 }

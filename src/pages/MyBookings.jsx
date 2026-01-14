@@ -21,10 +21,14 @@ export default function MyBookings() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState('upcoming');
 
+  // Filter bookings by current business (joined_business_id)
   const { data: bookings = [], isLoading } = useQuery({
-    queryKey: ['my-bookings', user?.phone],
-    queryFn: () => base44.entities.Booking.filter({ client_phone: user.phone }, '-date', 20),
-    enabled: !!user?.phone,
+    queryKey: ['my-bookings', user?.phone, user?.joined_business_id],
+    queryFn: () => base44.entities.Booking.filter({
+      client_phone: user.phone,
+      business_id: user.joined_business_id
+    }, '-date', 20),
+    enabled: !!user?.phone && !!user?.joined_business_id,
     staleTime: 5 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchInterval: 20000,
@@ -51,14 +55,22 @@ export default function MyBookings() {
     placeholderData: keepPreviousData,
   });
 
-  // Fetch waiting list entries for this user (both waiting and notified)
+  // Fetch waiting list entries for this user at current business (both waiting and notified)
   const { data: waitingListEntries = [], isLoading: waitingListLoading } = useQuery({
-    queryKey: ['my-waiting-list', user?.phone],
+    queryKey: ['my-waiting-list', user?.phone, user?.joined_business_id],
     queryFn: async () => {
-      // Fetch both 'waiting' and 'notified' entries
+      // Fetch both 'waiting' and 'notified' entries for current business only
       const [waitingEntries, notifiedEntries] = await Promise.all([
-        base44.entities.WaitingList.filter({ client_phone: user.phone, status: 'waiting' }, '-date', 50),
-        base44.entities.WaitingList.filter({ client_phone: user.phone, status: 'notified' }, '-date', 50)
+        base44.entities.WaitingList.filter({
+          client_phone: user.phone,
+          business_id: user.joined_business_id,
+          status: 'waiting'
+        }, '-date', 50),
+        base44.entities.WaitingList.filter({
+          client_phone: user.phone,
+          business_id: user.joined_business_id,
+          status: 'notified'
+        }, '-date', 50)
       ]);
       
       const allEntries = [...waitingEntries, ...notifiedEntries];
@@ -86,7 +98,7 @@ export default function MyBookings() {
         return entryDate && entryDate >= today;
       });
     },
-    enabled: !!user?.phone,
+    enabled: !!user?.phone && !!user?.joined_business_id,
     staleTime: 30 * 1000,  // 30 seconds
     refetchOnWindowFocus: true,
   });
@@ -181,7 +193,8 @@ export default function MyBookings() {
           phone: booking.client_phone,
           clientName: booking.client_name || 'לקוח',
           serviceName: booking.service_name || 'תור',
-          date: booking.date
+          date: booking.date,
+          businessId: booking.business_id
         });
       }
       

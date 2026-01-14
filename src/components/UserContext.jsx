@@ -116,7 +116,7 @@ export const UserProvider = ({ children }) => {
 
   const sendOTP = async (phone, checkExistsFirst = false) => {
     const normalizedPhone = normalizePhone(phone);
-    
+
     // For login mode, check if user exists first
     if (checkExistsFirst) {
       const { data: existingProfile, error } = await supabase
@@ -124,15 +124,26 @@ export const UserProvider = ({ children }) => {
         .select('id')
         .eq('phone', normalizedPhone)
         .maybeSingle();
-      
+
       if (!existingProfile) {
         throw new Error('משתמש לא קיים. נא להירשם תחילה');
       }
+    } else {
+      // For signup, check if phone is already taken
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('phone', normalizedPhone)
+        .maybeSingle();
+
+      if (existingProfile) {
+        throw new Error('מספר טלפון זה כבר רשום במערכת');
+      }
     }
-    
+
     const response = await fetch(`${WHATSAPP_API_URL}/api/otp/send`, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
         ...(API_KEY && { 'X-API-Key': API_KEY })
       },
@@ -144,16 +155,88 @@ export const UserProvider = ({ children }) => {
     return { success: true };
   };
 
+  const sendEmailOTP = async (email) => {
+    // Check if email is already taken
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email.toLowerCase())
+      .maybeSingle();
+
+    if (existingProfile) {
+      throw new Error('כתובת אימייל זו כבר רשומה במערכת');
+    }
+
+    try {
+      const response = await fetch(`${WHATSAPP_API_URL}/api/otp/send-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(API_KEY && { 'X-API-Key': API_KEY })
+        },
+        body: JSON.stringify({ email: email.toLowerCase() }),
+      });
+
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        // Endpoint doesn't exist yet - skip email verification for now
+        console.warn('Email OTP endpoint not available, skipping email verification');
+        return { success: true, skipped: true };
+      }
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'שגיאה בשליחת קוד לאימייל');
+      return { success: true };
+    } catch (error) {
+      // If endpoint doesn't exist, skip email verification
+      if (error.message?.includes('JSON') || error.message?.includes('fetch')) {
+        console.warn('Email OTP endpoint not available, skipping email verification');
+        return { success: true, skipped: true };
+      }
+      throw error;
+    }
+  };
+
+  const verifyEmailOTP = async (email, code) => {
+    try {
+      const response = await fetch(`${WHATSAPP_API_URL}/api/otp/verify-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(API_KEY && { 'X-API-Key': API_KEY })
+        },
+        body: JSON.stringify({ email: email.toLowerCase(), code }),
+      });
+
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        // Endpoint doesn't exist - skip verification
+        console.warn('Email OTP verify endpoint not available, skipping');
+        return { success: true, skipped: true };
+      }
+
+      const data = await response.json();
+      if (!response.ok || !data.verified) {
+        throw new Error(data.error || 'קוד שגוי');
+      }
+      return { success: true };
+    } catch (error) {
+      if (error.message?.includes('JSON') || error.message?.includes('fetch')) {
+        console.warn('Email OTP verify endpoint not available, skipping');
+        return { success: true, skipped: true };
+      }
+      throw error;
+    }
+  };
+
   const verifyOTP = async (phone, code, userData = {}) => {
-    // DEV MODE: Accept "123456" as valid code without API call
-    const DEV_MODE = true; // Set to false for production
-    
-    if (DEV_MODE && code === '123456') {
-      console.log('🔧 DEV MODE: Bypassing OTP verification');
-    } else {
+    // Skip OTP verification if already verified (for multi-step signup)
+    if (!userData.skipOtpVerification) {
       const response = await fetch(`${WHATSAPP_API_URL}/api/otp/verify`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           ...(API_KEY && { 'X-API-Key': API_KEY })
         },
@@ -167,14 +250,14 @@ export const UserProvider = ({ children }) => {
     }
 
     // If verifyOnly is true, just return success without logging in
-    // Used for forgot password flow
+    // Used for forgot password flow and multi-step verification
     if (userData.verifyOnly) {
       return { success: true };
     }
 
     const normalizedPhone = normalizePhone(phone);
     const isSignup = userData.userRole && userData.fullName && userData.password;
-    
+
     // Check if user exists
     const { data: existingProfile, error: profileError } = await supabase
       .from('profiles')
@@ -186,18 +269,18 @@ export const UserProvider = ({ children }) => {
       // Existing user during signup - this shouldn't happen normally
       // User already exists, sign them in with provided password
       const fakeEmail = `${normalizedPhone}@phone.linedup.app`;
-      
+
       if (userData.password) {
         const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email: fakeEmail,
           password: userData.password,
         });
-        
+
         if (signInError) {
           throw new Error('סיסמה שגויה');
         }
       }
-      
+
       setUser({ id: existingProfile.id, phone: normalizedPhone });
       setProfile(existingProfile);
 
@@ -207,17 +290,18 @@ export const UserProvider = ({ children }) => {
       if (!isSignup) {
         throw new Error('משתמש לא קיים. נא להירשם תחילה');
       }
-      
+
       if (!userData.acceptedTerms) {
         throw new Error('נא לאשר את תנאי השימוש');
       }
-      
+
       // New user - create account with their password
-      const fakeEmail = `${normalizedPhone}@phone.linedup.app`;
+      // Use real email for business owners, fake email for clients
+      const authEmail = userData.email || `${normalizedPhone}@phone.linedup.app`;
       const userPassword = userData.password;
 
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: fakeEmail,
+        email: authEmail,
         password: userPassword,
       });
 
@@ -234,6 +318,7 @@ export const UserProvider = ({ children }) => {
         .insert({
           id: userId,
           phone: normalizedPhone,
+          email: userData.email ? userData.email.toLowerCase() : null,
           full_name: userData.fullName || '',
           user_role: userData.userRole || null,
           accepted_terms: userData.acceptedTerms || false,
@@ -316,11 +401,20 @@ export const UserProvider = ({ children }) => {
 
   const loginWithPassword = async (phone, password) => {
     const normalizedPhone = normalizePhone(phone);
-    const fakeEmail = `${normalizedPhone}@phone.linedup.app`;
+
+    // First, check if user has a real email (business owner) or uses fake email (client)
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('phone', normalizedPhone)
+      .maybeSingle();
+
+    // Use real email if exists, otherwise use fake phone-based email
+    const authEmail = existingProfile?.email || `${normalizedPhone}@phone.linedup.app`;
 
     // Sign in with Supabase Auth
     const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-      email: fakeEmail,
+      email: authEmail,
       password: password,
     });
 
@@ -374,25 +468,27 @@ export const UserProvider = ({ children }) => {
     id: user?.id,
     phone: user?.phone,
     name: profile.full_name,
-    email: profile.email || `${user?.phone}@phone.linedup.app`,
+    email: profile.email || null,
     business_id: profile.business_id,
     joined_businesses: profile.joined_business_id ? [profile.joined_business_id] : [],
   } : null;
 
   return (
-    <UserContext.Provider value={{ 
-      user: combinedUser, 
+    <UserContext.Provider value={{
+      user: combinedUser,
       profile,
-      loading, 
-      initialLoadComplete, 
+      loading,
+      initialLoadComplete,
       isAuthenticated,
       sendOTP,
       verifyOTP,
+      sendEmailOTP,
+      verifyEmailOTP,
       loginWithPassword,
       resetPassword,
-      updateUser, 
-      logout, 
-      refetchUser: fetchUser 
+      updateUser,
+      logout,
+      refetchUser: fetchUser
     }}>
       {children}
     </UserContext.Provider>

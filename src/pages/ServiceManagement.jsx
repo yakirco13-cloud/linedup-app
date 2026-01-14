@@ -9,7 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowRight, Plus, Trash2, Clock, DollarSign, Loader2, Pencil, Palette, Check } from "lucide-react";
+import { ArrowRight, Plus, Trash2, Clock, DollarSign, Loader2, Pencil, Palette, Check, Lock } from "lucide-react";
+import { canAddService } from "@/services/subscriptionService";
+import UpgradeModal from "@/components/UpgradeModal";
 
 // Generate duration options from 5 to 90 minutes in 5-minute increments
 const DURATION_OPTIONS = Array.from({ length: 18 }, (_, i) => (i + 1) * 5);
@@ -34,6 +36,8 @@ export default function ServiceManagement() {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editingService, setEditingService] = useState(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [serviceLimitInfo, setServiceLimitInfo] = useState(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -94,7 +98,15 @@ export default function ServiceManagement() {
     return availableColor?.value || SERVICE_COLORS[services.length % SERVICE_COLORS.length].value;
   };
 
-  const handleAddNew = () => {
+  const handleAddNew = async () => {
+    // Check service limit
+    const limitCheck = await canAddService(business?.id);
+    if (!limitCheck.allowed) {
+      setServiceLimitInfo(limitCheck);
+      setShowUpgradeModal(true);
+      return;
+    }
+
     setFormData({
       name: "",
       duration: "30",
@@ -355,6 +367,14 @@ export default function ServiceManagement() {
           </div>
         ) : null}
       </div>
+
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        feature="services"
+        featureNameHe="שירותים נוספים"
+        description={serviceLimitInfo?.reason || `הגעת למגבלת השירותים (${serviceLimitInfo?.used || 0}/${serviceLimitInfo?.limit || 0}). שדרג לתוכנית גבוהה יותר כדי להוסיף עוד שירותים.`}
+      />
     </div>
   );
 }

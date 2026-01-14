@@ -4,13 +4,23 @@ import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
 import { useQuery } from "@tanstack/react-query";
-import { 
-  Calendar, TrendingUp, TrendingDown, Users, DollarSign, 
+import { FeatureGate, useFeatureGate } from "@/components/FeatureGate";
+import UpgradeModal from "@/components/UpgradeModal";
+import {
+  Calendar, TrendingUp, TrendingDown, Users, DollarSign,
   XCircle, Clock, ArrowRight, Loader2, BarChart3, PieChart,
   Sparkles, Target, Download, UserPlus, UserCheck, CalendarDays,
-  Timer, CheckCircle
+  Timer, CheckCircle, FileText, ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
 import { 
   format, parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek,
   startOfMonth, endOfMonth, subDays, subWeeks, subMonths,
@@ -73,10 +83,17 @@ export default function Statistics() {
     );
   }
 
-  return <StatisticsContent business={business} timeRange={timeRange} setTimeRange={setTimeRange} navigate={navigate} />;
+  return (
+    <FeatureGate feature="statistics">
+      <StatisticsContent business={business} timeRange={timeRange} setTimeRange={setTimeRange} navigate={navigate} />
+    </FeatureGate>
+  );
 }
 
 function StatisticsContent({ business, timeRange, setTimeRange, navigate }) {
+  const { hasAccess: canExport } = useFeatureGate('dataExport');
+  const [showExportUpgrade, setShowExportUpgrade] = useState(false);
+
   const { data: allBookings = [], isLoading } = useQuery({
     queryKey: ['statistics-bookings', business?.id],
     queryFn: async () => {
@@ -292,7 +309,75 @@ function StatisticsContent({ business, timeRange, setTimeRange, navigate }) {
     return sorted.map(s => ({ ...s, percentage: maxCount > 0 ? (s.count / maxCount) * 100 : 0 }));
   }, [stats.currentConfirmed, services]);
 
-  const handleExport = () => {
+  // Service Mix - percentage of each service from total
+  const serviceMix = useMemo(() => {
+    const total = stats.currentConfirmed.length;
+    if (total === 0) return [];
+    const serviceCounts = {};
+    stats.currentConfirmed.forEach(booking => {
+      const service = services.find(s => s.id === booking.service_id);
+      if (service) serviceCounts[service.name] = (serviceCounts[service.name] || 0) + 1;
+    });
+    return Object.entries(serviceCounts)
+      .map(([name, count]) => ({ name, count, percentage: (count / total) * 100 }))
+      .sort((a, b) => b.count - a.count);
+  }, [stats.currentConfirmed, services]);
+
+  // Average service duration in minutes
+  const avgServiceDuration = useMemo(() => {
+    const durations = stats.currentConfirmed.map(booking => {
+      const service = services.find(s => s.id === booking.service_id);
+      return service?.duration || booking.duration || 30;
+    });
+    if (durations.length === 0) return 0;
+    return Math.round(durations.reduce((sum, d) => sum + d, 0) / durations.length);
+  }, [stats.currentConfirmed, services]);
+
+  // Rebooking interval - average days between visits for returning clients
+  const rebookingInterval = useMemo(() => {
+    const clientVisits = {};
+    const sortedBookings = [...allBookings]
+      .filter(b => (b.status === 'confirmed' || b.status === 'completed') && b.client_phone)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    sortedBookings.forEach(booking => {
+      if (!clientVisits[booking.client_phone]) clientVisits[booking.client_phone] = [];
+      clientVisits[booking.client_phone].push(booking.date);
+    });
+    const intervals = [];
+    Object.values(clientVisits).forEach(dates => {
+      if (dates.length < 2) return;
+      for (let i = 1; i < dates.length; i++) {
+        const daysDiff = Math.abs((new Date(dates[i]) - new Date(dates[i-1])) / (1000 * 60 * 60 * 24));
+        if (daysDiff > 0 && daysDiff < 365) intervals.push(daysDiff);
+      }
+    });
+    if (intervals.length === 0) return 0;
+    return Math.round(intervals.reduce((sum, d) => sum + d, 0) / intervals.length);
+  }, [allBookings]);
+
+  // Clients per day (average in current period)
+  const clientsPerDay = useMemo(() => {
+    const days = eachDayOfInterval({ start: dateRanges.currentStart, end: dateRanges.currentEnd });
+    const workingDays = days.filter(day => {
+      if (!business?.working_hours) return true;
+      const dayKey = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][getDay(day)];
+      return business.working_hours[dayKey]?.enabled;
+    }).length;
+    if (workingDays === 0) return 0;
+    return (stats.bookings.current / workingDays).toFixed(1);
+  }, [stats.bookings.current, dateRanges, business]);
+
+  // Revenue per unique client
+  const revenuePerClient = useMemo(() => {
+    if (stats.clients.current === 0) return 0;
+    return Math.round(stats.revenue.current / stats.clients.current);
+  }, [stats.revenue.current, stats.clients.current]);
+
+  const handleExportCSV = () => {
+    if (!canExport) {
+      setShowExportUpgrade(true);
+      return;
+    }
     const currentBookings = filterBookingsByRange(allBookings, dateRanges.currentStart, dateRanges.currentEnd);
     let csv = '\uFEFF';
     csv += 'סיכום תקופה\n';
@@ -303,8 +388,16 @@ function StatisticsContent({ business, timeRange, setTimeRange, navigate }) {
     csv += `אחוז ביטולים,${stats.cancellations.current.toFixed(1)}%\n`;
     csv += `לקוחות חדשים,${clientAnalysis.new}\n`;
     csv += `לקוחות חוזרים,${clientAnalysis.returning}\n`;
-    csv += `זמן מת (שעות),${deadTime.totalHours}\n`;
+    csv += `תפוסה,${100 - deadTime.percentage}%\n`;
+    csv += `שעות פנויות,${deadTime.totalHours}\n`;
+    csv += `לקוחות ליום,${clientsPerDay}\n`;
+    csv += `הכנסה ללקוח,₪${revenuePerClient}\n`;
+    csv += `משך טיפול ממוצע,${avgServiceDuration} דקות\n`;
+    csv += `מרווח בין ביקורים,${rebookingInterval} ימים\n`;
     csv += `צמיחה חודשית,${growthTrend.growth.toFixed(1)}%\n\n`;
+    csv += 'תמהיל שירותים\nשירות,כמות,אחוז\n';
+    serviceMix.forEach(s => { csv += `${s.name},${s.count},${s.percentage.toFixed(1)}%\n`; });
+    csv += '\n';
     csv += 'רשימת תורים\nתאריך,שעה,לקוח,טלפון,שירות,מחיר,סטטוס\n';
     currentBookings.forEach(booking => { const service = services.find(s => s.id === booking.service_id); csv += `${booking.date},${booking.time},${booking.client_name || ''},${booking.client_phone || ''},${service?.name || ''},${service?.price || 0},${booking.status}\n`; });
     csv += '\nרשימת לקוחות\nשם,טלפון,מספר תורים\n';
@@ -316,6 +409,199 @@ function StatisticsContent({ business, timeRange, setTimeRange, navigate }) {
     link.href = URL.createObjectURL(blob);
     link.download = `linedup-report-${format(new Date(), 'yyyy-MM-dd')}.csv`;
     link.click();
+  };
+
+  const handleExportPDF = async () => {
+    if (!canExport) {
+      setShowExportUpgrade(true);
+      return;
+    }
+    // A4 dimensions at 96 DPI: 794 x 1123 pixels
+    const container = document.createElement('div');
+    container.style.cssText = 'position: absolute; left: -9999px; top: 0; width: 794px; background: #0C0F1D; font-family: system-ui, -apple-system, sans-serif;';
+
+    const periodLabel = timeRange === 'today' ? 'היום' : timeRange === 'week' ? 'השבוע' : 'החודש';
+    const dateRangeText = `${format(dateRanges.currentStart, 'dd/MM/yyyy')} - ${format(dateRanges.currentEnd, 'dd/MM/yyyy')}`;
+
+    container.innerHTML = `
+      <div style="direction: rtl; background: #0C0F1D; color: white; width: 794px; height: 1123px; box-sizing: border-box; display: flex; flex-direction: column;">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #FF6B35, #FF1744); padding: 20px; text-align: center; flex-shrink: 0;">
+          <h1 style="margin: 0 0 6px 0; font-size: 24px; font-weight: bold; color: white;">${business?.name || 'LinedUp'}</h1>
+          <p style="margin: 0; font-size: 13px; color: rgba(255,255,255,0.9);">דוח סטטיסטיקות | ${periodLabel} | ${dateRangeText}</p>
+        </div>
+
+        <!-- Main Content -->
+        <div style="padding: 16px; flex: 1; overflow: hidden;">
+          <!-- Key Metrics -->
+          <div style="background: #1A1F35; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
+            <h2 style="color: #FF6B35; font-size: 14px; margin: 0 0 12px 0; font-weight: bold;">מדדים עיקריים</h2>
+            <div style="display: flex; justify-content: space-between; text-align: center;">
+              <div style="flex: 1;">
+                <div style="font-size: 24px; font-weight: bold; color: white;">${stats.bookings.current}</div>
+                <div style="font-size: 11px; color: #94A3B8;">תורים</div>
+              </div>
+              <div style="flex: 1;">
+                <div style="font-size: 24px; font-weight: bold; color: white;">₪${stats.revenue.current.toLocaleString()}</div>
+                <div style="font-size: 11px; color: #94A3B8;">הכנסות</div>
+              </div>
+              <div style="flex: 1;">
+                <div style="font-size: 24px; font-weight: bold; color: white;">${stats.clients.current}</div>
+                <div style="font-size: 11px; color: #94A3B8;">לקוחות</div>
+              </div>
+              <div style="flex: 1;">
+                <div style="font-size: 24px; font-weight: bold; color: white;">${stats.cancellations.current.toFixed(0)}%</div>
+                <div style="font-size: 11px; color: #94A3B8;">ביטולים</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Two Column Section -->
+          <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+            <!-- Client Analysis -->
+            <div style="flex: 1; background: #1A1F35; border-radius: 10px; padding: 14px;">
+              <h3 style="color: #FF6B35; font-size: 13px; margin: 0 0 10px 0; font-weight: bold;">ניתוח לקוחות</h3>
+              <div style="color: white; font-size: 12px; margin-bottom: 6px;">
+                <span style="color: #60A5FA;">●</span> לקוחות חדשים: ${clientAnalysis.new} (${clientAnalysis.newPercentage.toFixed(0)}%)
+              </div>
+              <div style="color: white; font-size: 12px;">
+                <span style="color: #22C55E;">●</span> לקוחות חוזרים: ${clientAnalysis.returning} (${clientAnalysis.returningPercentage.toFixed(0)}%)
+              </div>
+            </div>
+
+            <!-- Status Breakdown -->
+            <div style="flex: 1; background: #1A1F35; border-radius: 10px; padding: 14px;">
+              <h3 style="color: #FF6B35; font-size: 13px; margin: 0 0 10px 0; font-weight: bold;">פילוח סטטוס</h3>
+              <div style="color: #22C55E; font-size: 12px; margin-bottom: 6px;">
+                ✓ הושלמו: ${statusBreakdown.completed} (${statusBreakdown.completedPercentage.toFixed(0)}%)
+              </div>
+              <div style="color: #EF4444; font-size: 12px;">
+                ✗ בוטלו: ${statusBreakdown.cancelled} (${statusBreakdown.cancelledPercentage.toFixed(0)}%)
+              </div>
+            </div>
+          </div>
+
+          <!-- KPIs Grid -->
+          <div style="background: #1A1F35; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
+            <h3 style="color: #FF6B35; font-size: 13px; margin: 0 0 10px 0; font-weight: bold;">מדדי ביצוע</h3>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+              <div style="background: #0C0F1D; border-radius: 8px; padding: 8px; text-align: center;">
+                <div style="font-size: 14px; font-weight: bold; color: ${growthTrend.growth >= 0 ? '#22C55E' : '#EF4444'};">${growthTrend.growth >= 0 ? '+' : ''}${growthTrend.growth.toFixed(1)}%</div>
+                <div style="font-size: 9px; color: #94A3B8;">צמיחה</div>
+              </div>
+              <div style="background: #0C0F1D; border-radius: 8px; padding: 8px; text-align: center;">
+                <div style="font-size: 14px; font-weight: bold; color: white;">${peakHour}</div>
+                <div style="font-size: 9px; color: #94A3B8;">שעת שיא</div>
+              </div>
+              <div style="background: #0C0F1D; border-radius: 8px; padding: 8px; text-align: center;">
+                <div style="font-size: 14px; font-weight: bold; color: white;">${clientsPerDay}</div>
+                <div style="font-size: 9px; color: #94A3B8;">לקוחות/יום</div>
+              </div>
+              <div style="background: #0C0F1D; border-radius: 8px; padding: 8px; text-align: center;">
+                <div style="font-size: 14px; font-weight: bold; color: white;">₪${revenuePerClient.toLocaleString()}</div>
+                <div style="font-size: 9px; color: #94A3B8;">הכנסה/לקוח</div>
+              </div>
+              <div style="background: #0C0F1D; border-radius: 8px; padding: 8px; text-align: center;">
+                <div style="font-size: 14px; font-weight: bold; color: white;">${avgServiceDuration} דק׳</div>
+                <div style="font-size: 9px; color: #94A3B8;">משך טיפול</div>
+              </div>
+              <div style="background: #0C0F1D; border-radius: 8px; padding: 8px; text-align: center;">
+                <div style="font-size: 14px; font-weight: bold; color: white;">${rebookingInterval > 0 ? rebookingInterval : '-'}</div>
+                <div style="font-size: 9px; color: #94A3B8;">ימים בין ביקורים</div>
+              </div>
+              <div style="background: #0C0F1D; border-radius: 8px; padding: 8px; text-align: center;">
+                <div style="font-size: 14px; font-weight: bold; color: white;">${busiestDay.day}</div>
+                <div style="font-size: 9px; color: #94A3B8;">יום עמוס</div>
+              </div>
+              <div style="background: #0C0F1D; border-radius: 8px; padding: 8px; text-align: center;">
+                <div style="font-size: 14px; font-weight: bold; color: white;">₪${stats.avgBookingValue.toFixed(0)}</div>
+                <div style="font-size: 9px; color: #94A3B8;">ממוצע/תור</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Occupancy -->
+          <div style="background: #1A1F35; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
+            <h3 style="color: #FF6B35; font-size: 13px; margin: 0 0 10px 0; font-weight: bold;">תפוסה ויעילות</h3>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+              <div style="background: #0C0F1D; border-radius: 8px; padding: 8px; text-align: center;">
+                <div style="font-size: 14px; font-weight: bold; color: #22C55E;">${100 - deadTime.percentage}%</div>
+                <div style="font-size: 9px; color: #94A3B8;">תפוסה</div>
+              </div>
+              <div style="background: #0C0F1D; border-radius: 8px; padding: 8px; text-align: center;">
+                <div style="font-size: 14px; font-weight: bold; color: white;">${deadTime.totalHours}</div>
+                <div style="font-size: 9px; color: #94A3B8;">שעות פנויות</div>
+              </div>
+              <div style="background: #0C0F1D; border-radius: 8px; padding: 8px; text-align: center;">
+                <div style="font-size: 14px; font-weight: bold; color: #FBBF24;">${deadTime.emptySlots}</div>
+                <div style="font-size: 9px; color: #94A3B8;">ימים ריקים</div>
+              </div>
+              <div style="background: #0C0F1D; border-radius: 8px; padding: 8px; text-align: center;">
+                <div style="font-size: 14px; font-weight: bold; color: #F97316;">${deadTime.gaps}</div>
+                <div style="font-size: 9px; color: #94A3B8;">פערים</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Two Column: Services + Monthly Trend -->
+          <div style="display: flex; gap: 12px;">
+            ${revenueByService.length > 0 ? `
+            <!-- Top Services -->
+            <div style="flex: 1; background: #1A1F35; border-radius: 10px; padding: 14px;">
+              <h3 style="color: #FF6B35; font-size: 13px; margin: 0 0 10px 0; font-weight: bold;">שירותים מובילים</h3>
+              ${revenueByService.slice(0, 4).map((service, i) => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                  <span style="color: white; font-size: 11px;">${i + 1}. ${service.name}</span>
+                  <span style="color: #FF6B35; font-size: 11px; font-weight: bold;">₪${service.revenue.toLocaleString()}</span>
+                </div>
+              `).join('')}
+            </div>
+            ` : ''}
+
+            <!-- Monthly Trend -->
+            <div style="flex: 1; background: #1A1F35; border-radius: 10px; padding: 14px;">
+              <h3 style="color: #FF6B35; font-size: 13px; margin: 0 0 10px 0; font-weight: bold;">מגמת 6 חודשים</h3>
+              <div style="display: flex; justify-content: space-between; text-align: center;">
+                ${growthTrend.months.map(month => `
+                  <div style="flex: 1;">
+                    <div style="font-size: 10px; color: #94A3B8; margin-bottom: 3px;">${month.month}</div>
+                    <div style="font-size: 13px; font-weight: bold; color: white;">₪${month.revenue >= 1000 ? Math.round(month.revenue / 1000) + 'K' : month.revenue}</div>
+                    <div style="font-size: 9px; color: #64748B;">${month.bookings}</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="background: linear-gradient(135deg, #FF6B35, #FF1744); padding: 10px; text-align: center; flex-shrink: 0;">
+          <p style="margin: 0; font-size: 10px; color: white;">נוצר על ידי LinedUp | ${format(new Date(), 'dd/MM/yyyy HH:mm')}</p>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(container);
+
+    try {
+      const canvas = await html2canvas(container.firstElementChild, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#0C0F1D',
+        width: 794,
+        height: 1123,
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'px', format: [794, 1123] });
+
+      doc.addImage(imgData, 'PNG', 0, 0, 794, 1123);
+      doc.save(`linedup-דוח-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+    } finally {
+      document.body.removeChild(container);
+    }
   };
 
   const CustomTooltip = ({ active, payload, label }) => {
@@ -330,13 +616,44 @@ function StatisticsContent({ business, timeRange, setTimeRange, navigate }) {
 
   return (
     <div className="min-h-screen bg-[#0C0F1D] pb-24">
-      <div className="bg-[#0C0F1D] border-b border-white/10 px-4 py-3 sticky top-0 z-20">
-        <div className="flex items-center justify-between">
+      <div className="bg-[#0C0F1D] border-b border-white/10 pt-safe">
+        <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate(createPageUrl("BusinessDashboard"))} className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"><ArrowRight className="w-5 h-5 text-white" /></button>
+            <button
+              onClick={() => navigate(createPageUrl("BusinessDashboard"))}
+              className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 active:scale-95 transition-all touch-manipulation"
+            >
+              <ArrowRight className="w-5 h-5 text-white" />
+            </button>
             <h1 className="text-lg font-bold text-white">סטטיסטיקות</h1>
           </div>
-          <Button onClick={handleExport} size="sm" className="h-9 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs"><Download className="w-4 h-4 ml-1" />ייצוא</Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="h-11 min-h-[44px] px-4 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm font-medium flex items-center gap-2 transition-all touch-manipulation"
+              >
+                <Download className="w-4 h-4" />
+                ייצוא
+                <ChevronDown className="w-4 h-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-[#1A1F35] border-white/10 min-w-[160px]">
+              <DropdownMenuItem
+                onClick={handleExportPDF}
+                className="text-white hover:bg-white/10 focus:bg-white/10 cursor-pointer gap-2 h-11"
+              >
+                <FileText className="w-4 h-4 text-[#FF6B35]" />
+                <span>דוח PDF</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleExportCSV}
+                className="text-white hover:bg-white/10 focus:bg-white/10 cursor-pointer gap-2 h-11"
+              >
+                <Download className="w-4 h-4 text-[#FF6B35]" />
+                <span>קובץ CSV</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       <div className="px-4 py-3">
@@ -403,14 +720,15 @@ function StatisticsContent({ business, timeRange, setTimeRange, navigate }) {
           </div>
 
           <div className="bg-[#1A1F35] rounded-2xl p-4 border border-white/5">
-            <div className="flex items-center gap-2 mb-4"><Timer className="w-5 h-5 text-[#FF6B35]" /><h3 className="font-bold text-white">זמן מת</h3></div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="bg-[#0C0F1D] rounded-xl p-3 text-center"><p className="text-2xl font-bold text-white">{deadTime.totalHours}</p><p className="text-[#64748B] text-xs">שעות סה"כ</p></div>
-              <div className="bg-[#0C0F1D] rounded-xl p-3 text-center"><p className="text-2xl font-bold text-yellow-400">{deadTime.emptySlots}</p><p className="text-[#64748B] text-xs">משמרות ריקות</p></div>
-              <div className="bg-[#0C0F1D] rounded-xl p-3 text-center"><p className="text-2xl font-bold text-orange-400">{deadTime.gaps}</p><p className="text-[#64748B] text-xs">פערים בין תורים</p></div>
+            <div className="flex items-center gap-2 mb-4"><Timer className="w-5 h-5 text-[#FF6B35]" /><h3 className="font-bold text-white">תפוסה ויעילות</h3></div>
+            <div className="grid grid-cols-4 gap-3">
+              <div className="bg-[#0C0F1D] rounded-xl p-3 text-center"><p className="text-2xl font-bold text-white">{100 - deadTime.percentage}%</p><p className="text-[#64748B] text-xs">תפוסה</p></div>
+              <div className="bg-[#0C0F1D] rounded-xl p-3 text-center"><p className="text-2xl font-bold text-white">{deadTime.totalHours}</p><p className="text-[#64748B] text-xs">שעות פנויות</p></div>
+              <div className="bg-[#0C0F1D] rounded-xl p-3 text-center"><p className="text-2xl font-bold text-yellow-400">{deadTime.emptySlots}</p><p className="text-[#64748B] text-xs">ימים ריקים</p></div>
+              <div className="bg-[#0C0F1D] rounded-xl p-3 text-center"><p className="text-2xl font-bold text-orange-400">{deadTime.gaps}</p><p className="text-[#64748B] text-xs">פערים</p></div>
             </div>
             <div className="mt-3 bg-[#0C0F1D] rounded-xl p-3">
-              <div className="flex items-center justify-between mb-1"><span className="text-[#94A3B8] text-xs">ניצולת זמן</span><span className="text-white text-sm font-bold">{100 - deadTime.percentage}%</span></div>
+              <div className="flex items-center justify-between mb-1"><span className="text-[#94A3B8] text-xs">שיעור תפוסה</span><span className="text-white text-sm font-bold">{100 - deadTime.percentage}%</span></div>
               <div className="h-2 bg-[#1A1F35] rounded-full overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${100 - deadTime.percentage}%`, background: 'linear-gradient(90deg, #FF6B35, #22C55E)' }} /></div>
             </div>
           </div>
@@ -429,9 +747,11 @@ function StatisticsContent({ business, timeRange, setTimeRange, navigate }) {
             <div className="flex items-center gap-2 mb-3"><Sparkles className="w-5 h-5 text-[#FF6B35]" /><h3 className="font-bold text-white">תובנות מהירות</h3></div>
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-[#0C0F1D] rounded-xl p-3"><p className="text-[#64748B] text-xs mb-1">שעת שיא</p><p className="text-white font-bold">{peakHour}</p></div>
-              <div className="bg-[#0C0F1D] rounded-xl p-3"><p className="text-[#64748B] text-xs mb-1">ממוצע יומי</p><p className="text-white font-bold">{bookingsByDay.length > 0 ? (stats.bookings.current / Math.max(bookingsByDay.length, 1)).toFixed(1) : '0'} תורים</p></div>
+              <div className="bg-[#0C0F1D] rounded-xl p-3"><p className="text-[#64748B] text-xs mb-1">לקוחות ליום</p><p className="text-white font-bold">{clientsPerDay}</p></div>
               <div className="bg-[#0C0F1D] rounded-xl p-3"><p className="text-[#64748B] text-xs mb-1">ממוצע לתור</p><p className="text-white font-bold">₪{stats.avgBookingValue.toFixed(0)}</p></div>
-              <div className="bg-[#0C0F1D] rounded-xl p-3"><p className="text-[#64748B] text-xs mb-1">שיעור חזרה</p><p className="text-white font-bold">{clientAnalysis.returningPercentage.toFixed(0)}%</p></div>
+              <div className="bg-[#0C0F1D] rounded-xl p-3"><p className="text-[#64748B] text-xs mb-1">הכנסה ללקוח</p><p className="text-white font-bold">₪{revenuePerClient.toLocaleString()}</p></div>
+              <div className="bg-[#0C0F1D] rounded-xl p-3"><p className="text-[#64748B] text-xs mb-1">משך טיפול ממוצע</p><p className="text-white font-bold">{avgServiceDuration} דק׳</p></div>
+              <div className="bg-[#0C0F1D] rounded-xl p-3"><p className="text-[#64748B] text-xs mb-1">מרווח בין ביקורים</p><p className="text-white font-bold">{rebookingInterval > 0 ? `${rebookingInterval} ימים` : '-'}</p></div>
             </div>
           </div>
 
@@ -474,6 +794,26 @@ function StatisticsContent({ business, timeRange, setTimeRange, navigate }) {
             </div>
           )}
 
+          {serviceMix.length > 0 && (
+            <div className="bg-[#1A1F35] rounded-2xl p-4 border border-white/5">
+              <div className="flex items-center gap-2 mb-4"><PieChart className="w-5 h-5 text-[#FF6B35]" /><h3 className="font-bold text-white">תמהיל שירותים</h3></div>
+              <div className="space-y-3">
+                {serviceMix.slice(0, 5).map((service, index) => (
+                  <div key={service.name}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-white text-sm truncate flex-1">{service.name}</span>
+                      <span className="text-[#FF6B35] text-sm font-bold mr-2">{service.percentage.toFixed(0)}%</span>
+                      <span className="text-[#64748B] text-xs">({service.count})</span>
+                    </div>
+                    <div className="h-2 bg-[#0C0F1D] rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${service.percentage}%`, background: index === 0 ? 'linear-gradient(90deg, #FF6B35, #FF1744)' : '#FF6B35', opacity: 1 - (index * 0.12) }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {servicePopularity.length > 0 && (
             <div className="bg-[#1A1F35] rounded-2xl p-4 border border-white/5">
               <div className="flex items-center gap-2 mb-4"><Target className="w-5 h-5 text-[#FF6B35]" /><h3 className="font-bold text-white">שירותים פופולריים</h3></div>
@@ -504,6 +844,13 @@ function StatisticsContent({ business, timeRange, setTimeRange, navigate }) {
           </div>
         </div>
       )}
+
+      <UpgradeModal
+        isOpen={showExportUpgrade}
+        onClose={() => setShowExportUpgrade(false)}
+        feature="dataExport"
+        highlightPlan="pro"
+      />
     </div>
   );
 }

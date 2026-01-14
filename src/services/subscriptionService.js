@@ -17,20 +17,20 @@ import { format } from 'date-fns';
  */
 export async function getSubscription(businessId) {
   if (!businessId) return null;
-  
+
   const { data, error } = await supabase
     .from('subscriptions')
     .select('*')
     .eq('business_id', businessId)
     .order('created_at', { ascending: false })
     .limit(1)
-    .single();
-  
+    .maybeSingle();
+
   if (error) {
     console.error('Error fetching subscription:', error);
     return null;
   }
-  
+
   return data;
 }
 
@@ -39,19 +39,20 @@ export async function getSubscription(businessId) {
  */
 export async function getCurrentPlan(businessId) {
   const subscription = await getSubscription(businessId);
-  
+
   if (!subscription) {
     return getPlan(PLAN_IDS.FREE);
   }
-  
+
   // Check if subscription is active
   const isActive = checkSubscriptionStatus(subscription);
-  
+
   if (!isActive) {
     return getPlan(PLAN_IDS.FREE);
   }
-  
-  return getPlan(subscription.plan_type);
+
+  const plan = getPlan(subscription.plan_type);
+  return plan || getPlan(PLAN_IDS.FREE);
 }
 
 /**
@@ -59,10 +60,10 @@ export async function getCurrentPlan(businessId) {
  */
 export function checkSubscriptionStatus(subscription) {
   if (!subscription) return false;
-  
+
   const now = new Date();
   const status = subscription.status;
-  
+
   // Active subscription
   if (status === 'active') {
     // Check if within current period
@@ -71,7 +72,7 @@ export function checkSubscriptionStatus(subscription) {
     }
     return true;
   }
-  
+
   // Trial subscription
   if (status === 'trial') {
     if (subscription.trial_ends_at) {
@@ -79,12 +80,20 @@ export function checkSubscriptionStatus(subscription) {
     }
     return true;
   }
-  
-  // Grace period (subscription expired but grace period active)
+
+  // Grace period status
+  if (status === 'grace_period') {
+    if (subscription.grace_period_ends_at) {
+      return new Date(subscription.grace_period_ends_at) > now;
+    }
+    return true;
+  }
+
+  // Legacy: expired with grace period
   if (status === 'expired' && subscription.grace_period_ends_at) {
     return new Date(subscription.grace_period_ends_at) > now;
   }
-  
+
   return false;
 }
 
@@ -93,20 +102,20 @@ export function checkSubscriptionStatus(subscription) {
  */
 export async function getMonthlyUsage(businessId) {
   if (!businessId) return null;
-  
+
   const currentMonth = format(new Date(), 'yyyy-MM');
-  
+
   const { data, error } = await supabase
     .from('message_usage')
     .select('*')
     .eq('business_id', businessId)
     .eq('month', currentMonth)
-    .single();
-  
-  if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+    .maybeSingle();
+
+  if (error) {
     console.error('Error fetching usage:', error);
   }
-  
+
   return data || {
     message_count: 0,
     bookings_count: 0,
@@ -368,6 +377,7 @@ export function getSubscriptionStatusInfo(subscription) {
     cancelled: { label: 'בוטל', color: 'red' },
     expired: { label: 'פג תוקף', color: 'orange' },
     past_due: { label: 'ממתין לתשלום', color: 'yellow' },
+    grace_period: { label: 'תקופת חסד', color: 'orange' },
   };
   
   const info = statusMap[subscription.status] || { label: subscription.status, color: 'gray' };
@@ -384,7 +394,9 @@ export function getSubscriptionStatusInfo(subscription) {
  */
 export async function activateSubscription(businessId, planType, billingCycle, externalPaymentId = null) {
   const now = new Date();
-  const periodEnd = billingCycle === 'annual' 
+  // Database uses 'yearly', but UI might pass 'annual' - normalize it
+  const normalizedCycle = billingCycle === 'annual' ? 'yearly' : billingCycle;
+  const periodEnd = normalizedCycle === 'yearly'
     ? new Date(now.setFullYear(now.getFullYear() + 1))
     : new Date(now.setMonth(now.getMonth() + 1));
   
@@ -398,7 +410,7 @@ export async function activateSubscription(businessId, planType, billingCycle, e
   const subscriptionData = {
     business_id: businessId,
     plan_type: planType,
-    billing_cycle: billingCycle,
+    billing_cycle: normalizedCycle,
     status: 'active',
     current_period_start: new Date().toISOString(),
     current_period_end: periodEnd.toISOString(),

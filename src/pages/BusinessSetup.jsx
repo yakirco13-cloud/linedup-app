@@ -42,10 +42,9 @@ export default function BusinessSetup() {
     saturday: { enabled: false, shifts: [{ start: "09:00", end: "17:00" }] },
   });
 
-  const [selectedDays, setSelectedDays] = useState([]);
-
+  // FREE plan defaults - features they don't have access to should be OFF
   const [policies, setPolicies] = useState({
-    requireApproval: true,
+    requireApproval: false, // newClientApproval is STARTER+ feature
     cancellationHours: "24"
   });
 
@@ -54,12 +53,10 @@ export default function BusinessSetup() {
     { name: "", duration: "30", price: "", description: "" }
   ]);
 
-  // Staff state
+  // Staff state - single worker for free/starter plans
   const [staffMembers, setStaffMembers] = useState([
     {
       name: "",
-      email: "",
-      phone: "",
       schedule: {
         sunday: { enabled: true, start: "09:00", end: "17:00" },
         monday: { enabled: true, start: "09:00", end: "17:00" },
@@ -98,36 +95,6 @@ export default function BusinessSetup() {
       ...prev,
       [dayKey]: { ...prev[dayKey], enabled: !prev[dayKey].enabled }
     }));
-  };
-
-  const toggleDaySelection = (dayKey) => {
-    setSelectedDays(prev => 
-      prev.includes(dayKey) 
-        ? prev.filter(d => d !== dayKey)
-        : [...prev, dayKey]
-    );
-  };
-
-  const applyToSelectedDays = (sourceDay) => {
-    if (selectedDays.length === 0) {
-      alert('נא לבחור לפחות יום אחד להעתקה');
-      return;
-    }
-
-    const sourceSchedule = workingHours[sourceDay];
-    setWorkingHours(prev => {
-      const updated = { ...prev };
-      selectedDays.forEach(day => {
-        updated[day] = {
-          enabled: sourceSchedule.enabled,
-          shifts: sourceSchedule.shifts.map(shift => ({ ...shift }))
-        };
-      });
-      return updated;
-    });
-    
-    setSelectedDays([]);
-    alert('השעות הועתקו בהצלחה!');
   };
 
   const quickSetHours = (start, end) => {
@@ -193,29 +160,6 @@ export default function BusinessSetup() {
   };
 
   // Staff handlers
-  const addStaff = () => {
-    setStaffMembers([...staffMembers, {
-      name: "",
-      email: "",
-      phone: "",
-      schedule: {
-        sunday: { enabled: true, start: "09:00", end: "17:00" },
-        monday: { enabled: true, start: "09:00", end: "17:00" },
-        tuesday: { enabled: true, start: "09:00", end: "17:00" },
-        wednesday: { enabled: true, start: "09:00", end: "17:00" },
-        thursday: { enabled: true, start: "09:00", end: "17:00" },
-        friday: { enabled: false, start: "09:00", end: "14:00" },
-        saturday: { enabled: false, start: "09:00", end: "17:00" },
-      }
-    }]);
-  };
-
-  const removeStaff = (index) => {
-    if (staffMembers.length > 1) {
-      setStaffMembers(staffMembers.filter((_, i) => i !== index));
-    }
-  };
-
   const updateStaff = (index, field, value) => {
     const newStaff = [...staffMembers];
     newStaff[index] = { ...newStaff[index], [field]: value };
@@ -284,7 +228,8 @@ export default function BusinessSetup() {
       // Generate unique business code
       const businessCode = Math.random().toString(36).substring(2, 8).toUpperCase();
       
-      // Create business
+      // Create business with FREE plan defaults
+      // Features not available on FREE plan are set to false
       const business = await base44.entities.Business.create({
         name: formData.name,
         owner_id: user.id,
@@ -292,10 +237,11 @@ export default function BusinessSetup() {
         email: formData.email,
         business_code: businessCode,
         working_hours: workingHours,
-        require_approval_for_new_clients: policies.requireApproval,
+        require_approval_for_new_clients: false, // newClientApproval is STARTER+ feature
+        reminder_enabled: false, // autoReminders is STARTER+ feature
         cancellation_hours_limit: parseInt(policies.cancellationHours),
-        photo_url: formData.photo_url, // Added
-        description: formData.description // Added
+        photo_url: formData.photo_url,
+        description: formData.description
       });
 
       // Create services
@@ -534,122 +480,82 @@ export default function BusinessSetup() {
         {/* Step 2: Working Hours with Shifts */}
         {step === 2 && (
           <form onSubmit={handleStep2Submit} className="space-y-6">
-            <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800">
+            <div className="bg-[#1A1F35] rounded-2xl p-4 sm:p-6 border border-gray-800">
               <div className="flex items-center gap-2 mb-6">
                 <Clock className="w-6 h-6 text-[#FF6B35]" />
                 <h2 className="text-xl font-bold">שעות פעילות</h2>
               </div>
-              
+
               {/* Quick Set Buttons */}
-              <div className="mb-6 bg-[#0C0F1D] rounded-xl p-4">
+              <div className="mb-6 bg-[#0C0F1D] rounded-xl p-3 sm:p-4">
                 <p className="text-sm text-[#94A3B8] mb-3">קיצורי דרך:</p>
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => quickSetHours("09:00", "17:00")}
-                    className="bg-[#1A1F35] hover:bg-[#FF6B35]/20 border border-gray-700 hover:border-[#FF6B35] rounded-lg py-2 text-sm text-white transition-all"
+                    className="bg-[#1A1F35] hover:bg-[#FF6B35]/20 border border-gray-700 hover:border-[#FF6B35] rounded-lg py-2 text-xs sm:text-sm text-white transition-all"
                   >
                     9:00 - 17:00
                   </button>
                   <button
                     type="button"
                     onClick={() => quickSetHours("10:00", "19:00")}
-                    className="bg-[#1A1F35] hover:bg-[#FF6B35]/20 border border-gray-700 hover:border-[#FF6B35] rounded-lg py-2 text-sm text-white transition-all"
+                    className="bg-[#1A1F35] hover:bg-[#FF6B35]/20 border border-gray-700 hover:border-[#FF6B35] rounded-lg py-2 text-xs sm:text-sm text-white transition-all"
                   >
                     10:00 - 19:00
                   </button>
                   <button
                     type="button"
                     onClick={() => quickSetHours("08:00", "20:00")}
-                    className="bg-[#1A1F35] hover:bg-[#FF6B35]/20 border border-gray-700 hover:border-[#FF6B35] rounded-lg py-2 text-sm text-white transition-all"
+                    className="bg-[#1A1F35] hover:bg-[#FF6B35]/20 border border-gray-700 hover:border-[#FF6B35] rounded-lg py-2 text-xs sm:text-sm text-white transition-all"
                   >
                     8:00 - 20:00
                   </button>
                 </div>
               </div>
 
-              {selectedDays.length > 0 && (
-                <div className="mb-4 bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
-                  <p className="text-blue-400 text-sm mb-2">
-                    נבחרו {selectedDays.length} ימים - לחץ על "העתק" ליד יום כדי להעתיק את השעות לימים הנבחרים
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedDays([])}
-                    className="text-xs text-blue-300 hover:text-blue-200 underline"
-                  >
-                    בטל בחירה
-                  </button>
-                </div>
-              )}
-              
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {DAY_KEYS.map((dayKey, index) => (
-                  <div key={dayKey} className={`bg-[#0C0F1D] rounded-xl p-4 border-2 transition-all ${
-                    selectedDays.includes(dayKey) ? 'border-blue-500' : 'border-transparent'
-                  }`}>
-                    <div className="flex items-center gap-3 mb-3">
-                      <button
-                        type="button"
-                        onClick={() => toggleDaySelection(dayKey)}
-                        className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${
-                          selectedDays.includes(dayKey)
-                            ? 'bg-blue-500 border-blue-500'
-                            : 'border-gray-600 hover:border-blue-500'
-                        }`}
-                      >
-                        {selectedDays.includes(dayKey) && (
-                          <CheckCircle className="w-4 h-4 text-white" />
-                        )}
-                      </button>
-                      
+                  <div key={dayKey} className="bg-[#0C0F1D] rounded-xl p-3 sm:p-4 overflow-hidden">
+                    {/* Day header */}
+                    <div className="flex items-center gap-2 sm:gap-3">
                       <input
                         type="checkbox"
                         checked={workingHours[dayKey].enabled}
                         onChange={() => handleDayToggle(dayKey)}
-                        className="w-5 h-5 rounded accent-[#FF6B35]"
+                        className="w-5 h-5 rounded accent-[#FF6B35] flex-shrink-0"
                       />
-                      <span className="text-white font-medium flex-1">{DAYS[index]}</span>
-                      
-                      {workingHours[dayKey].enabled && workingHours[dayKey].shifts.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => applyToSelectedDays(dayKey)}
-                          disabled={selectedDays.length === 0}
-                          className="text-xs px-3 py-1 rounded-lg bg-[#FF6B35] hover:bg-[#FF8555] disabled:opacity-30 disabled:cursor-not-allowed text-white font-medium transition-all"
-                        >
-                          העתק
-                        </button>
-                      )}
+                      <span className="text-white font-medium flex-1 min-w-0">{DAYS[index]}</span>
                     </div>
-                    
+
+                    {/* Shifts */}
                     {workingHours[dayKey].enabled && (
-                      <div className="space-y-2 mr-8">
+                      <div className="mt-3 space-y-2 pr-7">
                         {workingHours[dayKey].shifts.map((shift, shiftIndex) => (
                           <div key={shiftIndex} className="flex items-center gap-2">
-                            <div className="flex items-center gap-2 flex-1 bg-[#1A1F35] rounded-lg p-2">
+                            <div className="flex items-center gap-1.5 flex-1 min-w-0 bg-[#1A1F35] rounded-lg p-1.5 sm:p-2">
                               <Input
                                 type="time"
                                 value={shift.start}
                                 onChange={(e) => handleShiftChange(dayKey, shiftIndex, 'start', e.target.value)}
-                                className="bg-[#0C0F1D] border-gray-700 text-white h-10 rounded-lg text-sm flex-1"
+                                className="bg-[#0C0F1D] border-gray-700 text-white h-9 rounded-lg text-sm w-[85px] sm:w-auto sm:flex-1 px-2"
                               />
-                              <span className="text-[#94A3B8] text-sm px-1">עד</span>
+                              <span className="text-[#94A3B8] text-xs sm:text-sm">-</span>
                               <Input
                                 type="time"
                                 value={shift.end}
                                 onChange={(e) => handleShiftChange(dayKey, shiftIndex, 'end', e.target.value)}
-                                className="bg-[#0C0F1D] border-gray-700 text-white h-10 rounded-lg text-sm flex-1"
+                                className="bg-[#0C0F1D] border-gray-700 text-white h-9 rounded-lg text-sm w-[85px] sm:w-auto sm:flex-1 px-2"
                               />
                             </div>
-                            
+
                             {workingHours[dayKey].shifts.length > 1 && (
                               <Button
                                 type="button"
                                 onClick={() => removeShift(dayKey, shiftIndex)}
                                 variant="ghost"
                                 size="sm"
-                                className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-10 px-3 rounded-lg"
+                                className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-9 w-9 p-0 rounded-lg flex-shrink-0"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </Button>
@@ -661,10 +567,10 @@ export default function BusinessSetup() {
                           onClick={() => addShift(dayKey)}
                           variant="ghost"
                           size="sm"
-                          className="text-[#FF6B35] hover:text-[#FF6B35]/80 hover:bg-[#FF6B35]/10 h-9 text-xs w-full"
+                          className="text-[#FF6B35] hover:text-[#FF6B35]/80 hover:bg-[#FF6B35]/10 h-8 text-xs w-full"
                         >
                           <Plus className="w-3 h-3 ml-1" />
-                          הוסף משמרת
+                          משמרת נוספת
                         </Button>
                       </div>
                     )}
@@ -803,65 +709,20 @@ export default function BusinessSetup() {
             <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800">
               <div className="flex items-center gap-2 mb-6">
                 <User className="w-6 h-6 text-[#FF6B35]" />
-                <h2 className="text-xl font-bold">הצוות שלך</h2>
+                <h2 className="text-xl font-bold">נותן השירות</h2>
               </div>
               <p className="text-[#94A3B8] text-sm mb-4">
-                הוסף את העובדים שלך
+                הזן את שם נותן השירות שיופיע ללקוחות
               </p>
 
-              <div className="space-y-4">
-                {staffMembers.map((staff, index) => (
-                  <div key={index} className="bg-[#0C0F1D] rounded-xl p-4 relative">
-                    {staffMembers.length > 1 && (
-                      <Button
-                        type="button"
-                        onClick={() => removeStaff(index)}
-                        variant="ghost"
-                        size="sm"
-                        className="absolute top-2 left-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 h-8 w-8 p-0"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
-                    
-                    <div className="space-y-3">
-                      <Input
-                        placeholder="שם העובד *"
-                        value={staff.name}
-                        onChange={(e) => updateStaff(index, 'name', e.target.value)}
-                        className="bg-[#1A1F35] border-gray-700 text-white h-10 rounded-lg"
-                      />
-                      
-                      <div className="grid grid-cols-2 gap-3">
-                        <Input
-                          type="email"
-                          placeholder="אימייל"
-                          value={staff.email}
-                          onChange={(e) => updateStaff(index, 'email', e.target.value)}
-                          className="bg-[#1A1F35] border-gray-700 text-white h-10 rounded-lg"
-                        />
-                        <Input
-                          type="tel"
-                          placeholder="טלפון"
-                          value={staff.phone}
-                          onChange={(e) => updateStaff(index, 'phone', e.target.value)}
-                          className="bg-[#1A1F35] border-gray-700 text-white h-10 rounded-lg"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div className="bg-[#0C0F1D] rounded-xl p-4">
+                <Input
+                  placeholder="שם נותן השירות *"
+                  value={staffMembers[0].name}
+                  onChange={(e) => updateStaff(0, 'name', e.target.value)}
+                  className="bg-[#1A1F35] border-gray-700 text-white h-12 rounded-lg"
+                />
               </div>
-
-              <Button
-                type="button"
-                onClick={addStaff}
-                variant="ghost"
-                className="w-full mt-4 text-[#FF6B35] hover:text-[#FF6B35]/80 hover:bg-[#FF6B35]/10 h-10"
-              >
-                <Plus className="w-4 h-4 ml-2" />
-                הוסף עובד נוסף
-              </Button>
             </div>
 
             {error && (

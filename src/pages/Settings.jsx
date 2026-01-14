@@ -27,6 +27,10 @@ import {
   Repeat
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import MessageUsageCard from "@/components/MessageUsageCard";
+import SubscriptionCard from "@/components/SubscriptionCard";
+import { useFeatureGate } from "@/components/FeatureGate";
+import UpgradeModal from "@/components/UpgradeModal";
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -36,6 +40,8 @@ export default function Settings() {
   const [editingProfile, setEditingProfile] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showRecurringUpgrade, setShowRecurringUpgrade] = useState(false);
+  const { hasAccess: canUseRecurring } = useFeatureGate('recurringBookings');
   const [profileForm, setProfileForm] = useState({
     name: user?.name || "",
     phone: user?.phone || ""
@@ -148,13 +154,16 @@ export default function Settings() {
   };
 
   // Menu Item Component
-  const MenuItem = ({ icon: Icon, label, value, onClick, showArrow = true }) => (
-    <button 
+  const MenuItem = ({ icon: Icon, label, value, onClick, showArrow = true, locked = false }) => (
+    <button
       onClick={onClick}
-      className="w-full flex items-center gap-4 px-4 py-4 hover:bg-white/5 active:bg-white/10 transition-colors"
+      className="w-full flex items-center gap-4 px-4 py-4 hover:bg-white/5 active:bg-white/10 transition-colors relative"
     >
-      <Icon className="w-5 h-5 text-[#FF6B35]" />
-      <span className="flex-1 text-right text-white">{label}</span>
+      <Icon className={`w-5 h-5 ${locked ? 'text-[#94A3B8]' : 'text-[#FF6B35]'}`} />
+      <span className={`flex-1 text-right ${locked ? 'text-[#94A3B8]' : 'text-white'}`}>{label}</span>
+      {locked && (
+        <span className="text-xs text-[#FF6B35] bg-[#FF6B35]/10 px-2 py-0.5 rounded-full">PRO</span>
+      )}
       {value && <span className="text-[#64748B] text-sm">{value}</span>}
       {showArrow && <ChevronLeft className="w-5 h-5 text-[#64748B]" />}
     </button>
@@ -316,38 +325,47 @@ export default function Settings() {
 
         {/* Business Owner Settings */}
         {user?.user_role === 'business_owner' && business && (
-          <Card title="ניהול העסק">
-            <MenuItem 
-              icon={Briefcase} 
-              label="פרטי העסק" 
-              onClick={() => navigate(createPageUrl("BusinessSettings"))}
-            />
-            <MenuItem 
-              icon={Palette} 
-              label="שירותים" 
-              onClick={() => navigate(createPageUrl("ServiceManagement"))}
-            />
-            <MenuItem 
-              icon={Users} 
-              label="צוות עובדים" 
-              onClick={() => navigate(createPageUrl("StaffManagement"))}
-            />
-            <MenuItem 
-              icon={CheckCircle} 
-              label="אישורים" 
-              onClick={() => navigate(createPageUrl("ApprovalManagement"))}
-            />
-            <MenuItem 
-              icon={Clock} 
-              label="מדיניות ביטולים" 
-              onClick={() => navigate(createPageUrl("BusinessPolicies"))}
-            />
-            <MenuItem 
-              icon={Repeat} 
-              label="תורים חוזרים" 
-              onClick={() => navigate(createPageUrl("RecurringManagement"))}
-            />
-          </Card>
+          <>
+            {/* Subscription Status */}
+            <div className="mb-5">
+              <p className="text-[#94A3B8] text-sm mb-2 px-1">מנוי</p>
+              <SubscriptionCard />
+            </div>
+
+            <Card title="ניהול העסק">
+              <MenuItem
+                icon={Briefcase}
+                label="פרטי העסק"
+                onClick={() => navigate(createPageUrl("BusinessSettings"))}
+              />
+              <MenuItem
+                icon={Palette}
+                label="שירותים"
+                onClick={() => navigate(createPageUrl("ServiceManagement"))}
+              />
+              <MenuItem
+                icon={Users}
+                label="צוות עובדים"
+                onClick={() => navigate(createPageUrl("StaffManagement"))}
+              />
+              <MenuItem
+                icon={CheckCircle}
+                label="אישורים"
+                onClick={() => navigate(createPageUrl("ApprovalManagement"))}
+              />
+              <MenuItem
+                icon={Clock}
+                label="מדיניות ביטולים"
+                onClick={() => navigate(createPageUrl("BusinessPolicies"))}
+              />
+              <MenuItem
+                icon={Repeat}
+                label="תורים חוזרים"
+                locked={!canUseRecurring}
+                onClick={() => canUseRecurring ? navigate(createPageUrl("RecurringManagement")) : setShowRecurringUpgrade(true)}
+              />
+            </Card>
+          </>
         )}
 
         {/* Client Business Settings */}
@@ -443,6 +461,13 @@ export default function Settings() {
         {/* App Info */}
         <p className="text-center text-[#3F4553] text-sm mt-6 pb-4">LinedUp v1.0</p>
       </div>
+
+      <UpgradeModal
+        isOpen={showRecurringUpgrade}
+        onClose={() => setShowRecurringUpgrade(false)}
+        feature="recurringBookings"
+        highlightPlan="pro"
+      />
     </div>
   );
 }

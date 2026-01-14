@@ -53,7 +53,8 @@ export default function ApprovalManagement() {
           clientName: booking.client_name,
           businessName: business?.name || 'העסק',
           date: booking.date,
-          time: booking.time
+          time: booking.time,
+          businessId: business?.id
         });
       }
       
@@ -73,7 +74,8 @@ export default function ApprovalManagement() {
         await sendCancellation({
           phone: booking.client_phone,
           clientName: booking.client_name,
-          businessName: business?.name || 'העסק'
+          businessName: business?.name || 'העסק',
+          businessId: business?.id
         });
       }
       

@@ -1,4 +1,6 @@
 import { supabase } from './client';
+import { getCurrentPlan } from '@/services/subscriptionService';
+import { PLAN_IDS, getPlan } from '@/config/plans';
 
 /**
  * Message Tracking Service
@@ -89,11 +91,20 @@ async function trackMessageFallback(businessId, currentMonth) {
  * Get current month's message usage for a business
  */
 export async function getMessageUsage(businessId) {
-  if (!businessId) return { count: 0, limit: 300, month: getCurrentMonth() };
-
   const currentMonth = getCurrentMonth();
+  const defaultPlan = getPlan(PLAN_IDS.FREE);
+
+  if (!businessId) {
+    return {
+      count: 0,
+      limit: defaultPlan.limits.messagesPerMonth,
+      month: currentMonth,
+      percentage: 0
+    };
+  }
 
   try {
+    // Get message count
     const { data, error } = await supabase
       .from('message_usage')
       .select('message_count')
@@ -102,22 +113,57 @@ export async function getMessageUsage(businessId) {
       .single();
 
     if (error && error.code !== 'PGRST116') {
-      // PGRST116 = no rows found, which is fine
       console.error('Error getting message usage:', error);
     }
 
-    // Default limit - will be based on subscription plan later
-    const limit = 300; // Free tier limit
+    // Get subscription plan limit
+    let limit;
+    try {
+      const plan = await getCurrentPlan(businessId);
+      limit = plan.limits.messagesPerMonth;
+    } catch (e) {
+      console.warn('Could not fetch plan, using FREE limit:', e);
+      limit = defaultPlan.limits.messagesPerMonth;
+    }
+
+    const count = data?.message_count || 0;
+
+    // Handle unlimited case
+    if (limit === Infinity) {
+      return {
+        count,
+        limit: Infinity,
+        month: currentMonth,
+        percentage: 0,
+        unlimited: true
+      };
+    }
+
+    // Handle zero limit (FREE plan)
+    if (limit === 0) {
+      return {
+        count,
+        limit: 0,
+        month: currentMonth,
+        percentage: count > 0 ? 100 : 0,
+        disabled: true
+      };
+    }
 
     return {
-      count: data?.message_count || 0,
-      limit: limit,
+      count,
+      limit,
       month: currentMonth,
-      percentage: Math.round(((data?.message_count || 0) / limit) * 100)
+      percentage: Math.round((count / limit) * 100)
     };
   } catch (err) {
     console.error('Error getting message usage:', err);
-    return { count: 0, limit: 300, month: currentMonth, percentage: 0 };
+    return {
+      count: 0,
+      limit: defaultPlan.limits.messagesPerMonth,
+      month: currentMonth,
+      percentage: 0
+    };
   }
 }
 
@@ -126,10 +172,33 @@ export async function getMessageUsage(businessId) {
  */
 export async function canSendMessage(businessId) {
   const usage = await getMessageUsage(businessId);
+
+  // Unlimited messages
+  if (usage.unlimited) {
+    return {
+      canSend: true,
+      usage,
+      remaining: Infinity
+    };
+  }
+
+  // Messages disabled (FREE plan)
+  if (usage.disabled || usage.limit === 0) {
+    return {
+      canSend: false,
+      usage,
+      remaining: 0,
+      reason: 'התוכנית שלך לא כוללת הודעות WhatsApp. שדרג לתוכנית בתשלום.'
+    };
+  }
+
+  const remaining = Math.max(0, usage.limit - usage.count);
+
   return {
-    canSend: usage.count < usage.limit,
-    usage: usage,
-    remaining: usage.limit - usage.count
+    canSend: remaining > 0,
+    usage,
+    remaining,
+    reason: remaining === 0 ? 'הגעת למגבלת ההודעות החודשית. שדרג את המנוי לשליחת הודעות נוספות.' : null
   };
 }
 

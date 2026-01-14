@@ -48,19 +48,25 @@ export default function ClientDashboard() {
     }
   }, [user?.phone, user?.joined_businesses, refetchBusiness]);
 
-  // Get next upcoming appointment
+  // Get next upcoming appointment - ONLY for current business
   const { data: nextAppointment } = useQuery({
-    queryKey: ['next-appointment', user?.phone],
+    queryKey: ['next-appointment', user?.phone, user?.joined_business_id],
     queryFn: async () => {
+      if (!user?.joined_business_id) return null;
+
       const allBookings = await base44.entities.Booking.filter(
-        { client_phone: user.phone, status: 'confirmed' },
+        {
+          client_phone: user.phone,
+          business_id: user.joined_business_id,
+          status: 'confirmed'
+        },
         'date',
         20
       );
       const upcoming = allBookings.filter(b => new Date(`${b.date}T${b.time}`) >= new Date());
       return upcoming.length > 0 ? upcoming[0] : null;
     },
-    enabled: !!user?.phone,
+    enabled: !!user?.phone && !!user?.joined_business_id,
     staleTime: 5 * 1000,
     gcTime: 5 * 60 * 1000,
     refetchInterval: 20000,

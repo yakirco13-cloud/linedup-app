@@ -14,6 +14,8 @@ import { he } from "date-fns/locale";
 
 // Import centralized services
 import { sendBroadcast } from "@/services/whatsappService";
+import { getCurrentPlan } from "@/services/subscriptionService";
+import UpgradeModal from "@/components/UpgradeModal";
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -23,6 +25,7 @@ export default function Clients() {
   const [broadcastMessage, setBroadcastMessage] = useState("");
   const [sendingBroadcast, setSendingBroadcast] = useState(false);
   const [broadcastResult, setBroadcastResult] = useState(null);
+  const [showBroadcastUpgrade, setShowBroadcastUpgrade] = useState(false);
 
   const { data: business } = useQuery({
     queryKey: ['business', user?.business_id],
@@ -35,6 +38,15 @@ export default function Clients() {
     gcTime: 15 * 60 * 1000,
     placeholderData: keepPreviousData,
   });
+
+  // Get current plan to check for broadcast feature (PREMIUM only)
+  const { data: currentPlan } = useQuery({
+    queryKey: ['current-plan', user?.business_id],
+    queryFn: () => getCurrentPlan(user.business_id),
+    enabled: !!user?.business_id,
+  });
+
+  const hasBroadcastMessages = currentPlan?.features?.broadcastMessages || false;
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['all-bookings', business?.id],
@@ -150,16 +162,29 @@ export default function Clients() {
           />
         </div>
 
-        {/* Broadcast Button */}
+        {/* Broadcast Button - PREMIUM feature */}
         {clients.filter(c => c.phone).length > 0 && (
-          <Button
-            onClick={() => setBroadcastOpen(true)}
-            className="w-full mb-6 h-14 rounded-xl gap-3 font-semibold text-lg"
-            style={{ background: 'linear-gradient(135deg, #25D366, #128C7E)' }}
-          >
-            <MessageSquare className="w-6 h-6" />
-            שליחת הודעת תפוצה ({clients.filter(c => c.phone).length} לקוחות)
-          </Button>
+          <div className="relative">
+            {!hasBroadcastMessages && (
+              <div className="absolute top-2 left-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs px-2 py-1 rounded-full z-10">
+                PREMIUM
+              </div>
+            )}
+            <Button
+              onClick={() => {
+                if (!hasBroadcastMessages) {
+                  setShowBroadcastUpgrade(true);
+                  return;
+                }
+                setBroadcastOpen(true);
+              }}
+              className={`w-full mb-6 h-14 rounded-xl gap-3 font-semibold text-lg ${!hasBroadcastMessages ? 'opacity-70' : ''}`}
+              style={{ background: 'linear-gradient(135deg, #25D366, #128C7E)' }}
+            >
+              <MessageSquare className="w-6 h-6" />
+              שליחת הודעת תפוצה ({clients.filter(c => c.phone).length} לקוחות)
+            </Button>
+          </div>
         )}
 
         {/* Broadcast Dialog */}
@@ -345,6 +370,14 @@ export default function Clients() {
           </div>
         )}
       </div>
+
+      <UpgradeModal
+        isOpen={showBroadcastUpgrade}
+        onClose={() => setShowBroadcastUpgrade(false)}
+        feature="broadcastMessages"
+        featureNameHe="הודעות תפוצה"
+        description="שדרג לתוכנית PREMIUM כדי לשלוח הודעות תפוצה לכל הלקוחות שלך בבת אחת."
+      />
     </div>
   );
 }

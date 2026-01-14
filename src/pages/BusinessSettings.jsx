@@ -9,7 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { ArrowRight, Briefcase, Phone, Mail, Clock, Loader2, CheckCircle, Plus, Trash2, Bell, Share2, Copy, RefreshCw, ChevronDown, ChevronUp, Calendar, ExternalLink, Smartphone } from "lucide-react";
+import { ArrowRight, Briefcase, Phone, Mail, Clock, Loader2, CheckCircle, Plus, Trash2, Bell, Share2, Copy, RefreshCw, ChevronDown, ChevronUp, Calendar, ExternalLink, Smartphone, Lock } from "lucide-react";
+import { LockedFeatureOverlay } from "@/components/FeatureGate";
+import { getCurrentPlan } from "@/services/subscriptionService";
 
 // Railway URL for calendar sync
 const RAILWAY_URL = 'https://linedup-official-production.up.railway.app';
@@ -28,8 +30,8 @@ export default function BusinessSettings() {
     email: "",
     photo_url: "",
     description: "",
-    // Reminder settings
-    reminder_enabled: true,
+    // Reminder settings - default to false (FREE plan doesn't have access)
+    reminder_enabled: false,
     reminder_hours_before: 12
   });
 
@@ -67,15 +69,29 @@ export default function BusinessSettings() {
     enabled: !!user?.business_id
   });
 
+  // Get current subscription plan to enforce feature access
+  const { data: currentPlan } = useQuery({
+    queryKey: ['current-plan', user?.business_id],
+    queryFn: () => getCurrentPlan(user.business_id),
+    enabled: !!user?.business_id,
+  });
+
+  // Check feature access based on plan
+  const hasAutoReminders = currentPlan?.features?.autoReminders || false;
+  const hasExternalCalendarShare = currentPlan?.features?.externalCalendarShare || false;
+
   useEffect(() => {
     if (business) {
+      // Enforce plan-based feature access: reminder only works if plan allows it
+      const canUseReminders = hasAutoReminders && business.reminder_enabled === true;
+
       setFormData({
         name: business.name,
         phone: business.phone,
         email: business.email || "",
         photo_url: business.photo_url || "",
         description: business.description || "",
-        reminder_enabled: business.reminder_enabled !== false,
+        reminder_enabled: canUseReminders,
         reminder_hours_before: business.reminder_hours_before || 12
       });
 
@@ -108,7 +124,7 @@ export default function BusinessSettings() {
         setWorkingHours(converted);
       }
     }
-  }, [business]);
+  }, [business, hasAutoReminders]);
 
   const updateMutation = useMutation({
     mutationFn: async (data) => {
@@ -461,6 +477,7 @@ export default function BusinessSettings() {
           </div>
 
           {/* Reminder Settings */}
+          <LockedFeatureOverlay feature="autoReminders">
           <div className="bg-gradient-to-br from-blue-600/20 to-blue-500/10 rounded-2xl p-6 border-2 border-blue-500/30">
             <div className="flex items-center gap-2 mb-4">
               <Bell className="w-5 h-5 text-blue-400" />
@@ -537,14 +554,16 @@ export default function BusinessSettings() {
               </div>
             )}
           </div>
+          </LockedFeatureOverlay>
 
-          {/* Share Calendar Section */}
+          {/* Share Calendar Section - PRO+ feature */}
+          <LockedFeatureOverlay feature="externalCalendarShare">
           <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800">
             <div className="flex items-center gap-2 mb-4">
               <Share2 className="w-5 h-5 text-[#FF6B35]" />
               <h2 className="text-xl font-bold">שיתוף לוח זמנים</h2>
             </div>
-            
+
             <p className="text-[#94A3B8] text-sm mb-4">
               שתף את לוח הזמנים שלך עם אנשים אחרים (למשל: בן/בת זוג, מנהל) לצפייה בלבד
             </p>
@@ -631,6 +650,7 @@ export default function BusinessSettings() {
               </Button>
             )}
           </div>
+          </LockedFeatureOverlay>
 
           {/* Google Calendar Sync Section */}
           <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800">

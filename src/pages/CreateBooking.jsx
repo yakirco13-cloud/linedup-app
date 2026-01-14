@@ -16,6 +16,8 @@ import { he } from "date-fns/locale";
 // Import centralized services
 import { sendConfirmation, sendUpdate } from "@/services/whatsappService";
 import { formatNumeric } from "@/services/dateService";
+import { getCurrentPlan } from "@/services/subscriptionService";
+import UpgradeModal from "@/components/UpgradeModal";
 
 export default function CreateBooking() {
   const navigate = useNavigate();
@@ -38,6 +40,7 @@ export default function CreateBooking() {
   const [recurringFrequency, setRecurringFrequency] = useState('weekly');
   const [recurringPreview, setRecurringPreview] = useState([]);
   const [creatingRecurring, setCreatingRecurring] = useState(false);
+  const [showRecurringUpgrade, setShowRecurringUpgrade] = useState(false);
 
   const [formData, setFormData] = useState({
     client_name: "",
@@ -106,6 +109,15 @@ export default function CreateBooking() {
     },
     enabled: !!user?.business_id,
   });
+
+  // Get current plan to check for recurring bookings feature
+  const { data: currentPlan } = useQuery({
+    queryKey: ['current-plan', user?.business_id],
+    queryFn: () => getCurrentPlan(user.business_id),
+    enabled: !!user?.business_id,
+  });
+
+  const hasRecurringBookings = currentPlan?.features?.recurringBookings || false;
 
   const { data: services = [] } = useQuery({
     queryKey: ['services', business?.id],
@@ -277,7 +289,8 @@ export default function CreateBooking() {
           await sendUpdate({
             phone: clientPhone,
             clientName: formData.client_name,
-            businessName: business.name
+            businessName: business.name,
+            businessId: business.id
           });
         } else {
           await sendConfirmation({
@@ -285,7 +298,8 @@ export default function CreateBooking() {
             clientName: formData.client_name,
             businessName: business.name,
             date: formData.date,
-            time: selectedTime
+            time: selectedTime,
+            businessId: business.id
           });
         }
       }
@@ -375,7 +389,8 @@ export default function CreateBooking() {
           businessName: business.name,
           date: formData.date,
           time: selectedTime,
-          serviceName: `${selectedService?.name} (תור חוזר - ${recurringPreview.length} תורים)`
+          serviceName: `${selectedService?.name} (תור חוזר - ${recurringPreview.length} תורים)`,
+          businessId: business.id
         });
       }
       
@@ -840,7 +855,12 @@ export default function CreateBooking() {
 
           {/* Recurring Appointment Section - Only show for new bookings (not edit mode) */}
           {!editMode && formData.date && (
-            <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800">
+            <div className={`bg-[#1A1F35] rounded-2xl p-6 border border-gray-800 relative ${!hasRecurringBookings ? 'opacity-60' : ''}`}>
+              {!hasRecurringBookings && (
+                <div className="absolute top-3 left-3 bg-gradient-to-r from-[#FF6B35] to-[#FF1744] text-white text-xs px-2 py-1 rounded-full">
+                  PRO+
+                </div>
+              )}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <Repeat className={`w-6 h-6 ${isRecurring ? 'text-[#FF6B35]' : 'text-[#94A3B8]'}`} />
@@ -851,7 +871,13 @@ export default function CreateBooking() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setIsRecurring(!isRecurring)}
+                  onClick={() => {
+                    if (!hasRecurringBookings) {
+                      setShowRecurringUpgrade(true);
+                      return;
+                    }
+                    setIsRecurring(!isRecurring);
+                  }}
                   className={`relative w-14 h-8 rounded-full transition-colors ${
                     isRecurring ? 'bg-[#FF6B35]' : 'bg-gray-600'
                   }`}
@@ -992,6 +1018,14 @@ export default function CreateBooking() {
           </Button>
         </form>
       </div>
+
+      <UpgradeModal
+        isOpen={showRecurringUpgrade}
+        onClose={() => setShowRecurringUpgrade(false)}
+        feature="recurringBookings"
+        featureNameHe="תורים חוזרים"
+        description="שדרג לתוכנית PRO כדי ליצור תורים חוזרים אוטומטיים ללקוחות קבועים."
+      />
     </div>
   );
 }

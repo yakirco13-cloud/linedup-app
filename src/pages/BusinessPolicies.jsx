@@ -8,13 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowRight, Clock, CheckCircle, Loader2, Calendar } from "lucide-react";
+import { LockedFeatureOverlay } from "@/components/FeatureGate";
+import { getCurrentPlan } from "@/services/subscriptionService";
 
 export default function BusinessPolicies() {
   const navigate = useNavigate();
   const { user } = useUser();
   const queryClient = useQueryClient();
 
-  const [requireApproval, setRequireApproval] = useState(true);
+  const [requireApproval, setRequireApproval] = useState(false); // Default false - STARTER+ feature
   const [cancellationHours, setCancellationHours] = useState("24");
   const [bookingWindowEnabled, setBookingWindowEnabled] = useState(false);
   const [bookingWindowDays, setBookingWindowDays] = useState("14");
@@ -29,14 +31,29 @@ export default function BusinessPolicies() {
     enabled: !!user?.business_id,
   });
 
+  // Get current subscription plan to enforce feature access
+  const { data: currentPlan } = useQuery({
+    queryKey: ['current-plan', user?.business_id],
+    queryFn: () => getCurrentPlan(user.business_id),
+    enabled: !!user?.business_id,
+  });
+
+  // Check feature access based on plan
+  const hasNewClientApproval = currentPlan?.features?.newClientApproval || false;
+  const hasCancellationPolicy = currentPlan?.features?.cancellationPolicy || false;
+  const hasBookingVisibility = currentPlan?.features?.bookingVisibility || false;
+
   useEffect(() => {
     if (business) {
-      setRequireApproval(business.require_approval_for_new_clients ?? true);
+      // Enforce plan-based feature access
+      const canUseApproval = hasNewClientApproval && (business.require_approval_for_new_clients ?? false);
+
+      setRequireApproval(canUseApproval);
       setCancellationHours((business.cancellation_hours_limit || 24).toString());
       setBookingWindowEnabled(business.booking_window_enabled ?? false);
       setBookingWindowDays((business.booking_window_days || 14).toString());
     }
-  }, [business]);
+  }, [business, hasNewClientApproval]);
 
   const updateMutation = useMutation({
     mutationFn: (data) => base44.entities.Business.update(business.id, data),
@@ -78,7 +95,8 @@ export default function BusinessPolicies() {
         <h1 className="text-3xl font-bold mb-8">מדיניות ביטולים ואישורים</h1>
 
         <div className="space-y-6">
-          {/* Approval Policy */}
+          {/* Approval Policy - STARTER+ feature */}
+          <LockedFeatureOverlay feature="newClientApproval">
           <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800">
             <div className="flex items-center gap-3 mb-4">
               <CheckCircle className="w-6 h-6 text-[#FF6B35]" />
@@ -137,8 +155,10 @@ export default function BusinessPolicies() {
               </button>
             </div>
           </div>
+          </LockedFeatureOverlay>
 
-          {/* Cancellation Policy */}
+          {/* Cancellation Policy - PRO+ feature */}
+          <LockedFeatureOverlay feature="cancellationPolicy">
           <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800">
             <div className="flex items-center gap-3 mb-4">
               <Clock className="w-6 h-6 text-[#FF6B35]" />
@@ -174,8 +194,10 @@ export default function BusinessPolicies() {
               </p>
             </div>
           </div>
+          </LockedFeatureOverlay>
 
-          {/* Booking Window */}
+          {/* Booking Window - STARTER+ feature (bookingVisibility) */}
+          <LockedFeatureOverlay feature="bookingVisibility">
           <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800">
             <div className="flex items-center gap-3 mb-4">
               <Calendar className="w-6 h-6 text-[#FF6B35]" />
@@ -260,6 +282,7 @@ export default function BusinessPolicies() {
               )}
             </div>
           </div>
+          </LockedFeatureOverlay>
 
           <Button
             onClick={handleSave}

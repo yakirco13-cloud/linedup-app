@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl, formatTime } from "@/utils";
 import { base44 } from "@/api/base44Client";
@@ -10,11 +10,18 @@ import ScheduleOverrideModal from "../components/ScheduleOverrideModal";
 import { Button } from "@/components/ui/button";
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, isSameDay, isToday, parseISO, addDays } from "date-fns";
 import { he } from "date-fns/locale";
+import { toast } from "sonner";
+
+// Drag and drop
+import { DndContext, useDraggable, useSensor, useSensors, PointerSensor, TouchSensor } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 
 // Import centralized services
 import { sendCancellation } from "@/services/whatsappService";
 import { notifyWaitingListForOpenedSlot } from "@/services/waitingListService";
 import { toISO, parseDate, getDayKey, formatNumeric } from "@/services/dateService";
+import { isSlotAvailable } from "@/services/availabilityService";
+import { positionToMinutes, snapToInterval, minutesToTime, positionToColumnIndex, columnIndexToDate, timeToPosition } from "@/utils/calendarDragUtils";
 
 export default function CalendarView() {
   const navigate = useNavigate();
@@ -40,6 +47,24 @@ export default function CalendarView() {
   const [showOverrideModal, setShowOverrideModal] = useState(false);
   const [selectedOverrideDate, setSelectedOverrideDate] = useState(null);
   const [editingOverride, setEditingOverride] = useState(null);
+
+  // Drag and drop state
+  const [activeBooking, setActiveBooking] = useState(null);
+  const [dropPreview, setDropPreview] = useState(null); // { date, time, hasConflict }
+  const [originalPosition, setOriginalPosition] = useState(null); // { date, time } - where booking was before drag
+  const calendarGridRef = useRef(null);
+
+  // Configure drag sensors with activation constraints
+  // - PointerSensor: requires 8px movement to start drag (prevents accidental drags)
+  // - TouchSensor: 200ms delay before drag starts (allows quick swipes for navigation)
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 5 },
+    })
+  );
 
   const minSwipeDistance = 50;
 
@@ -151,7 +176,8 @@ export default function CalendarView() {
           clientName: booking.client_name,
           businessName: business?.name || 'העסק',
           date: booking.date,
-          time: booking.time
+          time: booking.time,
+          businessId: business?.id
         });
       }
       
@@ -187,6 +213,49 @@ export default function CalendarView() {
       
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       setSelectedBooking(null);
+    },
+  });
+
+  // Reschedule booking mutation (for drag and drop)
+  const rescheduleMutation = useMutation({
+    mutationFn: async ({ bookingId, newDate, newTime }) => {
+      return base44.entities.Booking.update(bookingId, {
+        date: newDate,
+        time: newTime,
+      });
+    },
+    onMutate: async ({ bookingId, newDate, newTime }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['bookings'] });
+
+      // Snapshot previous value for rollback
+      const previousBookings = queryClient.getQueryData(['bookings', business?.id]);
+
+      // Optimistically update the cache
+      queryClient.setQueryData(['bookings', business?.id], (old) => {
+        if (!old) return old;
+        return old.map(booking =>
+          booking.id === bookingId
+            ? { ...booking, date: newDate, time: newTime }
+            : booking
+        );
+      });
+
+      return { previousBookings };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousBookings) {
+        queryClient.setQueryData(['bookings', business?.id], context.previousBookings);
+      }
+      toast.error('שגיאה בהעברת התור');
+    },
+    onSettled: () => {
+      // Refetch to ensure sync
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+    },
+    onSuccess: (updatedBooking, { newDate, newTime }) => {
+      toast.success(`התור הועבר ל-${formatNumeric(newDate)} בשעה ${newTime}`);
     },
   });
 
@@ -463,6 +532,110 @@ export default function CalendarView() {
 
   const todayBookings = getBookingsForDay(currentDate);
 
+  // Drag and drop handlers
+  const handleDragStart = (event) => {
+    const { active } = event;
+    const booking = bookings.find(b => b.id === active.id);
+    if (booking) {
+      setActiveBooking(booking);
+      setDropPreview(null);
+      // Save original position to show ghost
+      setOriginalPosition({
+        date: toISO(booking.date),
+        time: booking.time,
+      });
+    }
+  };
+
+  const handleDragMove = (event) => {
+    if (!activeBooking || !calendarGridRef.current) return;
+
+    const { activatorEvent, delta } = event;
+
+    // Get the current pointer position
+    const pointerEvent = activatorEvent;
+    if (!pointerEvent) return;
+
+    const containerRect = calendarGridRef.current.getBoundingClientRect();
+
+    // Calculate current position (initial position + delta)
+    const currentY = pointerEvent.clientY + delta.y;
+    const currentX = pointerEvent.clientX + delta.x;
+
+    // Convert Y position to time (subtract 30 min offset to align with booking top)
+    const rawMinutes = positionToMinutes(currentY, containerRect.top) - 30;
+    const snappedMinutes = snapToInterval(rawMinutes, 15);
+    const snappedTime = minutesToTime(snappedMinutes);
+
+    // Convert X position to day (add 1 to shift left by one day)
+    const columnCount = displayDays.length;
+    let columnIndex = positionToColumnIndex(currentX, containerRect, columnCount) + 1;
+    // Clamp to valid range
+    columnIndex = Math.max(0, Math.min(columnCount - 1, columnIndex));
+    const targetDate = columnIndexToDate(columnIndex, displayDays);
+    const targetDateStr = format(targetDate, 'yyyy-MM-dd');
+
+    // Check for conflicts
+    const dayBookings = getBookingsForDay(targetDate);
+    const hasConflict = !isSlotAvailable({
+      time: snappedTime,
+      duration: activeBooking.duration || 30,
+      bookings: dayBookings,
+      ignoreBookingId: activeBooking.id,
+    });
+
+    setDropPreview({
+      date: targetDateStr,
+      time: snappedTime,
+      hasConflict,
+      targetDate,
+    });
+  };
+
+  const handleDragEnd = (event) => {
+    if (!activeBooking || !dropPreview) {
+      setActiveBooking(null);
+      setDropPreview(null);
+      setOriginalPosition(null);
+      return;
+    }
+
+    // Block if there's a conflict
+    if (dropPreview.hasConflict) {
+      toast.error('לא ניתן להזיז - יש תור אחר בזמן זה');
+      setActiveBooking(null);
+      setDropPreview(null);
+      setOriginalPosition(null);
+      return;
+    }
+
+    // Check if position actually changed
+    const originalDate = toISO(activeBooking.date);
+    if (originalDate === dropPreview.date && activeBooking.time === dropPreview.time) {
+      setActiveBooking(null);
+      setDropPreview(null);
+      setOriginalPosition(null);
+      return;
+    }
+
+    // Execute the reschedule
+    rescheduleMutation.mutate({
+      bookingId: activeBooking.id,
+      newDate: dropPreview.date,
+      newTime: dropPreview.time,
+    });
+
+    setActiveBooking(null);
+    setDropPreview(null);
+    setOriginalPosition(null);
+  };
+
+  const handleDragCancel = () => {
+    setActiveBooking(null);
+    setDropPreview(null);
+    setOriginalPosition(null);
+  };
+
   const DayHeader = ({ day }) => {
     const dayIsToday = isToday(day);
     const dayNameShort = format(day, 'EEEEEE', { locale: he });
@@ -505,25 +678,44 @@ export default function CalendarView() {
     const isPending = appointment.status === 'pending_approval';
     const { top, height } = getBookingPosition(appointment);
     const serviceColor = getServiceColor(appointment.service_id, appointment.service_name);
-    
+    const isDragging = activeBooking?.id === appointment.id;
+
+    // Make the appointment draggable
+    const { attributes, listeners, setNodeRef, transform } = useDraggable({
+      id: appointment.id,
+      data: appointment,
+    });
+
+    const style = {
+      top: `${top}px`,
+      height: `${height}px`,
+      backgroundColor: isPending ? '#EAB308' : serviceColor,
+      borderRight: `3px solid ${serviceColor}`,
+      transform: CSS.Translate.toString(transform),
+      opacity: isDragging ? 0.5 : 1,
+      cursor: 'grab',
+      touchAction: 'none',
+    };
+
     return (
       <button
+        ref={setNodeRef}
+        {...attributes}
+        {...listeners}
         onClick={(e) => {
-          e.stopPropagation();
-          onClick();
+          // Only trigger click if not dragging
+          if (!isDragging) {
+            e.stopPropagation();
+            onClick();
+          }
         }}
-        className={`absolute left-1 right-1 rounded-lg p-1.5 text-right overflow-hidden hover:brightness-110 transition-all shadow-lg`}
-        style={{
-          top: `${top}px`,
-          height: `${height}px`,
-          backgroundColor: isPending ? '#EAB308' : serviceColor,
-          borderRight: `3px solid ${serviceColor}`,
-        }}
+        className={`absolute left-1 right-1 rounded-lg p-1.5 text-right overflow-hidden hover:brightness-110 transition-all shadow-lg ${isDragging ? 'z-50' : ''}`}
+        style={style}
       >
         {isPending && (
           <div className="absolute top-1 left-1 w-2 h-2 bg-white rounded-full animate-pulse" />
         )}
-        
+
         <p className="text-[10px] font-bold text-white leading-tight break-words">
           {appointment.client_name || 'Walk-in'}
         </p>
@@ -742,7 +934,14 @@ export default function CalendarView() {
           <Loader2 className="w-8 h-8 animate-spin text-[#FF6B35]" />
         </div>
       ) : (
-        <div 
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragMove={handleDragMove}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
+        <div
           className="flex-1 overflow-x-auto overflow-y-auto pb-safe"
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
@@ -767,7 +966,7 @@ export default function CalendarView() {
           )}
 
           {/* Grid Body */}
-          <div className="flex flex-row-reverse">
+          <div className="flex flex-row-reverse" ref={calendarGridRef}>
             {/* Time Column */}
             <div className="w-16 flex-shrink-0 bg-[#0C0F1D] border-r-2 border-gray-800">
               {hours.map(hour => (
@@ -819,6 +1018,42 @@ export default function CalendarView() {
                           />
                         );
                       })}
+
+                      {/* Ghost at original position - shows where booking came from */}
+                      {activeBooking && originalPosition && originalPosition.date === format(day, 'yyyy-MM-dd') && (
+                        <div
+                          className="absolute left-1 right-1 rounded-lg border-2 border-dashed border-gray-400 bg-gray-500/20 pointer-events-none"
+                          style={{
+                            top: `${timeToPosition(originalPosition.time)}px`,
+                            height: `${Math.max((activeBooking.duration / 60) * 52, 20)}px`,
+                          }}
+                        >
+                          <p className="text-[10px] text-gray-400 p-1">
+                            {originalPosition.time}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Drop preview indicator - shows where booking will land */}
+                      {activeBooking && dropPreview && dropPreview.date === format(day, 'yyyy-MM-dd') && (
+                        <div
+                          className={`absolute left-1 right-1 rounded-lg border-2 border-dashed pointer-events-none z-10 ${
+                            dropPreview.hasConflict
+                              ? 'border-red-500 bg-red-500/20'
+                              : 'border-green-500 bg-green-500/20'
+                          }`}
+                          style={{
+                            top: `${timeToPosition(dropPreview.time)}px`,
+                            height: `${Math.max((activeBooking.duration / 60) * 52, 20)}px`,
+                          }}
+                        >
+                          <p className={`text-[10px] font-bold p-1 ${
+                            dropPreview.hasConflict ? 'text-red-400' : 'text-green-400'
+                          }`}>
+                            {dropPreview.time}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -846,6 +1081,8 @@ export default function CalendarView() {
             </div>
           </div>
         </div>
+
+        </DndContext>
       )}
 
       {/* Fixed action buttons - positioned properly above bottom nav */}

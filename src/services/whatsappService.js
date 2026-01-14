@@ -1,19 +1,36 @@
 /**
  * Centralized WhatsApp Service
  * All WhatsApp message sending goes through here
- * 
+ *
  * This ensures:
  * - Consistent API URL usage
  * - Centralized error handling
  * - Future message tracking integration
  * - Single place to update templates
+ * - Plan-based access control
  */
+
+import { canSendMessage, incrementMessageCount } from './subscriptionService';
 
 // Use environment variable or fallback to production URL
 const WHATSAPP_API_URL = import.meta.env.VITE_WHATSAPP_API_URL || 'https://linedup-official-production.up.railway.app';
 
 // API Key for secure communication with Railway server
 const API_KEY = import.meta.env.VITE_WHATSAPP_API_KEY || '';
+
+/**
+ * Check if business can send WhatsApp messages based on plan
+ * @param {string} businessId - Business ID
+ * @returns {Promise<{allowed: boolean, reason?: string}>}
+ */
+async function checkMessageAllowed(businessId) {
+  if (!businessId) {
+    return { allowed: true }; // Allow if no businessId (OTP, etc.)
+  }
+
+  const result = await canSendMessage(businessId);
+  return result;
+}
 
 /**
  * Base function for making WhatsApp API calls
@@ -81,15 +98,25 @@ export async function verifyOTP(phone, code) {
  * @param {string} params.date - Booking date
  * @param {string} params.time - Booking time
  * @param {string} [params.serviceName] - Service name (optional)
+ * @param {string} [params.businessId] - Business ID for plan check
  * @returns {Promise<{success: boolean, error?: string}>}
  */
-export async function sendConfirmation({ phone, clientName, businessName, date, time, serviceName }) {
+export async function sendConfirmation({ phone, clientName, businessName, date, time, serviceName, businessId }) {
   if (!phone) {
     console.log('⏭️ WhatsApp: No phone number, skipping confirmation');
     return { success: false, error: 'No phone number' };
   }
-  
-  return sendRequest('/api/send-confirmation', {
+
+  // Check if business can send messages based on plan
+  if (businessId) {
+    const planCheck = await checkMessageAllowed(businessId);
+    if (!planCheck.allowed) {
+      console.log('⏭️ WhatsApp: Plan limit reached, skipping confirmation -', planCheck.reason);
+      return { success: false, error: planCheck.reason, planBlocked: true };
+    }
+  }
+
+  const result = await sendRequest('/api/send-confirmation', {
     phone,
     clientName,
     businessName,
@@ -98,6 +125,13 @@ export async function sendConfirmation({ phone, clientName, businessName, date, 
     serviceName,
     whatsappEnabled: true
   });
+
+  // Increment message count on successful send
+  if (result.success && businessId) {
+    await incrementMessageCount(businessId);
+  }
+
+  return result;
 }
 
 /**
@@ -107,20 +141,37 @@ export async function sendConfirmation({ phone, clientName, businessName, date, 
  * @param {string} params.clientName - Client name
  * @param {string} params.serviceName - Service name
  * @param {string} params.date - Booking date
+ * @param {string} [params.businessId] - Business ID for plan check
  * @returns {Promise<{success: boolean, error?: string}>}
  */
-export async function sendCancellation({ phone, clientName, serviceName, date }) {
+export async function sendCancellation({ phone, clientName, serviceName, date, businessId }) {
   if (!phone) {
     console.log('⏭️ WhatsApp: No phone number, skipping cancellation');
     return { success: false, error: 'No phone number' };
   }
-  
-  return sendRequest('/api/send-cancellation', {
+
+  // Check if business can send messages based on plan
+  if (businessId) {
+    const planCheck = await checkMessageAllowed(businessId);
+    if (!planCheck.allowed) {
+      console.log('⏭️ WhatsApp: Plan limit reached, skipping cancellation -', planCheck.reason);
+      return { success: false, error: planCheck.reason, planBlocked: true };
+    }
+  }
+
+  const result = await sendRequest('/api/send-cancellation', {
     phone,
     clientName: clientName || 'לקוח',
     serviceName: serviceName || 'תור',
     date
   });
+
+  // Increment message count on successful send
+  if (result.success && businessId) {
+    await incrementMessageCount(businessId);
+  }
+
+  return result;
 }
 
 /**
@@ -133,15 +184,25 @@ export async function sendCancellation({ phone, clientName, serviceName, date })
  * @param {string} [params.oldTime] - Old booking time
  * @param {string} [params.newDate] - New booking date
  * @param {string} [params.newTime] - New booking time
+ * @param {string} [params.businessId] - Business ID for plan check
  * @returns {Promise<{success: boolean, error?: string}>}
  */
-export async function sendUpdate({ phone, clientName, businessName, oldDate, oldTime, newDate, newTime }) {
+export async function sendUpdate({ phone, clientName, businessName, oldDate, oldTime, newDate, newTime, businessId }) {
   if (!phone) {
     console.log('⏭️ WhatsApp: No phone number, skipping update');
     return { success: false, error: 'No phone number' };
   }
-  
-  return sendRequest('/api/send-update', {
+
+  // Check if business can send messages based on plan
+  if (businessId) {
+    const planCheck = await checkMessageAllowed(businessId);
+    if (!planCheck.allowed) {
+      console.log('⏭️ WhatsApp: Plan limit reached, skipping update -', planCheck.reason);
+      return { success: false, error: planCheck.reason, planBlocked: true };
+    }
+  }
+
+  const result = await sendRequest('/api/send-update', {
     phone,
     clientName,
     businessName,
@@ -151,6 +212,13 @@ export async function sendUpdate({ phone, clientName, businessName, oldDate, old
     newTime,
     whatsappEnabled: true
   });
+
+  // Increment message count on successful send
+  if (result.success && businessId) {
+    await incrementMessageCount(businessId);
+  }
+
+  return result;
 }
 
 /**
@@ -160,20 +228,37 @@ export async function sendUpdate({ phone, clientName, businessName, oldDate, old
  * @param {string} params.clientName - Client name
  * @param {string} params.date - Date with available slot
  * @param {string} [params.serviceName] - Service name (optional)
+ * @param {string} [params.businessId] - Business ID for plan check
  * @returns {Promise<{success: boolean, error?: string}>}
  */
-export async function sendWaitingListNotification({ phone, clientName, date, serviceName }) {
+export async function sendWaitingListNotification({ phone, clientName, date, serviceName, businessId }) {
   if (!phone) {
     console.log('⏭️ WhatsApp: No phone number, skipping waiting list notification');
     return { success: false, error: 'No phone number' };
   }
-  
-  return sendRequest('/api/send-waiting-list', {
+
+  // Check if business can send messages based on plan
+  if (businessId) {
+    const planCheck = await checkMessageAllowed(businessId);
+    if (!planCheck.allowed) {
+      console.log('⏭️ WhatsApp: Plan limit reached, skipping waiting list notification -', planCheck.reason);
+      return { success: false, error: planCheck.reason, planBlocked: true };
+    }
+  }
+
+  const result = await sendRequest('/api/send-waiting-list', {
     phone,
     clientName,
     date,
     serviceName
   });
+
+  // Increment message count on successful send
+  if (result.success && businessId) {
+    await incrementMessageCount(businessId);
+  }
+
+  return result;
 }
 
 /**
@@ -185,15 +270,25 @@ export async function sendWaitingListNotification({ phone, clientName, date, ser
  * @param {string} params.date - Booking date
  * @param {string} params.time - Booking time
  * @param {string} [params.serviceName] - Service name (optional)
+ * @param {string} [params.businessId] - Business ID for plan check
  * @returns {Promise<{success: boolean, error?: string}>}
  */
-export async function sendReminder({ phone, clientName, businessName, date, time, serviceName }) {
+export async function sendReminder({ phone, clientName, businessName, date, time, serviceName, businessId }) {
   if (!phone) {
     console.log('⏭️ WhatsApp: No phone number, skipping reminder');
     return { success: false, error: 'No phone number' };
   }
-  
-  return sendRequest('/api/send-reminder', {
+
+  // Check if business can send messages based on plan
+  if (businessId) {
+    const planCheck = await checkMessageAllowed(businessId);
+    if (!planCheck.allowed) {
+      console.log('⏭️ WhatsApp: Plan limit reached, skipping reminder -', planCheck.reason);
+      return { success: false, error: planCheck.reason, planBlocked: true };
+    }
+  }
+
+  const result = await sendRequest('/api/send-reminder', {
     phone,
     clientName,
     businessName,
@@ -202,6 +297,13 @@ export async function sendReminder({ phone, clientName, businessName, date, time
     serviceName,
     whatsappEnabled: true
   });
+
+  // Increment message count on successful send
+  if (result.success && businessId) {
+    await incrementMessageCount(businessId);
+  }
+
+  return result;
 }
 
 /**

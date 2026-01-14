@@ -7,7 +7,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowRight, Plus, Trash2, Users, Clock, Loader2, Copy, Pencil } from "lucide-react";
+import { ArrowRight, Plus, Trash2, Users, Clock, Loader2, Copy, Pencil, Lock } from "lucide-react";
+import { useFeatureGate } from "@/components/FeatureGate";
+import UpgradeModal from "@/components/UpgradeModal";
 
 const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -19,6 +21,8 @@ export default function StaffManagement() {
   const [showForm, setShowForm] = useState(false);
   const [editingStaff, setEditingStaff] = useState(null);
   const [useBusinessHours, setUseBusinessHours] = useState(true);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const { hasAccess: canAddMultipleStaff } = useFeatureGate('multipleStaff');
 
   const [formData, setFormData] = useState({
     name: ""
@@ -321,14 +325,22 @@ export default function StaffManagement() {
           <h1 className="text-3xl font-bold">ניהול צוות</h1>
           <Button
             onClick={() => {
-              resetForm(); // Reset form when opening to add new or clear existing edit
+              // Check if user already has staff and doesn't have premium
+              if (staff.length > 0 && !canAddMultipleStaff) {
+                setShowUpgradeModal(true);
+                return;
+              }
+              resetForm();
               setShowForm(!showForm);
             }}
-            className="h-12 px-6 rounded-xl"
+            className="h-12 px-6 rounded-xl relative"
             style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}
           >
             <Plus className="w-5 h-5 ml-2" />
             הוסף עובד
+            {staff.length > 0 && !canAddMultipleStaff && (
+              <Lock className="w-3.5 h-3.5 absolute top-1 left-1 text-white" />
+            )}
           </Button>
         </div>
 
@@ -506,6 +518,13 @@ export default function StaffManagement() {
           </div>
         )}
       </div>
+
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        feature="multipleStaff"
+        highlightPlan="premium"
+      />
     </div>
   );
 }

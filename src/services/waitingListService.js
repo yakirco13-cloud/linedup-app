@@ -162,7 +162,8 @@ export async function notifyWaitingListForOpenedSlot({ businessId, date, startTi
           clientName: entry.client_name,
           date: normalizedDate,
           time: foundSlot,
-          serviceName: entry.service_name
+          serviceName: entry.service_name,
+          businessId: businessId
         });
         
         if (sendResult.success) {

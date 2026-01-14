@@ -15,6 +15,7 @@ import WaitingListModal from "@/components/WaitingListModal";
 // Import centralized services
 import { sendConfirmation, sendUpdate } from "@/services/whatsappService";
 import { notifyWaitingListForOpenedSlot } from "@/services/waitingListService";
+import { getCurrentPlan } from "@/services/subscriptionService";
 
 export default function BookAppointment() {
   const navigate = useNavigate();
@@ -209,6 +210,15 @@ export default function BookAppointment() {
     placeholderData: keepPreviousData,
   });
 
+  // Check if business has waiting list feature (PRO+ plan)
+  const { data: businessPlan } = useQuery({
+    queryKey: ['business-plan', selectedBusiness?.id],
+    queryFn: () => getCurrentPlan(selectedBusiness.id),
+    enabled: !!selectedBusiness?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+  const hasWaitingListFeature = businessPlan?.features?.waitingList || false;
+
   // Auto-select service if only one
   useEffect(() => {
     if (step === 2 && services.length === 1 && !selectedService) {
@@ -318,7 +328,8 @@ export default function BookAppointment() {
           businessName: selectedBusiness.name,
           date: data.date,
           time: data.time,
-          serviceName: data.service_name
+          serviceName: data.service_name,
+          businessId: selectedBusiness.id
         });
       }
       
@@ -379,7 +390,8 @@ export default function BookAppointment() {
           oldDate: data.oldDate,
           oldTime: data.oldTime,
           newDate: data.date,
-          newTime: data.time
+          newTime: data.time,
+          businessId: selectedBusiness.id
         });
       }
       
@@ -832,10 +844,12 @@ const handleBooking = async () => {
   });
   
   const hasBookingThisWeek = bookingsThisWeek.length > 0;
-  const requiresApproval = selectedBusiness.require_approval_for_new_clients !== false;
-  
+  // Check if business has access to newClientApproval feature (STARTER+)
+  const hasApprovalFeature = businessPlan?.features?.newClientApproval || false;
+  const requiresApproval = hasApprovalFeature && selectedBusiness.require_approval_for_new_clients !== false;
+
   let status = 'confirmed';
-  
+
   if (hasBookingThisWeek) {
     status = 'pending_approval';
   } else if (isFirstBooking && requiresApproval) {
@@ -1203,13 +1217,14 @@ const handleBooking = async () => {
                   <p className="text-[#94A3B8]">ב-{format(selectedDate, 'd בMMMM', { locale: he })}</p>
                 </div>
 
-                {/* Waiting List Section */}
+                {/* Waiting List Section - Only shown if business has PRO+ */}
+                {hasWaitingListFeature && (
                 <div className="bg-gradient-to-br from-[#1A1F35] to-[#0C0F1D] rounded-2xl p-5 border-2 border-blue-500/30">
                   <div className="flex items-center gap-2 mb-3">
                     <Bell className="w-5 h-5 text-blue-400" />
                     <h3 className="font-bold text-lg text-blue-400">רשימת המתנה</h3>
                   </div>
-                  
+
                   <p className="text-[#94A3B8] text-sm mb-4">
                     הצטרף לרשימת ההמתנה ונודיע לך בהודעת WhatsApp כשיתפנה מקום בטווח השעות שתבחר
                   </p>
@@ -1221,6 +1236,7 @@ const handleBooking = async () => {
                     הצטרף לרשימת ההמתנה
                   </Button>
                 </div>
+                )}
 
                 {/* Loading alternatives */}
                 {alternativeSuggestions.loading && (
@@ -1331,7 +1347,8 @@ const handleBooking = async () => {
                   ))}
                 </div>
 
-                {/* Waiting List Option - Always visible */}
+                {/* Waiting List Option - Only if business has PRO+ */}
+                {hasWaitingListFeature && (
                 <button
                   onClick={() => setWaitingListModalOpen(true)}
                   className="w-full py-3 px-4 rounded-xl bg-[#1A1F35]/50 border border-dashed border-blue-500/50 text-blue-400 hover:bg-blue-500/10 transition-all flex items-center justify-center gap-2 mb-6"
@@ -1339,6 +1356,7 @@ const handleBooking = async () => {
                   <Bell className="w-4 h-4" />
                   <span className="text-sm">לא מתאים? הצטרף לרשימת המתנה לשעות אחרות</span>
                 </button>
+                )}
 
                 {selectedTime && (
                   <>

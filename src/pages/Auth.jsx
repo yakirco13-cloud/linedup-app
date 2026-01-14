@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowRight, Loader2, Phone, User, Briefcase, CheckCircle, Lock, Eye, EyeOff } from "lucide-react";
+import { ArrowRight, Loader2, Phone, User, Briefcase, CheckCircle, Lock, Eye, EyeOff, Mail } from "lucide-react";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -14,7 +14,7 @@ export default function Auth() {
   
   const { sendOTP, verifyOTP, loginWithPassword, resetPassword, profile, isAuthenticated } = useUser();
 
-  // Steps: 
+  // Steps:
   // Signup: 'role' -> 'details' -> 'otp' -> 'success'
   // Login: 'login' -> 'success'
   // Forgot Password: 'forgot' -> 'forgot-otp' -> 'new-password' -> 'success'
@@ -26,6 +26,8 @@ export default function Auth() {
   const [selectedRole, setSelectedRole] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [confirmEmail, setConfirmEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -34,7 +36,7 @@ export default function Auth() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedMarketing, setAcceptedMarketing] = useState(false);
   const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
-  
+
   const otpInputRefs = useRef([]);
 
   useEffect(() => {
@@ -74,6 +76,15 @@ export default function Auth() {
 
     if (!fullName.trim()) return setError('נא להזין שם מלא');
     if (!phone.trim() || phone.replace(/\D/g, '').length < 9) return setError('נא להזין מספר טלפון תקין');
+
+    // Email is required for business owners
+    if (selectedRole === 'business_owner') {
+      if (!email.trim()) return setError('נא להזין כתובת אימייל');
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) return setError('נא להזין כתובת אימייל תקינה');
+      if (email.toLowerCase() !== confirmEmail.toLowerCase()) return setError('כתובות האימייל לא תואמות');
+    }
+
     if (!password || password.length < 6) return setError('סיסמה חייבת להכיל לפחות 6 תווים');
     if (password !== confirmPassword) return setError('הסיסמאות לא תואמות');
     if (!acceptedTerms) return setError('נא לאשר את תנאי השימוש');
@@ -90,15 +101,17 @@ export default function Auth() {
     }
   };
 
-  // Verify OTP and complete signup
+  // Verify phone OTP and complete signup
   const handleVerifyOtp = async () => {
     const code = otpCode.join('');
     if (code.length !== 6) return setError('נא להזין קוד בן 6 ספרות');
 
     setLoading(true);
     try {
+      // Verify phone OTP and create account
       const result = await verifyOTP(phone, code, {
         fullName,
+        email: selectedRole === 'business_owner' ? email.toLowerCase() : null,
         password,
         userRole: selectedRole,
         acceptedTerms,
@@ -236,6 +249,7 @@ export default function Auth() {
     }
   };
 
+  // Auto-verify when all digits entered
   useEffect(() => {
     if (otpCode.every(digit => digit !== '')) {
       if (step === 'otp') {
@@ -266,7 +280,7 @@ export default function Auth() {
   const handleBack = () => {
     setError('');
     setOtpCode(['', '', '', '', '', '']);
-    
+
     switch (step) {
       case 'details':
         setStep('role');
@@ -406,6 +420,42 @@ export default function Auth() {
                   />
                 </div>
               </div>
+
+              {/* Email fields - required for business owners */}
+              {selectedRole === 'business_owner' && (
+                <>
+                  <div className="space-y-2">
+                    <Label className="text-white">אימייל</Label>
+                    <div className="relative">
+                      <Mail className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
+                      <Input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="your@email.com"
+                        className="bg-[#1A1F35] border-gray-800 text-white pr-10 h-12 rounded-xl"
+                        dir="ltr"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-white">אימות אימייל</Label>
+                    <div className="relative">
+                      <Mail className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
+                      <Input
+                        type="email"
+                        value={confirmEmail}
+                        onChange={(e) => setConfirmEmail(e.target.value)}
+                        placeholder="הזן שוב את האימייל"
+                        className="bg-[#1A1F35] border-gray-800 text-white pr-10 h-12 rounded-xl"
+                        dir="ltr"
+                      />
+                    </div>
+                    <p className="text-xs text-[#94A3B8]">האימייל ישמש לזיהוי תשלומים ולקבלת חשבוניות</p>
+                  </div>
+                </>
+              )}
 
               <div className="space-y-2">
                 <Label className="text-white">סיסמה</Label>
