@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { ArrowRight, Briefcase, Phone, Mail, Clock, Loader2, CheckCircle, Plus, Trash2, Bell, Share2, Copy, RefreshCw, ChevronDown, ChevronUp, Calendar, ExternalLink, Smartphone, Lock } from "lucide-react";
+import { ArrowRight, Briefcase, Phone, Mail, Clock, Loader2, CheckCircle, Plus, Trash2, Bell, Share2, Copy, RefreshCw, ChevronDown, ChevronUp, Calendar, ExternalLink, Smartphone, Lock, Instagram, Facebook } from "lucide-react";
 import { LockedFeatureOverlay } from "@/components/FeatureGate";
 import { getCurrentPlan } from "@/services/subscriptionService";
 
@@ -30,6 +30,8 @@ export default function BusinessSettings() {
     email: "",
     photo_url: "",
     description: "",
+    instagram_url: "",
+    facebook_url: "",
     // Reminder settings - default to false (FREE plan doesn't have access)
     reminder_enabled: false,
     reminder_hours_before: 12
@@ -91,6 +93,8 @@ export default function BusinessSettings() {
         email: business.email || "",
         photo_url: business.photo_url || "",
         description: business.description || "",
+        instagram_url: business.instagram_url || "",
+        facebook_url: business.facebook_url || "",
         reminder_enabled: canUseReminders,
         reminder_hours_before: business.reminder_hours_before || 12
       });
@@ -300,6 +304,8 @@ export default function BusinessSettings() {
         email: formData.email,
         photo_url: formData.photo_url,
         description: formData.description,
+        instagram_url: formData.instagram_url,
+        facebook_url: formData.facebook_url,
         working_hours: workingHours,
         reminder_enabled: formData.reminder_enabled,
         reminder_hours_before: formData.reminder_hours_before
@@ -408,7 +414,37 @@ export default function BusinessSettings() {
                 onChange={(e) => handleChange('email', e.target.value)}
                 className="bg-[#0C0F1D] border-gray-700 text-white rounded-xl h-12"
                 placeholder="info@business.com" />
-              
+
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="instagram_url" className="text-white">
+                <Instagram className="w-4 h-4 inline ml-1" />
+                קישור לאינסטגרם
+              </Label>
+              <Input
+                id="instagram_url"
+                type="url"
+                value={formData.instagram_url}
+                onChange={(e) => handleChange('instagram_url', e.target.value)}
+                className="bg-[#0C0F1D] border-gray-700 text-white rounded-xl h-12"
+                placeholder="https://instagram.com/yourbusiness"
+                dir="ltr" />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="facebook_url" className="text-white">
+                <Facebook className="w-4 h-4 inline ml-1" />
+                קישור לפייסבוק
+              </Label>
+              <Input
+                id="facebook_url"
+                type="url"
+                value={formData.facebook_url}
+                onChange={(e) => handleChange('facebook_url', e.target.value)}
+                className="bg-[#0C0F1D] border-gray-700 text-white rounded-xl h-12"
+                placeholder="https://facebook.com/yourbusiness"
+                dir="ltr" />
             </div>
 
             <div className="space-y-2">

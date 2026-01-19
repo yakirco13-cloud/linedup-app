@@ -1,0 +1,14 @@
+{
+  "appId": "com.linedup.app",
+  "appName": "LinedUp",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "iosScheme": "https"
+  },
+  "ios": {
+    "contentInset": "always",
+    "preferredContentMode": "mobile",
+    "scheme": "LinedUp"
+  }
+}

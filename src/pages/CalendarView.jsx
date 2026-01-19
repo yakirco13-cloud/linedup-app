@@ -17,7 +17,7 @@ import { DndContext, useDraggable, useSensor, useSensors, PointerSensor, TouchSe
 import { CSS } from "@dnd-kit/utilities";
 
 // Import centralized services
-import { sendCancellation } from "@/services/whatsappService";
+import { sendCancellation, sendUpdate } from "@/services/whatsappService";
 import { notifyWaitingListForOpenedSlot } from "@/services/waitingListService";
 import { toISO, parseDate, getDayKey, formatNumeric } from "@/services/dateService";
 import { isSlotAvailable } from "@/services/availabilityService";
@@ -52,7 +52,11 @@ export default function CalendarView() {
   const [activeBooking, setActiveBooking] = useState(null);
   const [dropPreview, setDropPreview] = useState(null); // { date, time, hasConflict }
   const [originalPosition, setOriginalPosition] = useState(null); // { date, time } - where booking was before drag
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 }); // Offset from pointer to booking top-left
   const calendarGridRef = useRef(null);
+
+  // Reschedule confirmation state
+  const [pendingReschedule, setPendingReschedule] = useState(null); // { booking, oldDate, oldTime, newDate, newTime }
 
   // Configure drag sensors with activation constraints
   // - PointerSensor: requires 8px movement to start drag (prevents accidental drags)
@@ -534,7 +538,7 @@ export default function CalendarView() {
 
   // Drag and drop handlers
   const handleDragStart = (event) => {
-    const { active } = event;
+    const { active, activatorEvent } = event;
     const booking = bookings.find(b => b.id === active.id);
     if (booking) {
       setActiveBooking(booking);
@@ -544,6 +548,16 @@ export default function CalendarView() {
         date: toISO(booking.date),
         time: booking.time,
       });
+
+      // Calculate offset from pointer to booking top
+      // This ensures the drop preview aligns with where the booking visually appears
+      if (activatorEvent && calendarGridRef.current) {
+        const containerRect = calendarGridRef.current.getBoundingClientRect();
+        const bookingTopPosition = timeToPosition(booking.time);
+        const pointerY = activatorEvent.clientY - containerRect.top;
+        const offsetY = pointerY - bookingTopPosition;
+        setDragOffset({ x: 0, y: offsetY });
+      }
     }
   };
 
@@ -562,14 +576,14 @@ export default function CalendarView() {
     const currentY = pointerEvent.clientY + delta.y;
     const currentX = pointerEvent.clientX + delta.x;
 
-    // Convert Y position to time (subtract 30 min offset to align with booking top)
-    const rawMinutes = positionToMinutes(currentY, containerRect.top) - 30;
+    // Convert Y position to time, accounting for where user grabbed the booking
+    const rawMinutes = positionToMinutes(currentY - dragOffset.y, containerRect.top);
     const snappedMinutes = snapToInterval(rawMinutes, 15);
     const snappedTime = minutesToTime(snappedMinutes);
 
-    // Convert X position to day (add 1 to shift left by one day)
+    // Convert X position to day
     const columnCount = displayDays.length;
-    let columnIndex = positionToColumnIndex(currentX, containerRect, columnCount) + 1;
+    let columnIndex = positionToColumnIndex(currentX, containerRect, columnCount);
     // Clamp to valid range
     columnIndex = Math.max(0, Math.min(columnCount - 1, columnIndex));
     const targetDate = columnIndexToDate(columnIndex, displayDays);
@@ -597,6 +611,7 @@ export default function CalendarView() {
       setActiveBooking(null);
       setDropPreview(null);
       setOriginalPosition(null);
+      setDragOffset({ x: 0, y: 0 });
       return;
     }
 
@@ -606,6 +621,7 @@ export default function CalendarView() {
       setActiveBooking(null);
       setDropPreview(null);
       setOriginalPosition(null);
+      setDragOffset({ x: 0, y: 0 });
       return;
     }
 
@@ -615,12 +631,15 @@ export default function CalendarView() {
       setActiveBooking(null);
       setDropPreview(null);
       setOriginalPosition(null);
+      setDragOffset({ x: 0, y: 0 });
       return;
     }
 
-    // Execute the reschedule
-    rescheduleMutation.mutate({
-      bookingId: activeBooking.id,
+    // Show confirmation modal instead of immediately rescheduling
+    setPendingReschedule({
+      booking: activeBooking,
+      oldDate: originalDate,
+      oldTime: activeBooking.time,
       newDate: dropPreview.date,
       newTime: dropPreview.time,
     });
@@ -628,12 +647,54 @@ export default function CalendarView() {
     setActiveBooking(null);
     setDropPreview(null);
     setOriginalPosition(null);
+    setDragOffset({ x: 0, y: 0 });
+  };
+
+  // Handle reschedule confirmation
+  const handleConfirmReschedule = async () => {
+    if (!pendingReschedule) return;
+
+    const { booking, oldDate, oldTime, newDate, newTime } = pendingReschedule;
+
+    // Execute the reschedule
+    rescheduleMutation.mutate({
+      bookingId: booking.id,
+      newDate,
+      newTime,
+    });
+
+    // Send WhatsApp notification to client
+    if (booking.client_phone && !booking.client_email?.includes('walkin_')) {
+      try {
+        await sendUpdate({
+          phone: booking.client_phone,
+          clientName: booking.client_name,
+          businessName: business?.name || 'העסק',
+          oldDate,
+          oldTime,
+          newDate,
+          newTime,
+          businessId: business?.id
+        });
+        toast.success('הודעת עדכון נשלחה ללקוח');
+      } catch (error) {
+        console.error('Failed to send update notification:', error);
+      }
+    }
+
+    setPendingReschedule(null);
+  };
+
+  // Handle reschedule cancellation
+  const handleCancelReschedule = () => {
+    setPendingReschedule(null);
   };
 
   const handleDragCancel = () => {
     setActiveBooking(null);
     setDropPreview(null);
     setOriginalPosition(null);
+    setDragOffset({ x: 0, y: 0 });
   };
 
   const DayHeader = ({ day }) => {
@@ -753,6 +814,97 @@ export default function CalendarView() {
         onDelete={handleDeleteOverride}
         isLoading={createOverrideMutation.isPending || updateOverrideMutation.isPending || deleteOverrideMutation.isPending}
       />
+
+      {/* Reschedule Confirmation Modal */}
+      {pendingReschedule && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6" onClick={handleCancelReschedule}>
+          <div className="bg-[#1A1F35] rounded-3xl max-w-md w-full border-2 border-gray-800" onClick={(e) => e.stopPropagation()}>
+            <div className="border-b border-gray-800 p-5 flex items-center justify-between">
+              <h3 className="text-xl font-bold">אישור העברת תור</h3>
+              <button onClick={handleCancelReschedule} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Client Info */}
+              <div className="bg-[#0C0F1D] rounded-2xl p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#FF6B35] to-[#FF1744] flex items-center justify-center text-xl font-bold flex-shrink-0">
+                    {pendingReschedule.booking.client_name ? pendingReschedule.booking.client_name[0].toUpperCase() : '?'}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-lg">{pendingReschedule.booking.client_name}</h4>
+                    <p className="text-[#94A3B8] text-sm">{pendingReschedule.booking.service_name}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Old vs New Details */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Old Details */}
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+                  <p className="text-red-400 text-xs font-semibold mb-2">מקור</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-white">
+                      <Calendar className="w-4 h-4 text-red-400" />
+                      <span className="text-sm">{formatNumeric(pendingReschedule.oldDate)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-white">
+                      <Clock className="w-4 h-4 text-red-400" />
+                      <span className="text-sm font-bold">{pendingReschedule.oldTime.substring(0, 5)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* New Details */}
+                <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
+                  <p className="text-green-400 text-xs font-semibold mb-2">יעד חדש</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-white">
+                      <Calendar className="w-4 h-4 text-green-400" />
+                      <span className="text-sm">{formatNumeric(pendingReschedule.newDate)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-white">
+                      <Clock className="w-4 h-4 text-green-400" />
+                      <span className="text-sm font-bold">{pendingReschedule.newTime}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* WhatsApp notification notice */}
+              {pendingReschedule.booking.client_phone && !pendingReschedule.booking.client_email?.includes('walkin_') && (
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 flex items-center gap-2">
+                  <Bell className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                  <p className="text-blue-300 text-xs">הלקוח יקבל הודעת WhatsApp על השינוי</p>
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-gray-800 p-5 flex gap-3">
+              <button
+                onClick={handleCancelReschedule}
+                className="flex-1 h-12 rounded-xl border-2 border-gray-600 text-[#94A3B8] hover:bg-white/5 hover:text-white transition-colors font-medium"
+              >
+                ביטול
+              </button>
+              <Button
+                onClick={handleConfirmReschedule}
+                disabled={rescheduleMutation.isPending}
+                className="flex-1 h-12 rounded-xl font-semibold"
+                style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}
+              >
+                {rescheduleMutation.isPending ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  'אישור העברה'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Booking Details Modal */}
       {selectedBooking && (
