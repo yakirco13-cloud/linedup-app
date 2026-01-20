@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useUser } from "@/components/UserContext";
-import { Home, Calendar, Settings, CalendarCheck, User, BarChart3 } from "lucide-react";
+import { Home, Calendar, Settings, CalendarCheck, CalendarPlus, User, BarChart3 } from "lucide-react";
 import { motion } from "framer-motion";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 
@@ -105,11 +105,11 @@ function AppContent({ children }) {
     }
   }, [user, loading, location.pathname, navigate]);
 
-  const hideNav = location.pathname.includes('Welcome') || 
+  const hideNav = location.pathname.includes('Welcome') ||
                   location.pathname.includes('Auth') ||
                   location.pathname.includes('BusinessSetup');
 
-  const showNav = !hideNav && user?.user_role && 
+  const showNav = !hideNav && user?.user_role &&
                   (user.user_role === 'client' || (user.user_role === 'business_owner' && user.business_id));
 
   const isOwner = user?.user_role === 'business_owner';
@@ -124,7 +124,7 @@ function AppContent({ children }) {
 
   const clientTabs = [
     { name: 'בית', path: "/ClientDashboard", icon: Home },
-    { name: 'תור חדש', path: "/BookAppointment", icon: Calendar },
+    { name: 'תור חדש', path: "/BookAppointment", icon: CalendarPlus },
     { name: 'התורים שלי', path: "/MyBookings", icon: CalendarCheck },
     { name: 'הגדרות', path: "/Settings", icon: Settings },
   ];
@@ -147,6 +147,11 @@ function AppContent({ children }) {
 
   return (
     <div className="min-h-screen bg-[#0C0F1D] text-white" dir="rtl">
+      {/* Fixed overlay for phone status bar - covers the notch/status bar area without pushing content down */}
+      {!hideNav && (
+        <div className="fixed top-0 left-0 right-0 h-12 bg-[#0C0F1D] z-40" />
+      )}
+
       <main className={showNav ? "pb-24" : ""}>
         {children}
       </main>

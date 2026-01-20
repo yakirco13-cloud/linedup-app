@@ -4,7 +4,7 @@ import { createPageUrl, formatTime } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Loader2, Plus, Home, X, Edit, Trash2, Calendar, Clock, Scissors, Bell, RefreshCw, Settings2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Plus, Home, X, Edit, Trash2, Calendar, Clock, Scissors, Bell, RefreshCw, Settings2, Users, ChevronDown } from "lucide-react";
 import NotificationDropdown from "../components/NotificationDropdown";
 import ScheduleOverrideModal from "../components/ScheduleOverrideModal";
 import { Button } from "@/components/ui/button";
@@ -58,6 +58,10 @@ export default function CalendarView() {
   // Reschedule confirmation state
   const [pendingReschedule, setPendingReschedule] = useState(null); // { booking, oldDate, oldTime, newDate, newTime }
 
+  // Staff filter state
+  const [selectedStaffId, setSelectedStaffId] = useState(null); // null = all staff
+  const [showStaffDropdown, setShowStaffDropdown] = useState(false);
+
   // Configure drag sensors with activation constraints
   // - PointerSensor: requires 8px movement to start drag (prevents accidental drags)
   // - TouchSensor: 200ms delay before drag starts (allows quick swipes for navigation)
@@ -107,7 +111,6 @@ export default function CalendarView() {
       try {
         return await base44.entities.ScheduleOverride.filter({ business_id: business.id });
       } catch (error) {
-        console.warn('Schedule overrides table may not exist yet:', error);
         return [];
       }
     },
@@ -207,12 +210,10 @@ export default function CalendarView() {
               startTime: booking.time,
               endTime
             });
-          } else {
-            console.log('⏭️ Booking time has passed, skipping waiting list notification');
           }
         }
       } catch (error) {
-        console.error('❌ Error notifying waiting list:', error);
+        // Error notifying waiting list
       }
       
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
@@ -382,20 +383,69 @@ export default function CalendarView() {
   const weekEnd = endOfWeek(currentDate, { locale: he, weekStartsOn: 0 });
   const allDaysInWeek = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
-  const daysInWeek = viewMode === 'week'
-    ? allDaysInWeek.filter((_, index) => index !== 6)
-    : allDaysInWeek;
+  // Day keys matching the indices: 0=sunday, 1=monday, ... 6=saturday
+  const dayKeysByIndex = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+  // Determine which days to show based on business working hours
+  const getWorkingDays = () => {
+    if (!business?.working_hours) {
+      // Default: show Sunday-Thursday (5 days) if no working hours set
+      return allDaysInWeek.filter((_, index) => index !== 5 && index !== 6); // Exclude Friday and Saturday
+    }
+
+    const workingHours = business.working_hours;
+
+    // Get indices of enabled days
+    const enabledDayIndices = dayKeysByIndex
+      .map((dayKey, index) => ({ dayKey, index }))
+      .filter(({ dayKey }) => workingHours[dayKey]?.enabled)
+      .map(({ index }) => index);
+
+    // Ensure minimum of 5 days
+    if (enabledDayIndices.length >= 5) {
+      // Show only enabled days
+      return allDaysInWeek.filter((_, index) => enabledDayIndices.includes(index));
+    } else {
+      // If less than 5 working days, show minimum 5 days starting from Sunday
+      // First include all working days, then add more days until we have 5
+      const daysToShow = new Set(enabledDayIndices);
+
+      // Add days starting from Sunday (0) until we have at least 5
+      for (let i = 0; i < 7 && daysToShow.size < 5; i++) {
+        daysToShow.add(i);
+      }
+
+      return allDaysInWeek.filter((_, index) => daysToShow.has(index));
+    }
+  };
+
+  const daysInWeek = viewMode === 'week' ? getWorkingDays() : allDaysInWeek;
 
   const displayDays = viewMode === 'day' ? [currentDate] : [...daysInWeek].reverse();
   const hours = Array.from({ length: 14 }, (_, i) => i + 8);
 
-  // Helper to parse date - handles both DD/MM/YYYY and YYYY-MM-DD formats
-  // Get bookings for a specific day
+  // Helper to get staff name by ID
+  const getStaffName = (staffId) => {
+    const staff = staffList.find(s => s.id === staffId);
+    return staff?.name || '';
+  };
+
+  // Check if bookings have multiple different staff members
+  const uniqueStaffInBookings = new Set(bookings.map(b => b.staff_id).filter(Boolean));
+  const hasMultipleStaffInBookings = uniqueStaffInBookings.size > 1;
+
+  // Get bookings for a specific day (filtered by selected staff if any)
   const getBookingsForDay = (day) => {
     const dayStr = format(day, 'yyyy-MM-dd');
     return bookings.filter(booking => {
       const bookingDateISO = toISO(booking.date);
-      return bookingDateISO === dayStr;
+      const dateMatches = bookingDateISO === dayStr;
+
+      // If no staff filter selected, show all bookings
+      if (!selectedStaffId) return dateMatches;
+
+      // Filter by selected staff
+      return dateMatches && booking.staff_id === selectedStaffId;
     });
   };
 
@@ -678,7 +728,7 @@ export default function CalendarView() {
         });
         toast.success('הודעת עדכון נשלחה ללקוח');
       } catch (error) {
-        console.error('Failed to send update notification:', error);
+        // Failed to send update notification
       }
     }
 
@@ -783,6 +833,12 @@ export default function CalendarView() {
         {height >= 40 && (
           <p className="text-[8px] text-white/80 truncate">
             {appointment.service_name}
+          </p>
+        )}
+        {/* Show staff name when viewing all staff and appointment has staff */}
+        {height >= 52 && !selectedStaffId && appointment.staff_id && staffList.length > 1 && (
+          <p className="text-[8px] text-white/60 truncate">
+            {getStaffName(appointment.staff_id)}
           </p>
         )}
       </button>
@@ -1054,7 +1110,7 @@ export default function CalendarView() {
             </button>
           </div>
 
-          {/* View Mode Toggle */}
+          {/* View Mode Toggle + Staff Filter */}
           <div className="flex gap-2">
             <button
               onClick={() => setViewMode('week')}
@@ -1076,6 +1132,67 @@ export default function CalendarView() {
             >
               יום
             </button>
+
+            {/* Staff Filter Dropdown - only show if bookings have more than 1 staff */}
+            {hasMultipleStaffInBookings && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowStaffDropdown(!showStaffDropdown)}
+                  className={`py-3 px-4 rounded-xl font-semibold transition-all flex items-center gap-2 ${
+                    selectedStaffId
+                      ? 'bg-gradient-to-r from-[#FF6B35] to-[#FF1744] text-white'
+                      : 'bg-[#0C0F1D] text-[#94A3B8] border-2 border-gray-800 hover:border-[#FF6B35]'
+                  }`}
+                >
+                  <Users className="w-4 h-4" />
+                  <span className="max-w-20 truncate">
+                    {selectedStaffId ? getStaffName(selectedStaffId) : 'כולם'}
+                  </span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showStaffDropdown ? 'rotate-180' : ''}`} />
+                </button>
+
+                {showStaffDropdown && (
+                  <>
+                    {/* Backdrop to close dropdown */}
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setShowStaffDropdown(false)}
+                    />
+
+                    {/* Dropdown menu */}
+                    <div className="absolute top-full left-0 mt-2 bg-[#1A1F35] border-2 border-gray-800 rounded-xl shadow-xl z-50 min-w-40 overflow-hidden">
+                      <button
+                        onClick={() => {
+                          setSelectedStaffId(null);
+                          setShowStaffDropdown(false);
+                        }}
+                        className={`w-full px-4 py-3 text-right hover:bg-white/10 transition-colors flex items-center gap-2 ${
+                          !selectedStaffId ? 'bg-[#FF6B35]/20 text-[#FF6B35]' : 'text-white'
+                        }`}
+                      >
+                        <Users className="w-4 h-4" />
+                        כל הצוות
+                      </button>
+
+                      {staffList.map((staff) => (
+                        <button
+                          key={staff.id}
+                          onClick={() => {
+                            setSelectedStaffId(staff.id);
+                            setShowStaffDropdown(false);
+                          }}
+                          className={`w-full px-4 py-3 text-right hover:bg-white/10 transition-colors ${
+                            selectedStaffId === staff.id ? 'bg-[#FF6B35]/20 text-[#FF6B35]' : 'text-white'
+                          }`}
+                        >
+                          {staff.name}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1109,7 +1226,7 @@ export default function CalendarView() {
           {viewMode === 'week' && (
             <div className="flex flex-row-reverse border-b-2 border-gray-800 bg-[#0C0F1D]">
               <div className="w-16 flex-shrink-0 border-r-2 border-gray-800" />
-              <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(6, 1fr)` }}>
+              <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${displayDays.length}, 1fr)` }}>
                 {displayDays.map((day) => (
                   <DayHeader key={day.toString()} day={day} />
                 ))}
@@ -1136,7 +1253,7 @@ export default function CalendarView() {
 
             {/* Day Columns */}
             <div className="flex-1 relative" style={{ minHeight: `${hours.length * 52}px` }}>
-              <div className="grid h-full" style={{ gridTemplateColumns: viewMode === 'week' ? `repeat(6, 1fr)` : '1fr' }}>
+              <div className="grid h-full" style={{ gridTemplateColumns: viewMode === 'week' ? `repeat(${displayDays.length}, 1fr)` : '1fr' }}>
                 {displayDays.map((day) => {
                   const dayBookings = getBookingsForDay(day);
                   const dayIsToday = isToday(day);

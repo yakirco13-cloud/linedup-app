@@ -7,7 +7,7 @@ export default function TermsOfService() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] p-6" dir="rtl">
+    <div className="min-h-screen bg-[#0C0F1D] p-6 pt-safe" dir="rtl">
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
@@ -15,7 +15,7 @@ export default function TermsOfService() {
             variant="ghost"
             size="icon"
             onClick={() => navigate(-1)}
-            className="text-white hover:bg-[#1A1F35]"
+            className="text-white hover:bg-[#1A1F35] h-12 w-12"
           >
             <ArrowRight className="w-6 h-6" />
           </Button>

@@ -97,11 +97,11 @@ export default function ApprovalManagement() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] p-6 ">
+    <div className="min-h-screen bg-[#0C0F1D] p-6 pt-safe">
       <div className="max-w-2xl mx-auto">
         <button
           onClick={() => navigate(createPageUrl("Settings"))}
-          className="flex items-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors py-2 px-1 -ml-1 min-h-[44px]"
+          className="flex items-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors h-12"
         >
           <ArrowRight className="w-5 h-5" />
           <span>חזרה</span>

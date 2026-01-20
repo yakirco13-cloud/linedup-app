@@ -84,11 +84,8 @@ export default function MyBookings() {
       
       // Delete expired entries in background
       if (expiredEntries.length > 0) {
-        console.log(`🗑️ Auto-deleting ${expiredEntries.length} expired waiting list entries`);
         expiredEntries.forEach(entry => {
-          base44.entities.WaitingList.delete(entry.id).catch(e => 
-            console.error('Failed to delete expired entry:', e)
-          );
+          base44.entities.WaitingList.delete(entry.id).catch(() => {});
         });
       }
       
@@ -176,7 +173,6 @@ export default function MyBookings() {
       
       return false; // No available slots found
     } catch (error) {
-      console.error('Error checking availability:', error);
       return false;
     }
   };
@@ -197,41 +193,37 @@ export default function MyBookings() {
           businessId: booking.business_id
         });
       }
-      
+
       // Notify waiting list - but only if booking time hasn't passed
       try {
         const bookingDate = parseDate(booking.date);
         if (bookingDate) {
           const [hours, minutes] = booking.time.split(':').map(Number);
           bookingDate.setHours(hours, minutes, 0, 0);
-          
+
           if (bookingDate >= new Date()) {
-            // Calculate the end time of the freed slot
             const cancelledDuration = booking.duration || 30;
             const [h, m] = booking.time.split(':').map(Number);
             const endMinutes = h * 60 + m + cancelledDuration;
             const endH = Math.floor(endMinutes / 60);
             const endM = endMinutes % 60;
             const endTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
-            
+
             await notifyWaitingListForOpenedSlot({
               businessId: booking.business_id,
               date: booking.date,
               startTime: booking.time,
               endTime
             });
-          } else {
-            console.log('⏭️ Booking time has passed, skipping waiting list notification');
           }
         }
       } catch (error) {
-        console.error('❌ Error notifying waiting list:', error);
+        // Error notifying waiting list
       }
-      
+
       // Create notification for business owner about cancellation
       try {
-        console.log('📢 Creating cancellation notification for business:', booking.business_id);
-        const notification = await base44.entities.Notification.create({
+        await base44.entities.Notification.create({
           business_id: booking.business_id,
           type: 'booking_cancelled',
           title: 'תור בוטל',
@@ -240,11 +232,10 @@ export default function MyBookings() {
           client_name: booking.client_name,
           is_read: false
         });
-        console.log('✅ Cancellation notification created:', notification);
       } catch (error) {
-        console.error('❌ Failed to create cancellation notification:', error);
+        // Failed to create notification
       }
-      
+
       queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
       queryClient.invalidateQueries({ queryKey: ['next-appointment'] });
       await queryClient.refetchQueries({ queryKey: ['notifications', booking.business_id] });
@@ -318,10 +309,8 @@ export default function MyBookings() {
         return;
       }
     }
-    
-    console.log('🚀 MyBookings handleEdit called with bookingId:', booking.id);
+
     const url = "/BookAppointment" + `?reschedule=${booking.id}`;
-    console.log('🌐 Navigating to URL:', url);
     navigate(url);
   };
 
@@ -573,10 +562,7 @@ export default function MyBookings() {
                 {filter === 'upcoming' && canEditBooking(booking) && (
                   <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-800">
                     <Button
-                      onClick={() => {
-                        console.log('✏️ Edit button clicked for booking:', booking.id);
-                        handleEdit(booking);
-                      }}
+                      onClick={() => handleEdit(booking)}
                       variant="outline"
                       className="border-2 border-gray-700 hover:border-[#FF6B35] bg-[#0C0F1D] text-white hover:bg-[#FF6B35]/10 h-11 rounded-xl font-medium"
                     >

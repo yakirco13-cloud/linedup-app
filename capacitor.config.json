@@ -3,6 +3,7 @@
   "appName": "LinedUp",
   "webDir": "dist",
   "server": {
+    "url": "https://linedup-app.vercel.app",
     "androidScheme": "https",
     "iosScheme": "https"
   },

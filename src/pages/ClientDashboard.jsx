@@ -193,8 +193,8 @@ export default function ClientDashboard() {
 
   // Logo photo (business owners set only this one)
   const logoPhoto = business?.photo_url;
-  const hasInstagram = business?.instagram_url;
-  const hasFacebook = business?.facebook_url;
+  const hasInstagram = business?.instagram;
+  const hasFacebook = business?.facebook;
 
   if (businessLoading) {
     return (
@@ -301,18 +301,6 @@ export default function ClientDashboard() {
             0%, 100% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
           }
-          @keyframes lineSlide1 {
-            0%, 100% { transform: translateX(0); }
-            50% { transform: translateX(10px); }
-          }
-          @keyframes lineSlide2 {
-            0%, 100% { transform: translateX(0); }
-            50% { transform: translateX(-8px); }
-          }
-          @keyframes lineSlide3 {
-            0%, 100% { transform: translateX(0); }
-            50% { transform: translateX(6px); }
-          }
         `}</style>
 
         <div className="absolute inset-0 overflow-hidden">
@@ -326,31 +314,15 @@ export default function ClientDashboard() {
             }}
           />
 
-          {/* 3 Horizontal Lines - "LinedUp" branding concept */}
-          <div className="absolute inset-0 flex flex-col justify-center items-center gap-4 px-8">
-            {/* Line 1 - top */}
+          {/* LinedUp Branding - positioned below status bar area */}
+          <div className="absolute top-16 left-5 flex flex-row-reverse items-center gap-2.5 z-10">
             <div
-              className="w-3/4 h-2 rounded-full bg-white/25 backdrop-blur-sm"
-              style={{ animation: 'lineSlide1 4s ease-in-out infinite' }}
-            />
-            {/* Line 2 - middle (slightly shorter) */}
-            <div
-              className="w-2/3 h-2 rounded-full bg-white/30 backdrop-blur-sm"
-              style={{ animation: 'lineSlide2 5s ease-in-out infinite' }}
-            />
-            {/* Line 3 - bottom */}
-            <div
-              className="w-3/4 h-2 rounded-full bg-white/25 backdrop-blur-sm"
-              style={{ animation: 'lineSlide3 4.5s ease-in-out infinite' }}
-            />
-          </div>
-
-          {/* LinedUp Branding - top left */}
-          <div className="absolute top-4 left-4 flex items-center gap-2 z-10">
-            <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-lg">
-              <span className="text-white font-black text-sm">L</span>
+              className="w-9 h-9 rounded-lg flex items-center justify-center shadow-lg"
+              style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.25), rgba(255,255,255,0.1))' }}
+            >
+              <span className="text-white font-black text-xl" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>L</span>
             </div>
-            <span className="text-white font-semibold text-sm tracking-wide drop-shadow-md">LinedUp</span>
+            <span className="text-white font-bold text-xl tracking-wide drop-shadow-lg">LinedUp</span>
           </div>
         </div>
 
@@ -362,37 +334,43 @@ export default function ClientDashboard() {
           }}
         />
 
-        {/* Greeting - top right on cover */}
-        <div className="absolute top-4 right-5 z-10">
+        {/* Greeting - positioned below status bar area */}
+        <div className="absolute top-16 right-5 z-10">
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-white drop-shadow-lg">שלום, {user?.name?.split(' ')[0] || 'אורח'}</h2>
-            <span className="text-xl drop-shadow-lg">👋</span>
+            <h2 className="text-2xl font-bold text-white drop-shadow-lg">שלום, {user?.name?.split(' ')[0] || 'אורח'}</h2>
+            <span className="text-2xl drop-shadow-lg">👋</span>
           </div>
         </div>
 
-        {/* Social icons - positioned on cover */}
-        <div className="absolute bottom-6 left-4 flex items-center gap-2 z-10">
-          <a
-            href={business.instagram_url || '#'}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-10 h-10 rounded-full bg-white/15 backdrop-blur-md border border-white/25 flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95"
-          >
-            <InstagramIcon className="w-5 h-5 text-white" />
-          </a>
-          <a
-            href={business.facebook_url || '#'}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-10 h-10 rounded-full bg-white/15 backdrop-blur-md border border-white/25 flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95"
-          >
-            <FacebookIcon className="w-5 h-5 text-white" />
-          </a>
-        </div>
       </div>
 
       {/* ============ BUSINESS INFO CARD ============ */}
       <div className="bg-[#1A1F35] px-4 pt-2 pb-4 relative -mt-4 rounded-t-3xl">
+        {/* Social icons - positioned at the dividing line between cover and card */}
+        {(hasInstagram || hasFacebook) && (
+          <div className="absolute -top-5 left-4 flex items-center gap-2 z-20">
+            {hasInstagram && (
+              <a
+                href={business.instagram}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-10 h-10 rounded-full bg-transparent flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
+              >
+                <InstagramIcon className="w-6 h-6 text-white" />
+              </a>
+            )}
+            {hasFacebook && (
+              <a
+                href={business.facebook}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-10 h-10 rounded-full bg-transparent flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
+              >
+                <FacebookIcon className="w-6 h-6 text-white" />
+              </a>
+            )}
+          </div>
+        )}
         <div className="flex items-start gap-4 mb-4">
           {/* Logo */}
           <div
@@ -419,7 +397,7 @@ export default function ClientDashboard() {
         </div>
         
         {/* Action Buttons */}
-        <div className={`grid gap-2 ${hasInstagram || hasFacebook ? (hasInstagram && hasFacebook ? 'grid-cols-4' : 'grid-cols-3') : 'grid-cols-2'}`}>
+        <div className="grid grid-cols-2 gap-2">
           <a
             href={`https://wa.me/${formatPhoneForWhatsApp(business.phone)}`}
             target="_blank"
@@ -437,30 +415,6 @@ export default function ClientDashboard() {
             <Phone className="w-5 h-5 text-[#FF6B35]" />
             <span className="text-[11px] font-medium text-white/80">התקשר</span>
           </a>
-
-          {hasInstagram && (
-            <a
-              href={business.instagram_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="h-14 rounded-xl bg-[#0C0F1D] border border-white/10 text-white flex flex-col items-center justify-center gap-1 transition-all hover:scale-[1.02] hover:border-[#FF6B35]/50 active:scale-[0.98]"
-            >
-              <InstagramIcon className="w-5 h-5 text-[#FF6B35]" />
-              <span className="text-[11px] font-medium text-white/80">Instagram</span>
-            </a>
-          )}
-
-          {hasFacebook && (
-            <a
-              href={business.facebook_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="h-14 rounded-xl bg-[#0C0F1D] border border-white/10 text-white flex flex-col items-center justify-center gap-1 transition-all hover:scale-[1.02] hover:border-[#FF6B35]/50 active:scale-[0.98]"
-            >
-              <FacebookIcon className="w-5 h-5 text-[#FF6B35]" />
-              <span className="text-[11px] font-medium text-white/80">Facebook</span>
-            </a>
-          )}
         </div>
       </div>
 

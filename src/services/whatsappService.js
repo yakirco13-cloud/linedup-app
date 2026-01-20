@@ -40,32 +40,27 @@ async function checkMessageAllowed(businessId) {
  */
 async function sendRequest(endpoint, data) {
   try {
-    console.log(`📱 WhatsApp Service: Calling ${endpoint}`, data);
-    
     const headers = { 'Content-Type': 'application/json' };
-    
+
     // Add API key if configured
     if (API_KEY) {
       headers['X-API-Key'] = API_KEY;
     }
-    
+
     const response = await fetch(`${WHATSAPP_API_URL}${endpoint}`, {
       method: 'POST',
       headers,
       body: JSON.stringify(data)
     });
-    
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`❌ WhatsApp API error (${response.status}):`, errorText);
       return { success: false, error: `HTTP ${response.status}: ${errorText}` };
     }
-    
+
     const result = await response.json().catch(() => ({}));
-    console.log(`✅ WhatsApp Service: ${endpoint} success`, result);
     return { success: true, data: result };
   } catch (error) {
-    console.error(`❌ WhatsApp Service error:`, error);
     return { success: false, error: error.message };
   }
 }
@@ -103,7 +98,6 @@ export async function verifyOTP(phone, code) {
  */
 export async function sendConfirmation({ phone, clientName, businessName, date, time, serviceName, businessId }) {
   if (!phone) {
-    console.log('⏭️ WhatsApp: No phone number, skipping confirmation');
     return { success: false, error: 'No phone number' };
   }
 
@@ -111,7 +105,6 @@ export async function sendConfirmation({ phone, clientName, businessName, date, 
   if (businessId) {
     const planCheck = await checkMessageAllowed(businessId);
     if (!planCheck.allowed) {
-      console.log('⏭️ WhatsApp: Plan limit reached, skipping confirmation -', planCheck.reason);
       return { success: false, error: planCheck.reason, planBlocked: true };
     }
   }
@@ -146,7 +139,6 @@ export async function sendConfirmation({ phone, clientName, businessName, date, 
  */
 export async function sendCancellation({ phone, clientName, serviceName, date, businessId }) {
   if (!phone) {
-    console.log('⏭️ WhatsApp: No phone number, skipping cancellation');
     return { success: false, error: 'No phone number' };
   }
 
@@ -154,7 +146,6 @@ export async function sendCancellation({ phone, clientName, serviceName, date, b
   if (businessId) {
     const planCheck = await checkMessageAllowed(businessId);
     if (!planCheck.allowed) {
-      console.log('⏭️ WhatsApp: Plan limit reached, skipping cancellation -', planCheck.reason);
       return { success: false, error: planCheck.reason, planBlocked: true };
     }
   }
@@ -189,7 +180,6 @@ export async function sendCancellation({ phone, clientName, serviceName, date, b
  */
 export async function sendUpdate({ phone, clientName, businessName, oldDate, oldTime, newDate, newTime, businessId }) {
   if (!phone) {
-    console.log('⏭️ WhatsApp: No phone number, skipping update');
     return { success: false, error: 'No phone number' };
   }
 
@@ -197,7 +187,6 @@ export async function sendUpdate({ phone, clientName, businessName, oldDate, old
   if (businessId) {
     const planCheck = await checkMessageAllowed(businessId);
     if (!planCheck.allowed) {
-      console.log('⏭️ WhatsApp: Plan limit reached, skipping update -', planCheck.reason);
       return { success: false, error: planCheck.reason, planBlocked: true };
     }
   }
@@ -233,7 +222,6 @@ export async function sendUpdate({ phone, clientName, businessName, oldDate, old
  */
 export async function sendWaitingListNotification({ phone, clientName, date, serviceName, businessId }) {
   if (!phone) {
-    console.log('⏭️ WhatsApp: No phone number, skipping waiting list notification');
     return { success: false, error: 'No phone number' };
   }
 
@@ -241,7 +229,6 @@ export async function sendWaitingListNotification({ phone, clientName, date, ser
   if (businessId) {
     const planCheck = await checkMessageAllowed(businessId);
     if (!planCheck.allowed) {
-      console.log('⏭️ WhatsApp: Plan limit reached, skipping waiting list notification -', planCheck.reason);
       return { success: false, error: planCheck.reason, planBlocked: true };
     }
   }
@@ -275,7 +262,6 @@ export async function sendWaitingListNotification({ phone, clientName, date, ser
  */
 export async function sendReminder({ phone, clientName, businessName, date, time, serviceName, businessId }) {
   if (!phone) {
-    console.log('⏭️ WhatsApp: No phone number, skipping reminder');
     return { success: false, error: 'No phone number' };
   }
 
@@ -283,7 +269,6 @@ export async function sendReminder({ phone, clientName, businessName, date, time
   if (businessId) {
     const planCheck = await checkMessageAllowed(businessId);
     if (!planCheck.allowed) {
-      console.log('⏭️ WhatsApp: Plan limit reached, skipping reminder -', planCheck.reason);
       return { success: false, error: planCheck.reason, planBlocked: true };
     }
   }

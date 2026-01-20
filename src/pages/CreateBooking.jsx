@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase/client";
 import { useUser } from "@/components/UserContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -127,7 +128,16 @@ export default function CreateBooking() {
 
   const { data: staff = [] } = useQuery({
     queryKey: ['staff', business?.id],
-    queryFn: () => base44.entities.Staff.filter({ business_id: business.id }),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('staff')
+        .select('*')
+        .eq('business_id', business.id)
+        .neq('is_active', false) // Only show active staff
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
     enabled: !!business?.id,
   });
 
@@ -314,8 +324,7 @@ export default function CreateBooking() {
       }, 1500);
     },
     onError: (error) => {
-      console.error('❌ Booking failed:', error);
-      submitLockRef.current = false; // Reset lock on error
+      submitLockRef.current = false;
       alert('שגיאה ביצירת התור. אנא נסה שנית.');
     },
   });
@@ -349,8 +358,6 @@ export default function CreateBooking() {
         last_booking_date: recurringPreview[recurringPreview.length - 1].toISOString().split('T')[0]
       });
       
-      console.log('✅ Created recurring rule:', recurringRule);
-      
       // 2. Create all the bookings
       const bookingsCreated = [];
       for (const date of recurringPreview) {
@@ -375,9 +382,8 @@ export default function CreateBooking() {
           
           const booking = await base44.entities.Booking.create(bookingData);
           bookingsCreated.push(booking);
-          console.log(`✅ Created booking for ${dateStr}`);
         } catch (error) {
-          console.error(`❌ Failed to create booking for ${format(date, 'yyyy-MM-dd')}:`, error);
+          // Booking creation failed - continue with remaining dates
         }
       }
       
@@ -406,7 +412,6 @@ export default function CreateBooking() {
       
       return { rule: recurringRule, bookings: bookingsCreated };
     } catch (error) {
-      console.error('❌ Failed to create recurring appointment:', error);
       submitLockRef.current = false; // Reset lock on error
       alert('שגיאה ביצירת תור חוזר. אנא נסה שנית.');
       throw error;
@@ -433,7 +438,6 @@ export default function CreateBooking() {
 
     // Synchronous lock check - prevents double-submit
     if (submitLockRef.current) {
-      console.log('⚠️ Submit already in progress (ref), ignoring');
       return;
     }
     
@@ -519,11 +523,11 @@ export default function CreateBooking() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] p-6">
+    <div className="min-h-screen bg-[#0C0F1D] p-6 pt-safe">
       <div className="max-w-2xl mx-auto">
         <button
           onClick={() => navigate(createPageUrl("CalendarView"))}
-          className="flex items-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors py-2 px-1 -ml-1 min-h-[44px]"
+          className="flex items-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors h-12"
         >
           <ArrowRight className="w-5 h-5" />
           <span>חזרה</span>

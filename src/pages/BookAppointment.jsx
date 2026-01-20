@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase/client";
 import { useUser } from "@/components/UserContext";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -46,18 +47,14 @@ export default function BookAppointment() {
   // Load business automatically from user's joined businesses
   useEffect(() => {
     const loadBusiness = async () => {
-      console.log('📦 BookAppointment - Loading business, user:', user);
-      console.log('📦 joined_business_id:', user?.joined_business_id);
-      
       if (user?.joined_business_id) {
         const businesses = await base44.entities.Business.filter({ id: user.joined_business_id });
-        console.log('📦 Loaded businesses:', businesses);
         if (businesses.length > 0) {
           setSelectedBusiness(businesses[0]);
         }
       }
     };
-    
+
     loadBusiness();
   }, [user?.joined_business_id]);
 
@@ -68,53 +65,42 @@ export default function BookAppointment() {
     const serviceId = urlParams.get('service');
     const preselectedDate = urlParams.get('date');
     const preselectedTime = urlParams.get('time');
-    
-    console.log('📋 URL Params:', { rescheduleId, serviceId, preselectedDate, preselectedTime });
-    
+
     if (rescheduleId) {
-      console.log('✏️ Starting reschedule process for booking:', rescheduleId);
       setIsRescheduling(true);
       setRescheduleBookingId(rescheduleId);
       setRescheduleLoading(true);
-      
+
       // Load the booking to reschedule
       base44.entities.Booking.filter({ id: rescheduleId }).then(async bookings => {
-        console.log('📥 Loaded booking:', bookings);
-        
         if (bookings.length > 0) {
           const booking = bookings[0];
-          
+
           // Load all necessary data
           const [businesses, services, staffMembers] = await Promise.all([
             base44.entities.Business.filter({ id: booking.business_id }),
             base44.entities.Service.filter({ business_id: booking.business_id }),
             base44.entities.Staff.filter({ business_id: booking.business_id })
           ]);
-          
-          console.log('✅ Loaded data:', { businesses, services, staffMembers });
-          
+
           // Set all selections
           if (businesses.length > 0) setSelectedBusiness(businesses[0]);
-          
+
           const service = services.find(s => s.id === booking.service_id);
           if (service) setSelectedService(service);
-          
+
           const staff = staffMembers.find(s => s.id === booking.staff_id);
           if (staff) setSelectedStaff(staff);
-          
+
           setNotes(booking.notes || "");
-          
-          console.log('🎯 Reschedule setup complete. Going to step 2');
-          
+
           // Start at service selection so user can change service if needed
           setStep(2);
           setRescheduleLoading(false);
         } else {
-          console.error('❌ No booking found with ID:', rescheduleId);
           setRescheduleLoading(false);
         }
       }).catch((error) => {
-        console.error('❌ Error loading booking:', error);
         setRescheduleLoading(false);
       });
     } else if (serviceId) {
@@ -123,7 +109,7 @@ export default function BookAppointment() {
         if (services.length > 0) {
           const service = services[0];
           setSelectedService(service);
-          
+
           // Also load the business
           const businesses = await base44.entities.Business.filter({ id: service.business_id });
           if (businesses.length > 0) {
@@ -133,23 +119,19 @@ export default function BookAppointment() {
         }
       });
     }
-    
+
     // Handle pre-selected date from waiting list
     if (preselectedDate && !rescheduleId) {
-      console.log('📅 Pre-selecting date from URL:', preselectedDate);
       try {
         const dateObj = parseISO(preselectedDate);
         setSelectedDate(dateObj);
-        // If we have a date, we want to go to step 4 (date selection) or beyond
-        // But first user needs to select service and staff
       } catch (e) {
-        console.error('Invalid date format:', preselectedDate);
+        // Invalid date format
       }
     }
-    
+
     // Handle pre-selected time from waiting list notification
     if (preselectedTime && !rescheduleId) {
-      console.log('⏰ Pre-selecting time from URL:', preselectedTime);
       setSelectedTime(preselectedTime);
     }
   }, []);
@@ -158,7 +140,7 @@ export default function BookAppointment() {
   useEffect(() => {
     const checkWaitingList = async () => {
       if (!selectedBusiness || !selectedDate || !user?.phone) return;
-      
+
       try {
         const existingEntries = await base44.entities.WaitingList.filter({
           business_id: selectedBusiness.id,
@@ -166,26 +148,24 @@ export default function BookAppointment() {
           date: format(selectedDate, 'yyyy-MM-dd'),
           status: 'waiting'
         });
-        
+
         if (existingEntries.length > 0) {
           setWaitingListStatus({ joining: false, joined: true, error: null });
         } else {
           setWaitingListStatus({ joining: false, joined: false, error: null });
         }
       } catch (error) {
-        console.error('Error checking waiting list:', error);
+        // Error checking waiting list
       }
     };
-    
+
     checkWaitingList();
   }, [selectedBusiness, selectedDate, user?.phone]);
 
   const { data: services = [], isLoading: servicesLoading, refetch: refetchServices } = useQuery({
     queryKey: ['services', selectedBusiness?.id],
     queryFn: async () => {
-      console.log('🛎️ Fetching services for business:', selectedBusiness?.id);
       const result = await base44.entities.Service.filter({ business_id: selectedBusiness.id });
-      console.log('🛎️ Services loaded:', result);
       return result;
     },
     enabled: !!selectedBusiness?.id && step >= 2,
@@ -196,14 +176,22 @@ export default function BookAppointment() {
   // Refetch services when business is loaded
   useEffect(() => {
     if (selectedBusiness?.id && step >= 2) {
-      console.log('🔄 Triggering services refetch for business:', selectedBusiness.id);
       refetchServices();
     }
   }, [selectedBusiness?.id, step, refetchServices]);
 
   const { data: staff = [], isLoading: staffLoading } = useQuery({
     queryKey: ['staff', selectedBusiness?.id],
-    queryFn: () => base44.entities.Staff.filter({ business_id: selectedBusiness.id }),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('staff')
+        .select('*')
+        .eq('business_id', selectedBusiness.id)
+        .neq('is_active', false) // Only show active staff
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
     enabled: !!selectedBusiness && step >= 3,
     staleTime: 10 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
@@ -257,7 +245,6 @@ export default function BookAppointment() {
   // Refetch bookings when entering step 5 (time selection)
   useEffect(() => {
     if (step === 5 && selectedDate && selectedStaff) {
-      console.log('🔄 Refreshing available time slots for step 5');
       refetchExistingBookings();
     }
   }, [step, selectedDate, selectedStaff]);
@@ -314,12 +301,9 @@ export default function BookAppointment() {
 
   const bookingMutation = useMutation({
     mutationFn: (data) => {
-      console.log('🆕 Creating NEW booking:', data);
       return base44.entities.Booking.create(data);
     },
     onSuccess: async (data) => {
-      console.log('✅ Booking created successfully:', data);
-      
       // Send WhatsApp confirmation if booking is confirmed and user has phone
       if (data.status === 'confirmed' && data.client_phone && user?.whatsapp_notifications_enabled !== false) {
         await sendConfirmation({
@@ -332,55 +316,49 @@ export default function BookAppointment() {
           businessId: selectedBusiness.id
         });
       }
-      
+
       // Create notification for business owner
       try {
-        console.log('📢 Creating notification for business:', data.business_id);
         const isPendingApproval = data.status === 'pending_approval';
-        const notification = await base44.entities.Notification.create({
+        await base44.entities.Notification.create({
           business_id: data.business_id,
           type: 'booking_created',
           title: isPendingApproval ? 'תור חדש ממתין לאישור' : 'תור חדש נקבע',
-          message: isPendingApproval 
+          message: isPendingApproval
             ? `${data.client_name} ביקש/ה תור ל-${data.service_name} בתאריך ${format(parseISO(data.date), 'd.M.yyyy', { locale: he })} בשעה ${data.time} - דורש אישור`
             : `${data.client_name} קבע/ה תור ל-${data.service_name} בתאריך ${format(parseISO(data.date), 'd.M.yyyy', { locale: he })} בשעה ${data.time}`,
           booking_id: data.id,
           client_name: data.client_name,
           is_read: false
         });
-        console.log('✅ Notification created:', notification);
       } catch (error) {
-        console.error('❌ Failed to create notification:', error);
+        // Failed to create notification
       }
-      
+
       queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
       queryClient.invalidateQueries({ queryKey: ['next-appointment'] });
       await queryClient.refetchQueries({ queryKey: ['notifications', data.business_id] });
       setBookingStatus(data.status);
       setSuccess(true);
       bookingLockRef.current = false;
-      setIsBooking(false); // Reset booking state
+      setIsBooking(false);
       setTimeout(() => {
         navigate("/MyBookings");
       }, 2500);
     },
     onError: (error) => {
-      console.error('❌ Booking failed:', error);
       bookingLockRef.current = false;
-      setIsBooking(false); // Reset booking state on error
+      setIsBooking(false);
       alert('שגיאה בקביעת התור. אנא נסה שנית.');
     },
   });
 
   const updateBookingMutation = useMutation({
     mutationFn: async ({ id, data, fullBooking }) => {
-      console.log('✏️ Updating EXISTING booking:', id, data);
       const updated = await base44.entities.Booking.update(id, data);
       return { ...fullBooking, ...updated, oldDate: fullBooking.date, oldTime: fullBooking.time };
     },
     onSuccess: async (data) => {
-      console.log('✅ Booking updated successfully:', data);
-      
       // Send WhatsApp update notification
       if (data.client_phone && user?.whatsapp_notifications_enabled !== false) {
         await sendUpdate({
@@ -394,7 +372,7 @@ export default function BookAppointment() {
           businessId: selectedBusiness.id
         });
       }
-      
+
       // Notify waiting list if date or time changed (old slot now available)
       if (data.oldDate !== data.date || data.oldTime !== data.time) {
         const freedDuration = data.duration || 30;
@@ -403,7 +381,7 @@ export default function BookAppointment() {
         const endH = Math.floor(endMinutes / 60);
         const endM = endMinutes % 60;
         const endTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
-        
+
         await notifyWaitingListForOpenedSlot({
           businessId: data.business_id,
           date: data.oldDate,
@@ -411,11 +389,10 @@ export default function BookAppointment() {
           endTime
         });
       }
-      
+
       // Create notification for business owner about rescheduling
       try {
-        console.log('📢 Creating reschedule notification for business:', data.business_id);
-        const notification = await base44.entities.Notification.create({
+        await base44.entities.Notification.create({
           business_id: data.business_id,
           type: 'booking_rescheduled',
           title: 'תור עודכן',
@@ -424,26 +401,24 @@ export default function BookAppointment() {
           client_name: data.client_name,
           is_read: false
         });
-        console.log('✅ Reschedule notification created:', notification);
       } catch (error) {
-        console.error('❌ Failed to create reschedule notification:', error);
+        // Failed to create reschedule notification
       }
-      
+
       queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
       queryClient.invalidateQueries({ queryKey: ['next-appointment'] });
       await queryClient.refetchQueries({ queryKey: ['notifications', data.business_id] });
       setBookingStatus(data.status);
       setSuccess(true);
       bookingLockRef.current = false;
-      setIsBooking(false); // Reset booking state
+      setIsBooking(false);
       setTimeout(() => {
         navigate("/MyBookings");
       }, 2500);
     },
     onError: (error) => {
-      console.error('❌ Update booking failed:', error);
       bookingLockRef.current = false;
-      setIsBooking(false); // Reset booking state on error
+      setIsBooking(false);
       alert('שגיאה בעדכון התור. אנא נסה שנית.');
     },
   });
@@ -452,15 +427,12 @@ export default function BookAppointment() {
   const joinWaitingList = async (waitingListData) => {
     try {
       await base44.entities.WaitingList.create(waitingListData);
-      
-      console.log('✅ Added to waiting list:', waitingListData);
-      
+
       // Invalidate waiting list query so MyBookings shows the new entry
       queryClient.invalidateQueries({ queryKey: ['my-waiting-list'] });
-      
+
       return { success: true };
     } catch (error) {
-      console.error('❌ Failed to join waiting list:', error);
       throw error;
     }
   };
@@ -718,7 +690,6 @@ export default function BookAppointment() {
       
       setAlternativeSuggestions({ services: alternativeServices, dates: alternativeDates, loading: false });
     } catch (error) {
-      console.error('Error finding alternatives:', error);
       setAlternativeSuggestions({ services: [], dates: [], loading: false });
     }
   };
@@ -733,72 +704,59 @@ export default function BookAppointment() {
 const handleBooking = async () => {
   // Synchronous lock check - this happens before any async operation
   if (bookingLockRef.current) {
-    console.log('⚠️ Booking locked (ref), ignoring click');
     return;
   }
-  
+
   // Prevent double-clicks with state too
   if (isBooking) {
-    console.log('⚠️ Booking already in progress (state), ignoring click');
     return;
   }
-  
+
   if (!user?.phone) {
-    console.error("User email is not available for booking.");
     return;
   }
 
   // Lock immediately with ref (synchronous)
   bookingLockRef.current = true;
-  setIsBooking(true); // Lock the button (async state update)
-  
-  console.log('🎬 handleBooking called');
-  console.log('📝 rescheduleBookingId:', rescheduleBookingId);
-  console.log('📝 isRescheduling:', isRescheduling);
+  setIsBooking(true);
 
-  // *** CRITICAL: Check for double booking before proceeding ***
-  console.log('🔍 Checking for conflicts before booking...');
+  // Check for double booking before proceeding
   const latestBookings = await base44.entities.Booking.filter({
     business_id: selectedBusiness.id,
     staff_id: selectedStaff.id,
     date: format(selectedDate, 'yyyy-MM-dd')
   });
-  
-  const activeBookings = latestBookings.filter(b => 
+
+  const activeBookings = latestBookings.filter(b =>
     b.status === 'confirmed' || b.status === 'pending_approval'
   );
-  
+
   const slotStart = parseInt(selectedTime.split(':')[0]) * 60 + parseInt(selectedTime.split(':')[1]);
   const slotEnd = slotStart + selectedService.duration;
-  
+
   const hasConflict = activeBookings.some(booking => {
     // Skip the booking being rescheduled
     if (rescheduleBookingId && booking.id === rescheduleBookingId) {
       return false;
     }
-    
+
     const bookingStart = parseInt(booking.time.split(':')[0]) * 60 + parseInt(booking.time.split(':')[1]);
     const bookingEnd = bookingStart + booking.duration;
-    
+
     return (slotStart < bookingEnd && slotEnd > bookingStart);
   });
-  
+
   if (hasConflict) {
-    console.log('❌ Time slot is no longer available!');
     alert('השעה שבחרת כבר לא פנויה. המערכת תרענן את השעות הזמינות.');
-    // Refresh the bookings query to update available slots
     queryClient.invalidateQueries({ queryKey: ['existing-bookings', selectedStaff?.id, selectedDate] });
     setSelectedTime(null);
     bookingLockRef.current = false;
-    setIsBooking(false); // Unlock the button
+    setIsBooking(false);
     return;
   }
-  
-  console.log('✅ No conflicts found, proceeding with booking');
 
   // If rescheduling, just update the existing booking
   if (rescheduleBookingId) {
-    console.log('✏️ UPDATING existing booking:', rescheduleBookingId);
     
     // Fetch the current booking to get all details
     const currentBooking = await base44.entities.Booking.filter({ id: rescheduleBookingId });
@@ -819,8 +777,6 @@ const handleBooking = async () => {
     });
     return;
   }
-
-  console.log('🆕 CREATING new booking');
 
   // Otherwise, create a new booking
   const clientBookings = await base44.entities.Booking.filter({

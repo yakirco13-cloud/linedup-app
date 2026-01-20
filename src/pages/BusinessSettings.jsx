@@ -30,8 +30,8 @@ export default function BusinessSettings() {
     email: "",
     photo_url: "",
     description: "",
-    instagram_url: "",
-    facebook_url: "",
+    instagram: "",
+    facebook: "",
     // Reminder settings - default to false (FREE plan doesn't have access)
     reminder_enabled: false,
     reminder_hours_before: 12
@@ -57,8 +57,6 @@ export default function BusinessSettings() {
     friday: { enabled: false, shifts: [{ start: "09:00", end: "14:00" }] },
     saturday: { enabled: false, shifts: [{ start: "09:00", end: "17:00" }] }
   });
-
-  const [selectedDays, setSelectedDays] = useState([]);
 
   const [workingHoursExpanded, setWorkingHoursExpanded] = useState(false);
 
@@ -93,8 +91,8 @@ export default function BusinessSettings() {
         email: business.email || "",
         photo_url: business.photo_url || "",
         description: business.description || "",
-        instagram_url: business.instagram_url || "",
-        facebook_url: business.facebook_url || "",
+        instagram: business.instagram || "",
+        facebook: business.facebook || "",
         reminder_enabled: canUseReminders,
         reminder_hours_before: business.reminder_hours_before || 12
       });
@@ -135,12 +133,8 @@ export default function BusinessSettings() {
       const result = await base44.entities.Business.update(business.id, data);
       return result;
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['business'] });
-      alert('השינויים נשמרו בהצלחה!');
-    },
-    onError: (error) => {
-      alert('שגיאה בשמירת השינויים: ' + error.message);
     }
   });
 
@@ -228,34 +222,18 @@ export default function BusinessSettings() {
     }));
   };
 
-  const toggleDaySelection = (dayKey) => {
-    setSelectedDays((prev) =>
-    prev.includes(dayKey) ?
-    prev.filter((d) => d !== dayKey) :
-    [...prev, dayKey]
-    );
-  };
-
-  const applyToSelectedDays = (sourceDay) => {
-    if (selectedDays.length === 0) {
-      alert('נא לבחור לפחות יום אחד להעתקה');
-      return;
-    }
-
-    const sourceSchedule = workingHours[sourceDay];
-    setWorkingHours((prev) => {
-      const updated = { ...prev };
-      selectedDays.forEach((day) => {
-        updated[day] = {
-          enabled: sourceSchedule.enabled,
-          shifts: sourceSchedule.shifts.map((shift) => ({ ...shift }))
-        };
-      });
-      return updated;
+  const quickSetHours = (start, end) => {
+    const newSchedule = {};
+    DAY_KEYS.forEach(day => {
+      if (day === 'friday') {
+        newSchedule[day] = { enabled: false, shifts: [{ start, end }] };
+      } else if (day === 'saturday') {
+        newSchedule[day] = { enabled: false, shifts: [{ start, end }] };
+      } else {
+        newSchedule[day] = { enabled: true, shifts: [{ start, end }] };
+      }
     });
-
-    setSelectedDays([]);
-    alert('השעות הועתקו בהצלחה!');
+    setWorkingHours(newSchedule);
   };
 
   const handleShiftChange = (dayKey, shiftIndex, field, value) => {
@@ -297,21 +275,26 @@ export default function BusinessSettings() {
       return;
     }
 
+    // Build update payload with all fields including social URLs
+    const updatePayload = {
+      name: formData.name,
+      phone: formData.phone,
+      email: formData.email,
+      photo_url: formData.photo_url,
+      description: formData.description,
+      working_hours: workingHours,
+      reminder_enabled: formData.reminder_enabled,
+      reminder_hours_before: formData.reminder_hours_before,
+      instagram: formData.instagram || null,
+      facebook: formData.facebook || null
+    };
+
     try {
-      await updateMutation.mutateAsync({
-        name: formData.name,
-        phone: formData.phone,
-        email: formData.email,
-        photo_url: formData.photo_url,
-        description: formData.description,
-        instagram_url: formData.instagram_url,
-        facebook_url: formData.facebook_url,
-        working_hours: workingHours,
-        reminder_enabled: formData.reminder_enabled,
-        reminder_hours_before: formData.reminder_hours_before
-      });
+      await updateMutation.mutateAsync(updatePayload);
+      alert('השינויים נשמרו בהצלחה!');
     } catch (error) {
       console.error('Submit error:', error);
+      alert('שגיאה בשמירת השינויים: ' + error.message);
     }
   };
 
@@ -337,7 +320,7 @@ export default function BusinessSettings() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] ">
+    <div className="min-h-screen bg-[#0C0F1D] pt-safe">
       <style>{`
         /* Fix Switch white dot positioning - override Tailwind's translate-x-4 */
         button[role="switch"] span[data-state] {
@@ -350,10 +333,10 @@ export default function BusinessSettings() {
           transform: translateX(0px) !important;
         }
       `}</style>
-      
+
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-[#0C0F1D]/95 backdrop-blur-sm border-b border-gray-800 z-10 px-6 py-4">
+        <div className="sticky top-12 bg-[#0C0F1D]/95 backdrop-blur-sm border-b border-gray-800 z-10 px-6 py-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => navigate(createPageUrl("Settings"))}
@@ -366,7 +349,7 @@ export default function BusinessSettings() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="p-6 space-y-6 pb-40">
           {/* Business Info */}
           <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800 space-y-4">
             <div className="flex items-center gap-2 mb-2">
@@ -425,23 +408,23 @@ export default function BusinessSettings() {
               <Input
                 id="instagram_url"
                 type="url"
-                value={formData.instagram_url}
-                onChange={(e) => handleChange('instagram_url', e.target.value)}
+                value={formData.instagram}
+                onChange={(e) => handleChange('instagram', e.target.value)}
                 className="bg-[#0C0F1D] border-gray-700 text-white rounded-xl h-12"
                 placeholder="https://instagram.com/yourbusiness"
                 dir="ltr" />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="facebook_url" className="text-white">
+              <Label htmlFor="facebook" className="text-white">
                 <Facebook className="w-4 h-4 inline ml-1" />
                 קישור לפייסבוק
               </Label>
               <Input
-                id="facebook_url"
+                id="facebook"
                 type="url"
-                value={formData.facebook_url}
-                onChange={(e) => handleChange('facebook_url', e.target.value)}
+                value={formData.facebook}
+                onChange={(e) => handleChange('facebook', e.target.value)}
                 className="bg-[#0C0F1D] border-gray-700 text-white rounded-xl h-12"
                 placeholder="https://facebook.com/yourbusiness"
                 dir="ltr" />
@@ -606,10 +589,10 @@ export default function BusinessSettings() {
 
             {shareToken ? (
               <div className="space-y-4">
-                <div className="bg-[#0C0F1D] rounded-xl p-4">
+                <div className="bg-[#0C0F1D] rounded-xl p-4 overflow-hidden">
                   <Label className="text-[#94A3B8] text-xs mb-2 block">קישור לשיתוף:</Label>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 text-[#FF6B35] text-sm break-all bg-[#1A1F35] p-2 rounded-lg">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <code className="flex-1 min-w-0 text-[#FF6B35] text-sm break-all bg-[#1A1F35] p-2 rounded-lg overflow-x-auto">
                       {window.location.origin}/SharedCalendar?token={shareToken}
                     </code>
                   </div>
@@ -702,14 +685,14 @@ export default function BusinessSettings() {
             {business?.id && (
               <div className="space-y-4">
                 {/* Calendar URL */}
-                <div className="bg-[#0C0F1D] rounded-xl p-4">
+                <div className="bg-[#0C0F1D] rounded-xl p-4 overflow-hidden">
                   <Label className="text-[#94A3B8] text-xs mb-2 block">קישור היומן שלך:</Label>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     <input
                       type="text"
                       value={`${RAILWAY_URL}/cal/${business.id}.ics`}
                       readOnly
-                      className="flex-1 bg-[#1A1F35] text-[#FF6B35] text-xs p-2 rounded-lg outline-none truncate"
+                      className="flex-1 min-w-0 bg-[#1A1F35] text-[#FF6B35] text-xs p-2 rounded-lg outline-none truncate"
                       dir="ltr"
                     />
                     <Button
@@ -847,7 +830,7 @@ export default function BusinessSettings() {
 
           {/* Working Hours */}
           <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800">
-            <button 
+            <button
               type="button"
               onClick={() => setWorkingHoursExpanded(!workingHoursExpanded)}
               className="flex items-center justify-between w-full"
@@ -865,109 +848,97 @@ export default function BusinessSettings() {
 
             {workingHoursExpanded && (
             <>
-            {selectedDays.length > 0 &&
-            <div className="mb-4 mt-4 bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
-                <p className="text-blue-400 text-sm mb-2">
-                  נבחרו {selectedDays.length} ימים - לחץ על "העתק" ליד יום כדי להעתיק את השעות
-                </p>
-                <button
-                type="button"
-                onClick={() => setSelectedDays([])}
-                className="text-xs text-blue-300 hover:text-blue-200 underline">
-                
-                  בטל בחירה
-                </button>
-              </div>
-            }
-            
-            <div className="space-y-4 mt-4">
-              {DAY_KEYS.map((dayKey, index) =>
-              <div key={dayKey} className={`bg-[#0C0F1D] rounded-xl p-4 border-2 transition-all ${
-              selectedDays.includes(dayKey) ? 'border-blue-500' : 'border-transparent'}`
-              }>
-                  <div className="flex items-center gap-3 mb-3">
-                    <button
-                    type="button"
-                    onClick={() => toggleDaySelection(dayKey)}
-                    className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${
-                    selectedDays.includes(dayKey) ?
-                    'bg-blue-500 border-blue-500' :
-                    'border-gray-600 hover:border-blue-500'}`
-                    }>
-                    
-                      {selectedDays.includes(dayKey) &&
-                    <CheckCircle className="w-4 h-4 text-white" />
-                    }
-                    </button>
-                    
-                    <input
-                    type="checkbox"
-                    checked={workingHours[dayKey].enabled}
-                    onChange={() => handleDayToggle(dayKey)}
-                    className="w-5 h-5 rounded accent-[#FF6B35]" />
-                  
-                    <span className="text-white font-medium flex-1">{DAYS[index]}</span>
-                    
-                    {workingHours[dayKey].enabled && workingHours[dayKey].shifts.length > 0 &&
+              {/* Quick Set Buttons */}
+              <div className="mt-4 bg-[#0C0F1D] rounded-xl p-3 sm:p-4">
+                <p className="text-sm text-[#94A3B8] mb-3">קיצורי דרך:</p>
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
-                    onClick={() => applyToSelectedDays(dayKey)}
-                    disabled={selectedDays.length === 0}
-                    className="text-xs px-3 py-1 rounded-lg bg-[#FF6B35] hover:bg-[#FF8555] disabled:opacity-30 disabled:cursor-not-allowed text-white font-medium transition-all">
-                    
-                        העתק
-                      </button>
-                  }
-                  </div>
-                  
-                  {workingHours[dayKey].enabled &&
-                <div className="space-y-2 mr-8">
-                      {workingHours[dayKey].shifts.map((shift, shiftIndex) =>
-                  <div key={shiftIndex} className="flex items-center gap-2">
-                          <div className="flex items-center gap-2 flex-1 bg-[#1A1F35] rounded-lg p-2">
-                            <Input
-                        type="time"
-                        value={shift.start}
-                        onChange={(e) => handleShiftChange(dayKey, shiftIndex, 'start', e.target.value)}
-                        className="bg-[#0C0F1D] border-gray-700 text-white h-10 rounded-lg text-sm flex-1" />
-                      
-                            <span className="text-[#94A3B8] text-sm px-1">עד</span>
-                            <Input
-                        type="time"
-                        value={shift.end}
-                        onChange={(e) => handleShiftChange(dayKey, shiftIndex, 'end', e.target.value)}
-                        className="bg-[#0C0F1D] border-gray-700 text-white h-10 rounded-lg text-sm flex-1" />
-                      
-                          </div>
-                          
-                          {workingHours[dayKey].shifts.length > 1 &&
-                    <Button
-                      type="button"
-                      onClick={() => removeShift(dayKey, shiftIndex)}
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-10 px-3">
-                      
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                    }
-                        </div>
-                  )}
-                      <Button
+                    onClick={() => quickSetHours("09:00", "17:00")}
+                    className="bg-[#1A1F35] hover:bg-[#FF6B35]/20 border border-gray-700 hover:border-[#FF6B35] rounded-lg py-2 text-xs sm:text-sm text-white transition-all"
+                  >
+                    9:00 - 17:00
+                  </button>
+                  <button
                     type="button"
-                    onClick={() => addShift(dayKey)}
-                    variant="ghost"
-                    size="sm"
-                    className="text-[#FF6B35] hover:text-[#FF6B35]/80 hover:bg-[#FF6B35]/10 h-9 text-xs w-full">
-                    
-                        <Plus className="w-3 h-3 ml-1" />
-                        הוסף משמרת
-                      </Button>
-                    </div>
-                }
+                    onClick={() => quickSetHours("10:00", "19:00")}
+                    className="bg-[#1A1F35] hover:bg-[#FF6B35]/20 border border-gray-700 hover:border-[#FF6B35] rounded-lg py-2 text-xs sm:text-sm text-white transition-all"
+                  >
+                    10:00 - 19:00
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => quickSetHours("08:00", "20:00")}
+                    className="bg-[#1A1F35] hover:bg-[#FF6B35]/20 border border-gray-700 hover:border-[#FF6B35] rounded-lg py-2 text-xs sm:text-sm text-white transition-all"
+                  >
+                    8:00 - 20:00
+                  </button>
                 </div>
-              )}
-            </div>
+              </div>
+
+              <div className="space-y-3 mt-4">
+                {DAY_KEYS.map((dayKey, index) => (
+                  <div key={dayKey} className="bg-[#0C0F1D] rounded-xl p-3 sm:p-4 overflow-hidden">
+                    {/* Day header */}
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <input
+                        type="checkbox"
+                        checked={workingHours[dayKey].enabled}
+                        onChange={() => handleDayToggle(dayKey)}
+                        className="w-5 h-5 rounded accent-[#FF6B35] flex-shrink-0"
+                      />
+                      <span className="text-white font-medium flex-1 min-w-0">{DAYS[index]}</span>
+                    </div>
+
+                    {/* Shifts */}
+                    {workingHours[dayKey].enabled && (
+                      <div className="mt-3 space-y-2 pr-7 overflow-hidden">
+                        {workingHours[dayKey].shifts.map((shift, shiftIndex) => (
+                          <div key={shiftIndex} className="flex items-center gap-2 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-1 min-w-0 bg-[#1A1F35] rounded-lg p-1.5 sm:p-2">
+                              <Input
+                                type="time"
+                                value={shift.start}
+                                onChange={(e) => handleShiftChange(dayKey, shiftIndex, 'start', e.target.value)}
+                                className="bg-[#0C0F1D] border-gray-700 text-white h-9 rounded-lg text-sm w-[85px] sm:w-auto sm:flex-1 px-2 min-w-0"
+                              />
+                              <span className="text-[#94A3B8] text-xs sm:text-sm flex-shrink-0">-</span>
+                              <Input
+                                type="time"
+                                value={shift.end}
+                                onChange={(e) => handleShiftChange(dayKey, shiftIndex, 'end', e.target.value)}
+                                className="bg-[#0C0F1D] border-gray-700 text-white h-9 rounded-lg text-sm w-[85px] sm:w-auto sm:flex-1 px-2 min-w-0"
+                              />
+                            </div>
+
+                            {workingHours[dayKey].shifts.length > 1 && (
+                              <Button
+                                type="button"
+                                onClick={() => removeShift(dayKey, shiftIndex)}
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-9 w-9 p-0 rounded-lg flex-shrink-0"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                        <Button
+                          type="button"
+                          onClick={() => addShift(dayKey)}
+                          variant="ghost"
+                          size="sm"
+                          className="text-[#FF6B35] hover:text-[#FF6B35]/80 hover:bg-[#FF6B35]/10 h-8 text-xs w-full"
+                        >
+                          <Plus className="w-3 h-3 ml-1" />
+                          משמרת נוספת
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </>
             )}
           </div>

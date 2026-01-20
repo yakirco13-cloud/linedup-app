@@ -87,58 +87,45 @@ export async function notifyWaitingListForOpenedSlot({ businessId, date, startTi
   
   try {
     const normalizedDate = toISO(date);
-    console.log('🔔 WaitingListService: Checking for date:', normalizedDate);
-    console.log('🔔 Time range:', startTime, '-', endTime);
-    
+
     // Get waiting list entries for this date
     const waitingList = await base44.entities.WaitingList.filter({
       business_id: businessId,
       date: normalizedDate,
       status: 'waiting'
     });
-    
+
     if (waitingList.length === 0) {
-      console.log('🔔 No one on waiting list for this date');
       return result;
     }
-    
-    console.log(`🔔 Found ${waitingList.length} people on waiting list`);
-    
+
     // Get existing bookings for this date
     const existingBookings = await base44.entities.Booking.filter({
       business_id: businessId,
       date: normalizedDate
     });
-    
+
     // Filter to only active bookings
-    const activeBookings = existingBookings.filter(b => 
+    const activeBookings = existingBookings.filter(b =>
       b.status === 'confirmed' || b.status === 'pending_approval'
     );
-    
-    console.log(`🔔 ${activeBookings.length} active bookings on this date`);
     
     // Check each waiting list entry
     for (const entry of waitingList) {
       const fromTime = entry.from_time || '00:00';
       const toTime = entry.to_time || '23:59';
       const serviceDuration = entry.service_duration || 30;
-      
-      console.log(`🔔 Checking entry for ${entry.client_name}:`, {
-        range: `${fromTime}-${toTime}`,
-        duration: serviceDuration
-      });
-      
+
       // Check if the opened range overlaps with their preferred range
       if (endTime <= fromTime || startTime >= toTime) {
-        console.log(`⏭️ Skipping ${entry.client_name}: no overlap with their range`);
         result.skipped++;
         continue;
       }
-      
+
       // Calculate the actual overlap
       const overlapStart = startTime > fromTime ? startTime : fromTime;
       const overlapEnd = endTime < toTime ? endTime : toTime;
-      
+
       // Find first available slot that fits their service
       const foundSlot = findFirstAvailableSlot({
         rangeStart: overlapStart,
@@ -146,15 +133,12 @@ export async function notifyWaitingListForOpenedSlot({ businessId, date, startTi
         serviceDuration,
         activeBookings
       });
-      
+
       if (!foundSlot) {
-        console.log(`⏭️ Skipping ${entry.client_name}: ${serviceDuration}min doesn't fit in ${overlapStart}-${overlapEnd}`);
         result.skipped++;
         continue;
       }
-      
-      console.log(`✅ ${entry.client_name}: ${serviceDuration}min FITS at ${foundSlot}`);
-      
+
       // Send notification
       if (entry.client_phone) {
         const sendResult = await sendWaitingListNotification({
@@ -165,7 +149,7 @@ export async function notifyWaitingListForOpenedSlot({ businessId, date, startTi
           serviceName: entry.service_name,
           businessId: businessId
         });
-        
+
         if (sendResult.success) {
           // Update entry status
           try {
@@ -174,27 +158,21 @@ export async function notifyWaitingListForOpenedSlot({ businessId, date, startTi
               notified_date: new Date().toISOString(),
               notified_time: foundSlot
             });
-            console.log(`✅ Updated waiting list entry status to 'notified'`);
             result.notified++;
           } catch (updateError) {
-            console.error(`❌ Failed to update waiting list status:`, updateError);
             result.notified++; // Still count as notified since message was sent
           }
         } else {
-          console.error(`❌ Failed to send notification to ${entry.client_name}`);
           result.skipped++;
         }
       } else {
-        console.log(`⏭️ Skipping ${entry.client_name}: no phone number`);
         result.skipped++;
       }
     }
-    
-    console.log(`🔔 WaitingListService complete: ${result.notified} notified, ${result.skipped} skipped`);
+
     return result;
-    
+
   } catch (error) {
-    console.error('❌ WaitingListService error:', error);
     return result;
   }
 }
@@ -235,11 +213,11 @@ export async function notifyWaitingListForCancelledBooking({ booking, businessId
 export async function cleanupExpiredEntries(businessId) {
   try {
     const today = toISO(new Date());
-    
+
     // Get all waiting entries
     const filter = businessId ? { business_id: businessId, status: 'waiting' } : { status: 'waiting' };
     const entries = await base44.entities.WaitingList.filter(filter);
-    
+
     let deleted = 0;
     for (const entry of entries) {
       const entryDate = toISO(entry.date);
@@ -248,15 +226,13 @@ export async function cleanupExpiredEntries(businessId) {
           await base44.entities.WaitingList.delete(entry.id);
           deleted++;
         } catch (e) {
-          console.error('Failed to delete expired entry:', e);
+          // Skip failed deletions
         }
       }
     }
-    
-    console.log(`🗑️ Cleaned up ${deleted} expired waiting list entries`);
+
     return deleted;
   } catch (error) {
-    console.error('❌ Error cleaning up expired entries:', error);
     return 0;
   }
 }

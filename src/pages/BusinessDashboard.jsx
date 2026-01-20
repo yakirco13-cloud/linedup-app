@@ -228,46 +228,103 @@ export default function BusinessDashboard() {
   }
 
   return (
-    <div className={`min-h-screen bg-[#0C0F1D] pt-safe ${showNotifications ? 'overflow-hidden h-screen' : ''}`}>
+    <div className={`min-h-screen bg-[#0C0F1D] ${showNotifications ? 'overflow-hidden h-screen' : ''}`}>
       {showNotifications && (
         <NotificationDropdown
           businessId={business?.id}
           onClose={() => setShowNotifications(false)}
         />
       )}
-      
-      <div className="max-w-4xl mx-auto">
-        {/* Hero Section - Greeting + Stats */}
-        <div className="p-6 pt-4 space-y-4">
-          {/* Greeting with Notification Bell */}
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">שלום, {user?.name}! 👋</h1>
-              <p className="text-[#94A3B8]">{business.name}</p>
-            </div>
-            
-            <button
-              onClick={() => setShowNotifications(true)}
-              className="relative p-3 bg-[#1A1F35] rounded-xl border-2 border-gray-800 hover:border-[#FF6B35] transition-all hover:scale-110"
+
+      {/* ============ COVER DESIGN ============ */}
+      <div className="relative h-44">
+        <style>{`
+          @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+          }
+        `}</style>
+
+        <div className="absolute inset-0 overflow-hidden">
+          {/* Animated gradient background */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: 'linear-gradient(135deg, #FF6B35, #FF8F5C, #FF1744, #FF6B35)',
+              backgroundSize: '300% 300%',
+              animation: 'gradientShift 8s ease infinite'
+            }}
+          />
+
+          {/* LinedUp Branding - positioned below status bar area */}
+          <div className="absolute top-16 left-5 flex flex-row-reverse items-center gap-2.5 z-10">
+            <div
+              className="w-9 h-9 rounded-lg flex items-center justify-center shadow-lg"
+              style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.25), rgba(255,255,255,0.1))' }}
             >
-              <Bell className="w-6 h-6 text-white" />
-              {unreadCount > 0 && (
-                <div className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-r from-[#FF6B35] to-[#FF1744] rounded-full flex items-center justify-center text-xs font-bold animate-pulse">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </div>
-              )}
-            </button>
+              <span className="text-white font-black text-xl" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>L</span>
+            </div>
+            <span className="text-white font-bold text-xl tracking-wide drop-shadow-lg">LinedUp</span>
           </div>
+        </div>
+
+        {/* Gradient overlay - blends smoothly into page background */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: 'linear-gradient(180deg, transparent 0%, transparent 40%, rgba(26,31,53,0.6) 70%, rgba(26,31,53,1) 100%)'
+          }}
+        />
+
+        {/* Notification Bell - top right corner below status bar */}
+        <button
+          onClick={() => setShowNotifications(true)}
+          className="absolute top-16 right-5 z-10 p-2.5 bg-white/20 backdrop-blur-sm rounded-xl hover:bg-white/30 transition-all hover:scale-110"
+        >
+          <Bell className="w-5 h-5 text-white" />
+          {unreadCount > 0 && (
+            <div className="absolute -top-1 -right-1 w-5 h-5 bg-white rounded-full flex items-center justify-center text-xs font-bold text-[#FF6B35]">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </div>
+          )}
+        </button>
+
+        {/* Business Photo - centered contact style */}
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 z-20">
+          <div
+            className="w-36 h-36 rounded-full bg-cover bg-center shadow-2xl border-4 border-[#1A1F35] overflow-hidden"
+            style={{ backgroundImage: business.photo_url ? `url(${business.photo_url})` : 'none' }}
+          >
+            {!business.photo_url && (
+              <div className="w-full h-full flex items-center justify-center text-5xl font-bold text-white" style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}>
+                {business.name?.[0]?.toUpperCase() || 'W'}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto">
+        {/* Business Name Card - merged smoothly */}
+        <div className="bg-[#1A1F35] pt-20 pb-3 px-6 text-center">
+          <h1 className="text-2xl font-bold text-white">{business.name}</h1>
+          {business.description && (
+            <p className="text-[#94A3B8] text-sm mt-1 line-clamp-2">{business.description}</p>
+          )}
+        </div>
+
+        {/* Stats and Actions Section - continuous background */}
+        <div className="bg-[#1A1F35] px-6 pb-6 space-y-4">
 
           {/* Today's Stats - 2 Column Grid */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-[#1A1F35] rounded-2xl p-4 border-2 border-gray-800 text-center">
+            <div className="bg-[#0C0F1D] rounded-2xl p-4 border border-white/10 text-center">
               <Calendar className="w-5 h-5 mx-auto mb-2 text-[#FF6B35]" />
               <p className="text-2xl font-bold mb-1">{todayStats.appointments}</p>
               <p className="text-xs text-[#94A3B8]">תורים היום</p>
             </div>
 
-            <div className="bg-[#1A1F35] rounded-2xl p-4 border-2 border-gray-800 text-center">
+            <div className="bg-[#0C0F1D] rounded-2xl p-4 border border-white/10 text-center">
               <Clock className="w-5 h-5 mx-auto mb-2 text-yellow-500" />
               <p className="text-2xl font-bold mb-1">{todayStats.pending}</p>
               <p className="text-xs text-[#94A3B8]">ממתינים</p>
@@ -285,7 +342,7 @@ export default function BusinessDashboard() {
             </button>
             <button
               onClick={() => navigate(createPageUrl("CalendarView"))}
-              className="bg-[#1A1F35] border-2 border-gray-800 rounded-xl py-4 font-semibold hover:border-[#FF6B35] transition-colors"
+              className="bg-[#0C0F1D] border border-white/10 rounded-xl py-4 font-semibold hover:border-[#FF6B35]/50 transition-colors"
             >
               עבור ליומן
             </button>
@@ -363,7 +420,7 @@ export default function BusinessDashboard() {
         )}
 
         {/* Today's Confirmed Appointments */}
-        <div className="px-6 mb-6">
+        <div className="px-6 mb-6 mt-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold">התורים של היום</h2>
             <button

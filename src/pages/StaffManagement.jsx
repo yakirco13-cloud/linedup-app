@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase/client";
 import { useUser } from "@/components/UserContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -50,9 +51,14 @@ export default function StaffManagement() {
   const { data: staff = [], isLoading } = useQuery({
     queryKey: ['staff', business?.id],
     queryFn: async () => {
-      const allStaff = await base44.entities.Staff.filter({ business_id: business.id });
-      console.log('Loaded staff:', allStaff);
-      return allStaff;
+      const { data, error } = await supabase
+        .from('staff')
+        .select('*')
+        .eq('business_id', business.id)
+        .neq('is_active', false) // Only show active staff (includes null for backwards compatibility)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return data || [];
     },
     enabled: !!business?.id,
   });
@@ -98,13 +104,10 @@ export default function StaffManagement() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // If using business hours, copy ALL shifts from business
     let finalSchedule = schedule;
     if (useBusinessHours && business?.working_hours) {
-      console.log('Converting business hours to staff schedule...');
-      console.log('Business working hours:', business.working_hours);
-      
       finalSchedule = {};
       DAY_KEYS.forEach(dayKey => {
         const businessDay = business.working_hours[dayKey];
@@ -114,36 +117,28 @@ export default function StaffManagement() {
             enabled: businessDay.enabled,
             shifts: businessDay.shifts.map(shift => ({ start: shift.start, end: shift.end }))
           };
-          console.log(`${dayKey}: Copied ${businessDay.shifts.length} shifts`);
         } else if (businessDay && businessDay.start && businessDay.end) {
           // Fallback for business hours in old format (single start/end)
           finalSchedule[dayKey] = {
             enabled: businessDay.enabled,
             shifts: [{ start: businessDay.start, end: businessDay.end }]
           };
-          console.log(`${dayKey}: Converted old business format to single shift.`);
-        }
-        else {
+        } else {
           // Fallback - use default (disabled with one default shift)
           finalSchedule[dayKey] = {
             enabled: false,
             shifts: [{ start: "09:00", end: "17:00" }]
           };
-          console.log(`${dayKey}: Business day undefined or no shifts, using default.`);
         }
       });
-      
-      console.log('Final staff schedule:', finalSchedule);
     }
-    
+
     const staffData = {
       business_id: business.id,
       name: formData.name,
       schedule: finalSchedule,
       uses_business_hours: useBusinessHours
     };
-
-    console.log('Submitting staff data:', staffData);
 
     if (editingStaff) {
       updateMutation.mutate({ id: editingStaff.id, data: staffData });
@@ -253,10 +248,43 @@ export default function StaffManagement() {
     setShowForm(true);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('האם אתה בטוח שברצונך למחוק איש צוות זה?')) {
-      deleteMutation.mutate(id);
+  const handleDelete = async (id) => {
+    if (!window.confirm('האם אתה בטוח שברצונך להסיר איש צוות זה? הוא לא יופיע יותר ביצירת תורים חדשים, אך תורים קודמים יישמרו.')) {
+      return;
     }
+
+    // Check if staff has any FUTURE bookings (today or later)
+    const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+
+    const { count, error } = await supabase
+      .from('bookings')
+      .select('*', { count: 'exact', head: true })
+      .eq('staff_id', id)
+      .gte('date', today)
+      .in('status', ['confirmed', 'pending_approval']);
+
+    if (error) {
+      alert('שגיאה בבדיקת תורים קיימים');
+      return;
+    }
+
+    if (count > 0) {
+      alert(`לא ניתן להסיר עובד זה כי יש לו ${count} תורים עתידיים במערכת.\nיש לבטל או להעביר את התורים לעובד אחר לפני ההסרה.`);
+      return;
+    }
+
+    // Soft delete - mark as inactive instead of deleting
+    const { error: updateError } = await supabase
+      .from('staff')
+      .update({ is_active: false })
+      .eq('id', id);
+
+    if (updateError) {
+      alert('שגיאה בהסרת העובד');
+      return;
+    }
+
+    queryClient.invalidateQueries({ queryKey: ['staff'] });
   };
 
   const handleDayToggle = (dayKey) => {
@@ -311,7 +339,7 @@ export default function StaffManagement() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] p-6 ">
+    <div className="min-h-screen bg-[#0C0F1D] p-6 pt-safe">
       <div className="max-w-2xl mx-auto">
         <button
           onClick={() => navigate(createPageUrl("Settings"))}

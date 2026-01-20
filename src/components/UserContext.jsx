@@ -102,7 +102,6 @@ export const UserProvider = ({ children }) => {
     
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event);
       if (event === 'SIGNED_OUT') {
         localStorage.removeItem('linedup_session');
         setUser(null);
@@ -377,9 +376,7 @@ export const UserProvider = ({ children }) => {
         throw new Error(data.error || 'שגיאה באיפוס הסיסמה');
       }
     } catch (apiError) {
-      console.error('Reset password API error:', apiError);
       // Fallback: try direct Supabase approach for dev/testing
-      console.log('Trying fallback password reset approach...');
     }
 
     // Now try to sign in with the new password

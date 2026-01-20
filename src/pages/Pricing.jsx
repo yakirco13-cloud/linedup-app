@@ -130,16 +130,18 @@ export default function Pricing() {
       </div>
 
       <div className="relative z-10 max-w-6xl mx-auto px-4">
-        
-        {/* Header */}
-        <div className="text-center py-8 space-y-4">
-          <button 
-            onClick={() => navigate(-1)}
-            className="absolute top-8 right-4 md:right-8 p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
-          >
-            <ArrowRight className="w-5 h-5 text-white" />
-          </button>
 
+        {/* Back Button */}
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors h-12"
+        >
+          <ArrowRight className="w-5 h-5" />
+          <span className="font-medium">חזרה</span>
+        </button>
+
+        {/* Header */}
+        <div className="text-center py-4 space-y-4">
           <h1 className="text-2xl md:text-4xl font-bold text-white mb-2">
             שדרג את העסק שלך
           </h1>
@@ -148,28 +150,30 @@ export default function Pricing() {
           </p>
         </div>
 
-        {/* Toggle Switch */}
-        <div className="flex justify-center mb-8">
-          <div className="bg-[#1A1F35] p-1.5 rounded-2xl border border-gray-800 flex items-center gap-2 relative">
-            <button
-              onClick={() => setIsAnnual(false)}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                !isAnnual ? 'bg-[#0C0F1D] text-white shadow-lg ring-1 ring-white/10' : 'text-[#94A3B8] hover:text-white'
-              }`}
-            >
-              חודשי
-            </button>
-            <button
-              onClick={() => setIsAnnual(true)}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${
-                isAnnual ? 'bg-[#0C0F1D] text-white shadow-lg ring-1 ring-white/10' : 'text-[#94A3B8] hover:text-white'
-              }`}
-            >
-              שנתי
-              <span className="bg-gradient-to-r from-[#FF6B35] to-[#FF1744] text-white text-[10px] px-2 py-0.5 rounded-full">
-                -17%
-              </span>
-            </button>
+        {/* Sticky Toggle Switch */}
+        <div className="sticky top-12 z-30 py-3 -mx-4 px-4 bg-[#0C0F1D]/95 backdrop-blur-sm">
+          <div className="flex justify-center">
+            <div className="bg-[#1A1F35] p-1.5 rounded-2xl border border-gray-800 flex items-center gap-2 relative shadow-lg">
+              <button
+                onClick={() => setIsAnnual(false)}
+                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                  !isAnnual ? 'bg-[#0C0F1D] text-white shadow-lg ring-1 ring-white/10' : 'text-[#94A3B8] hover:text-white'
+                }`}
+              >
+                חודשי
+              </button>
+              <button
+                onClick={() => setIsAnnual(true)}
+                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${
+                  isAnnual ? 'bg-[#0C0F1D] text-white shadow-lg ring-1 ring-white/10' : 'text-[#94A3B8] hover:text-white'
+                }`}
+              >
+                שנתי
+                <span className="bg-gradient-to-r from-[#FF6B35] to-[#FF1744] text-white text-[10px] px-2 py-0.5 rounded-full">
+                  -17%
+                </span>
+              </button>
+            </div>
           </div>
         </div>
 

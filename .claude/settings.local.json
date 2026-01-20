@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(npm run build:*)",
-      "Bash(ping:*)"
+      "Bash(ping:*)",
+      "Bash(cd:*)",
+      "Bash(wc:*)"
     ]
   }
 }

@@ -396,9 +396,14 @@ export async function activateSubscription(businessId, planType, billingCycle, e
   const now = new Date();
   // Database uses 'yearly', but UI might pass 'annual' - normalize it
   const normalizedCycle = billingCycle === 'annual' ? 'yearly' : billingCycle;
-  const periodEnd = normalizedCycle === 'yearly'
-    ? new Date(now.setFullYear(now.getFullYear() + 1))
-    : new Date(now.setMonth(now.getMonth() + 1));
+
+  // Create a new Date object for periodEnd to avoid mutating 'now'
+  const periodEnd = new Date(now);
+  if (normalizedCycle === 'yearly') {
+    periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+  } else {
+    periodEnd.setMonth(periodEnd.getMonth() + 1);
+  }
   
   // Check for existing subscription
   const { data: existing } = await supabase
