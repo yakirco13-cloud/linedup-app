@@ -80,6 +80,14 @@ export default function Welcome() {
           >
             התחברות
           </button>
+
+          <button
+            onClick={() => navigate("/DemoTour")}
+            className="w-full h-12 rounded-2xl text-[#94A3B8] font-medium text-base transition-all hover:text-white hover:bg-[#1A1F35]/50 active:scale-95 flex items-center justify-center gap-2"
+          >
+            סיור באפליקציה
+            <span>🎬</span>
+          </button>
         </div>
 
         <p className="text-center text-[#64748B] text-xs mt-8 leading-relaxed">

@@ -31,6 +31,7 @@ import MessageUsageCard from "@/components/MessageUsageCard";
 import SubscriptionCard from "@/components/SubscriptionCard";
 import { useFeatureGate } from "@/components/FeatureGate";
 import UpgradeModal from "@/components/UpgradeModal";
+import { isUserDemoAccount } from "@/utils/demoAccounts";
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -326,11 +327,13 @@ export default function Settings() {
         {/* Business Owner Settings */}
         {user?.user_role === 'business_owner' && business && (
           <>
-            {/* Subscription Status */}
-            <div className="mb-5">
-              <p className="text-[#94A3B8] text-sm mb-2 px-1">מנוי</p>
-              <SubscriptionCard />
-            </div>
+            {/* Subscription Status - Hidden for demo accounts */}
+            {!isUserDemoAccount(user) && (
+              <div className="mb-5">
+                <p className="text-[#94A3B8] text-sm mb-2 px-1">מנוי</p>
+                <SubscriptionCard />
+              </div>
+            )}
 
             <Card title="ניהול העסק">
               <MenuItem

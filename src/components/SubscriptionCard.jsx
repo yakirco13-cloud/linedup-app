@@ -5,6 +5,8 @@ import { Crown, Zap, Star, Sparkles, ArrowUpRight, Calendar, MessageSquare, User
 import { formatLimit, getPaymentLink } from '@/config/plans';
 import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
+import { useUser } from '@/components/UserContext';
+import { isUserDemoAccount } from '@/utils/demoAccounts';
 
 /**
  * SubscriptionCard Component
@@ -14,6 +16,7 @@ import { he } from 'date-fns/locale';
  */
 export default function SubscriptionCard() {
   const navigate = useNavigate();
+  const { user } = useUser();
   const {
     subscription,
     plan,
@@ -27,6 +30,9 @@ export default function SubscriptionCard() {
     messagesLimit,
     messageUsagePercent
   } = useSubscription();
+
+  // Don't render for demo accounts
+  if (isUserDemoAccount(user)) return null;
 
   if (isLoading) {
     return (

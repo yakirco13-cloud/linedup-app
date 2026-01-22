@@ -148,14 +148,14 @@ export default function WaitingListModal({
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
       <div className="bg-[#1A1F35] rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#FF6B35]/20 to-[#FF1744]/20 p-4 flex items-center justify-between border-b border-gray-800">
+        <div className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 p-4 flex items-center justify-between border-b border-blue-500/30">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#FF6B35]/20 rounded-xl flex items-center justify-center">
-              <Bell className="w-5 h-5 text-[#FF6B35]" />
+            <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
+              <Bell className="w-5 h-5 text-blue-400" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-white">רשימת המתנה</h2>
-              <p className="text-xs text-[#94A3B8]">נעדכן אותך כשיתפנה מקום</p>
+              <p className="text-xs text-blue-300/70">נעדכן אותך כשיתפנה מקום</p>
             </div>
           </div>
           <button
@@ -167,7 +167,7 @@ export default function WaitingListModal({
         </div>
 
         {/* Content */}
-        <div className="p-4 space-y-4 overflow-y-auto max-h-[60vh]">
+        <div className="p-4 space-y-4 overflow-y-auto overflow-x-hidden max-h-[60vh]">
           {success ? (
             <div className="text-center py-8">
               <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -181,13 +181,16 @@ export default function WaitingListModal({
               {/* Service Selection */}
               <div className="space-y-2">
                 <Label className="text-white flex items-center gap-2">
-                  <Scissors className="w-4 h-4 text-[#FF6B35]" />
+                  <Scissors className="w-4 h-4 text-blue-400" />
                   שירות
                 </Label>
                 <select
                   value={service}
                   onChange={(e) => setService(e.target.value)}
-                  className="w-full bg-[#0C0F1D] border border-gray-700 rounded-xl p-3 text-white focus:border-[#FF6B35] outline-none"
+                  className="w-full bg-[#0C0F1D] border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none appearance-none bg-no-repeat bg-[length:16px] bg-[center_left_12px]"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`
+                  }}
                 >
                   <option value="">בחר שירות...</option>
                   {services.map((s) => (
@@ -199,22 +202,24 @@ export default function WaitingListModal({
               </div>
 
               {/* Date Selection */}
-              <div className="space-y-2">
+              <div className="space-y-2 overflow-hidden">
                 <Label className="text-white flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-[#FF6B35]" />
+                  <Calendar className="w-4 h-4 text-blue-400" />
                   תאריך
                 </Label>
-                <input
-                  type="date"
-                  value={format(date, 'yyyy-MM-dd')}
-                  onChange={(e) => setDate(new Date(e.target.value))}
-                  min={format(new Date(), 'yyyy-MM-dd')}
-                  max={business?.booking_window_enabled && business?.booking_window_days > 0 
-                    ? format(new Date(Date.now() + business.booking_window_days * 24 * 60 * 60 * 1000), 'yyyy-MM-dd')
-                    : undefined}
-                  className="w-full bg-[#0C0F1D] border border-gray-700 rounded-xl p-3 text-white focus:border-[#FF6B35] outline-none"
-                  dir="ltr"
-                />
+                <div className="relative w-full">
+                  <input
+                    type="date"
+                    value={format(date, 'yyyy-MM-dd')}
+                    onChange={(e) => setDate(new Date(e.target.value))}
+                    min={format(new Date(), 'yyyy-MM-dd')}
+                    max={business?.booking_window_enabled && business?.booking_window_days > 0
+                      ? format(new Date(Date.now() + business.booking_window_days * 24 * 60 * 60 * 1000), 'yyyy-MM-dd')
+                      : undefined}
+                    className="w-full bg-[#0C0F1D] border border-gray-700 rounded-xl p-3 pr-4 text-white focus:border-blue-500 outline-none"
+                    style={{ colorScheme: 'dark', WebkitAppearance: 'none', maxWidth: '100%' }}
+                  />
+                </div>
                 <p className="text-xs text-[#94A3B8]">
                   {format(date, 'EEEE, d בMMMM yyyy', { locale: he })}
                 </p>
@@ -229,14 +234,18 @@ export default function WaitingListModal({
               {/* Time Range */}
               <div className="space-y-2">
                 <Label className="text-white flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-[#FF6B35]" />
+                  <Clock className="w-4 h-4 text-blue-400" />
                   טווח שעות מועדף
                 </Label>
-                <div className="flex items-center gap-3" dir="ltr">
+                <div className="flex items-center gap-3">
                   <select
                     value={fromTime}
                     onChange={(e) => setFromTime(e.target.value)}
-                    className="flex-1 bg-[#0C0F1D] border border-gray-700 rounded-xl p-3 text-white focus:border-[#FF6B35] outline-none text-center"
+                    className="flex-1 bg-[#0C0F1D] border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none text-center appearance-none bg-no-repeat bg-[length:16px] bg-[center_right_12px]"
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`
+                    }}
+                    dir="ltr"
                   >
                     {timeOptions.map((time) => (
                       <option key={`from-${time}`} value={time}>
@@ -248,7 +257,11 @@ export default function WaitingListModal({
                   <select
                     value={toTime}
                     onChange={(e) => setToTime(e.target.value)}
-                    className="flex-1 bg-[#0C0F1D] border border-gray-700 rounded-xl p-3 text-white focus:border-[#FF6B35] outline-none text-center"
+                    className="flex-1 bg-[#0C0F1D] border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none text-center appearance-none bg-no-repeat bg-[length:16px] bg-[center_right_12px]"
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`
+                    }}
+                    dir="ltr"
                   >
                     {timeOptions.filter(t => t > fromTime).map((time) => (
                       <option key={`to-${time}`} value={time}>

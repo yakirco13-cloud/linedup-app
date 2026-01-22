@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "@/components/UserContext";
 import { useSubscription } from "@/hooks/useSubscription";
 import { PLANS, PLAN_IDS, FEATURE_NAMES, LIMIT_NAMES, formatLimit, getPaymentLink } from "@/config/plans";
 import { Button } from "@/components/ui/button";
 import { Check, X, ArrowRight, Crown, Zap, Star, Sparkles, ShieldCheck, ChevronDown, ChevronUp } from "lucide-react";
+import { isUserDemoAccount } from "@/utils/demoAccounts";
 
 // Plan display config with icons and colors
 const PLAN_DISPLAY = {
@@ -108,10 +109,22 @@ const FAQS = [
 export default function Pricing() {
   const navigate = useNavigate();
   const { user } = useUser();
-  const { plan: currentPlan, isLoading } = useSubscription();
+  const { plan: currentPlan } = useSubscription();
   const [isAnnual, setIsAnnual] = useState(false);
   const [openFaq, setOpenFaq] = useState(null);
   const [showComparison, setShowComparison] = useState(false);
+
+  // Redirect demo accounts away from pricing page
+  useEffect(() => {
+    if (isUserDemoAccount(user)) {
+      navigate(-1);
+    }
+  }, [user, navigate]);
+
+  // Don't render for demo accounts
+  if (isUserDemoAccount(user)) {
+    return null;
+  }
 
   const handleSelectPlan = (planId) => {
     if (planId === 'free' || currentPlan?.id === planId) return;

@@ -93,7 +93,41 @@ function createEntity(tableName) {
 
 // Create entities for each table
 export const Business = createEntity('businesses');
-export const Staff = createEntity('staff');
+
+// Staff entity with special handling for soft-delete (is_active filter)
+const baseStaff = createEntity('staff');
+export const Staff = {
+  ...baseStaff,
+  // Override filter to exclude inactive staff by default
+  async filter(conditions = {}, orderBy = '-created_at', limit = 100) {
+    let query = supabase.from('staff').select('*');
+
+    Object.entries(conditions).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        query = query.eq(key, value);
+      }
+    });
+
+    // Always filter out inactive staff (is_active = false)
+    // This includes records where is_active is null (for backwards compatibility)
+    query = query.neq('is_active', false);
+
+    if (orderBy) {
+      const isDescending = orderBy.startsWith('-');
+      const column = isDescending ? orderBy.slice(1) : orderBy;
+      query = query.order(column, { ascending: !isDescending });
+    }
+
+    if (limit) {
+      query = query.limit(limit);
+    }
+
+    const { data: records, error } = await query;
+    if (error) throw error;
+    return records || [];
+  },
+};
+
 export const Service = createEntity('services');
 export const Booking = createEntity('bookings');
 export const Notification = createEntity('notifications');

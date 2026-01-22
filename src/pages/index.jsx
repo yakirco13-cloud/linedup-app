@@ -10,6 +10,7 @@ import CalendarView from "./CalendarView";
 import ClientDashboard from "./ClientDashboard";
 import Clients from "./Clients";
 import CreateBooking from "./CreateBooking";
+import DemoTour from "./DemoTour";
 import JoinBusiness from "./JoinBusiness";
 import MyBookings from "./MyBookings";
 import NotificationCenter from "./NotificationCenter";
@@ -37,6 +38,7 @@ const PAGES = {
     ClientDashboard,
     Clients,
     CreateBooking,
+    DemoTour,
     JoinBusiness,
     MyBookings,
     NotificationCenter,
@@ -84,6 +86,7 @@ function PagesContent() {
                 <Route path="/ClientDashboard" element={<ClientDashboard />} />
                 <Route path="/Clients" element={<Clients />} />
                 <Route path="/CreateBooking" element={<CreateBooking />} />
+                <Route path="/DemoTour" element={<DemoTour />} />
                 <Route path="/JoinBusiness" element={<JoinBusiness />} />
                 <Route path="/MyBookings" element={<MyBookings />} />
                 <Route path="/NotificationCenter" element={<NotificationCenter />} />

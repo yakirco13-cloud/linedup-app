@@ -8,9 +8,10 @@
  * const { plan, canUseFeature, checkLimit, usage, isLoading } = useSubscription();
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '@/components/UserContext';
+import { isUserDemoAccount } from '@/utils/demoAccounts';
 import {
   getSubscription,
   getCurrentPlan,
@@ -183,10 +184,13 @@ export function useSubscription() {
  * Hook for checking a specific feature with upgrade prompt
  */
 export function useFeatureCheck(featureKey) {
+  const { user } = useUser();
   const { canUseFeature, plan, getUpgradeLink } = useSubscription();
-  
-  const hasAccess = canUseFeature(featureKey);
-  
+
+  // Demo accounts have full access to all features
+  const isDemoUser = isUserDemoAccount(user);
+  const hasAccess = isDemoUser || canUseFeature(featureKey);
+
   return {
     hasAccess,
     requiredPlan: !hasAccess ? getRequiredPlanForFeature(featureKey) : null,

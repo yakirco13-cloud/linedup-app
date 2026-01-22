@@ -2,6 +2,8 @@ import React from 'react';
 import { X, Crown, Zap, Star, Check, ArrowUpRight } from 'lucide-react';
 import { PLANS, FEATURE_NAMES, getPaymentLink } from '@/config/plans';
 import { Button } from '@/components/ui/button';
+import { useUser } from '@/components/UserContext';
+import { isUserDemoAccount } from '@/utils/demoAccounts';
 
 /**
  * UpgradeModal Component
@@ -24,7 +26,10 @@ export default function UpgradeModal({
   currentPlanId = 'free',
   highlightPlan = 'pro'
 }) {
-  if (!isOpen) return null;
+  const { user } = useUser();
+
+  // Don't show upgrade modal for demo accounts
+  if (!isOpen || isUserDemoAccount(user)) return null;
 
   const featureName = feature ? FEATURE_NAMES[feature] : null;
   const plan = PLANS[highlightPlan];
