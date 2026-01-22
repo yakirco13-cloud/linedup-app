@@ -129,9 +129,24 @@ export default function Settings() {
         return;
       }
 
-      // Clear local session and redirect
+      // Clear session storage
       localStorage.removeItem('linedup_session');
+
+      // Sign out from Supabase auth
+      await supabase.auth.signOut();
+
+      // Call logout to clear user context
+      try {
+        await logout();
+      } catch (logoutError) {
+        console.log('Logout error after delete:', logoutError);
+      }
+
+      // Redirect to welcome page
       navigate("/", { replace: true });
+
+      // Reload the page to fully clear state
+      window.location.reload();
     } catch (error) {
       console.error('Error deleting account:', error);
       alert('שגיאה במחיקת החשבון. אנא נסה שוב.');
