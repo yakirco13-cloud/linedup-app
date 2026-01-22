@@ -136,6 +136,7 @@ export const Subscription = createEntity('subscriptions');
 export const Payment = createEntity('payments');
 export const ScheduleOverride = createEntity('schedule_overrides');
 export const RecurringAppointment = createEntity('recurring_appointments');
+export const Profile = createEntity('profiles');
 
 export const entities = {
   Business,
@@ -148,6 +149,7 @@ export const entities = {
   Payment,
   ScheduleOverride,
   RecurringAppointment,
+  Profile,
 };
 
 export default entities;

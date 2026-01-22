@@ -451,10 +451,18 @@ export const UserProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    localStorage.removeItem('linedup_session');
-    await supabase.auth.signOut();
-    setUser(null);
-    setProfile(null);
+    try {
+      localStorage.removeItem('linedup_session');
+      await supabase.auth.signOut();
+      setUser(null);
+      setProfile(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if signOut fails, clear local state
+      localStorage.removeItem('linedup_session');
+      setUser(null);
+      setProfile(null);
+    }
   };
 
   const isAuthenticated = () => !!user && !!profile;

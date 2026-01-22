@@ -4,6 +4,7 @@ import { createPageUrl } from "@/utils";
 import { useUser } from "@/components/UserContext";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,6 +43,8 @@ export default function Settings() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showRecurringUpgrade, setShowRecurringUpgrade] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const { hasAccess: canUseRecurring } = useFeatureGate('recurringBookings');
   const [profileForm, setProfileForm] = useState({
     name: user?.name || "",
@@ -96,8 +99,44 @@ export default function Settings() {
   });
 
   const handleLogout = async () => {
-    await logout();
-    window.location.href = createPageUrl("Welcome");
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Error during logout:', error);
+    } finally {
+      // Always redirect to welcome page, even if logout fails
+      navigate("/", { replace: true });
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeletingAccount(true);
+    try {
+      // Call the database function to delete both profile and auth user
+      const { data, error } = await supabase.rpc('delete_current_user_account');
+
+      if (error) {
+        console.error('Error deleting account:', error);
+        alert('שגיאה במחיקת החשבון. אנא נסה שוב.');
+        setDeletingAccount(false);
+        return;
+      }
+
+      if (data?.error) {
+        console.error('Error deleting account:', data.error);
+        alert('שגיאה במחיקת החשבון. אנא נסה שוב.');
+        setDeletingAccount(false);
+        return;
+      }
+
+      // Clear local session and redirect
+      localStorage.removeItem('linedup_session');
+      navigate("/", { replace: true });
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      alert('שגיאה במחיקת החשבון. אנא נסה שוב.');
+      setDeletingAccount(false);
+    }
   };
 
   const handleSwitchRole = async () => {
@@ -239,6 +278,14 @@ export default function Settings() {
         title="עזיבת העסק"
         message="האם אתה בטוח שברצונך לעזוב את העסק? תוכל להצטרף לעסק אחר."
         confirmText="עזוב"
+      />
+      <ConfirmModal
+        show={showDeleteConfirm}
+        onClose={() => !deletingAccount && setShowDeleteConfirm(false)}
+        onConfirm={handleDeleteAccount}
+        title="מחיקת חשבון"
+        message="האם אתה בטוח? פעולה זו תמחק לצמיתות את כל המידע שלך ולא ניתן לשחזר אותו."
+        confirmText={deletingAccount ? "מוחק..." : "מחק חשבון"}
       />
 
       <div className="max-w-2xl mx-auto px-5 pb-8">
@@ -452,12 +499,17 @@ export default function Settings() {
           </Card>
         )}
 
-        {/* Logout */}
+        {/* Logout & Delete Account */}
         <Card>
-          <DestructiveItem 
-            icon={LogOut} 
-            label="התנתק" 
+          <DestructiveItem
+            icon={LogOut}
+            label="התנתק"
             onClick={() => setShowLogoutConfirm(true)}
+          />
+          <DestructiveItem
+            icon={X}
+            label="מחק חשבון"
+            onClick={() => setShowDeleteConfirm(true)}
           />
         </Card>
 

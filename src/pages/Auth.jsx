@@ -11,7 +11,8 @@ export default function Auth() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const mode = searchParams.get('mode') || 'signup';
-  
+  const returnTo = searchParams.get('returnTo');
+
   const { sendOTP, verifyOTP, loginWithPassword, resetPassword, profile, isAuthenticated } = useUser();
 
   // Steps:
@@ -54,6 +55,14 @@ export default function Auth() {
 
   const redirectToApp = (profileData = profile) => {
     const p = profileData || profile;
+
+    // If there's a returnTo URL, use it
+    if (returnTo) {
+      navigate(returnTo);
+      return;
+    }
+
+    // Otherwise, use default routing
     if (p?.user_role === 'business_owner') {
       navigate(p.business_id ? "/BusinessDashboard" : "/BusinessSetup");
     } else {
@@ -419,6 +428,9 @@ export default function Auth() {
                     dir="ltr"
                   />
                 </div>
+                <p className="text-xs text-[#64748B] mt-1">
+                  נדרש לשליחת תזכורות והודעות WhatsApp על תורים
+                </p>
               </div>
 
               {/* Email fields - required for business owners */}

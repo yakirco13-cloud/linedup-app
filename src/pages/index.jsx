@@ -4,6 +4,7 @@ import Auth from "./Auth";
 import BookAppointment from "./BookAppointment";
 import BusinessDashboard from "./BusinessDashboard";
 import BusinessPolicies from "./BusinessPolicies";
+import BusinessPreview from "./BusinessPreview";
 import BusinessSettings from "./BusinessSettings";
 import BusinessSetup from "./BusinessSetup";
 import CalendarView from "./CalendarView";
@@ -32,6 +33,7 @@ const PAGES = {
     BookAppointment,
     BusinessDashboard,
     BusinessPolicies,
+    BusinessPreview,
     BusinessSettings,
     BusinessSetup,
     CalendarView,
@@ -80,6 +82,7 @@ function PagesContent() {
                 <Route path="/BookAppointment" element={<BookAppointment />} />
                 <Route path="/BusinessDashboard" element={<BusinessDashboard />} />
                 <Route path="/BusinessPolicies" element={<BusinessPolicies />} />
+                <Route path="/BusinessPreview/:businessCode" element={<BusinessPreview />} />
                 <Route path="/BusinessSettings" element={<BusinessSettings />} />
                 <Route path="/BusinessSetup" element={<BusinessSetup />} />
                 <Route path="/CalendarView" element={<CalendarView />} />
