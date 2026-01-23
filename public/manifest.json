@@ -1,0 +1,11 @@
+{
+  "name": "LinedUp - ניהול תורים בקלות",
+  "short_name": "LinedUp",
+  "description": "מערכת ניהול תורים חכמה לעסקים ולקוחות",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0C0F1D",
+  "theme_color": "#FF6B35",
+  "orientation": "portrait",
+  "scope": "/"
+}
