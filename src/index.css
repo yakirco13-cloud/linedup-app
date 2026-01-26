@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+/* iOS Safe Area - compensate for Capacitor contentInset */
+#root {
+  margin-top: calc(-1 * env(safe-area-inset-top, 0px));
+}
 
 /* :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
