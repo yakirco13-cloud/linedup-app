@@ -257,10 +257,7 @@ export default function BusinessDashboard() {
           />
 
           {/* LinedUp Branding - positioned below status bar area */}
-          <div
-            className="absolute left-5 flex flex-row-reverse items-center gap-2.5 z-10"
-            style={{ top: 'max(64px, calc(env(safe-area-inset-top, 0px) + 16px))' }}
-          >
+          <div className="absolute top-16 left-5 flex flex-row-reverse items-center gap-2.5 z-10">
             <div
               className="w-9 h-9 rounded-lg flex items-center justify-center shadow-lg"
               style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.25), rgba(255,255,255,0.1))' }}
@@ -282,8 +279,7 @@ export default function BusinessDashboard() {
         {/* Notification Bell - top right corner below status bar */}
         <button
           onClick={() => setShowNotifications(true)}
-          className="absolute right-5 z-10 p-2.5 bg-white/20 backdrop-blur-sm rounded-xl hover:bg-white/30 transition-all hover:scale-110"
-          style={{ top: 'max(64px, calc(env(safe-area-inset-top, 0px) + 16px))' }}
+          className="absolute top-16 right-5 z-10 p-2.5 bg-white/20 backdrop-blur-sm rounded-xl hover:bg-white/30 transition-all hover:scale-110"
         >
           <Bell className="w-5 h-5 text-white" />
           {unreadCount > 0 && (

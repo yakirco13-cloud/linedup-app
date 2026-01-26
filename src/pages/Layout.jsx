@@ -149,13 +149,7 @@ function AppContent({ children }) {
     <div className="min-h-screen bg-[#0C0F1D] text-white" dir="rtl">
       {/* Fixed overlay for phone status bar - covers the notch/status bar area without pushing content down */}
       {!hideNav && (
-        <div
-          className="fixed top-0 left-0 right-0 bg-[#0C0F1D] z-40"
-          style={{
-            height: 'env(safe-area-inset-top, 0px)',
-            paddingTop: 'env(safe-area-inset-top, 0px)'
-          }}
-        />
+        <div className="fixed top-0 left-0 right-0 h-12 bg-[#0C0F1D] z-40" />
       )}
 
       <main className={showNav ? "pb-24" : ""}>
