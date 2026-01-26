@@ -319,7 +319,10 @@ export default function ClientDashboard() {
           />
 
           {/* LinedUp Branding - positioned below status bar area */}
-          <div className="absolute top-16 left-5 flex flex-row-reverse items-center gap-2.5 z-10">
+          <div
+            className="absolute left-5 flex flex-row-reverse items-center gap-2.5 z-10"
+            style={{ top: 'max(64px, calc(env(safe-area-inset-top, 0px) + 16px))' }}
+          >
             <div
               className="w-9 h-9 rounded-lg flex items-center justify-center shadow-lg"
               style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.25), rgba(255,255,255,0.1))' }}
@@ -339,7 +342,10 @@ export default function ClientDashboard() {
         />
 
         {/* Greeting - positioned below status bar area */}
-        <div className="absolute top-16 right-5 z-10">
+        <div
+          className="absolute right-5 z-10"
+          style={{ top: 'max(64px, calc(env(safe-area-inset-top, 0px) + 16px))' }}
+        >
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-bold text-white drop-shadow-lg">שלום, {user?.name?.split(' ')[0] || 'אורח'}</h2>
             <span className="text-2xl drop-shadow-lg">👋</span>
