@@ -617,7 +617,7 @@ function StatisticsContent({ business, timeRange, setTimeRange, navigate }) {
   return (
     <div className="min-h-screen bg-[#0C0F1D] pb-24">
       {/* Sticky Header */}
-      <div className="sticky top-0 bg-[#0C0F1D] z-20 border-b border-gray-800/50 pt-safe">
+      <div className="sticky top-0 bg-[#0C0F1D] z-20 border-b border-gray-800/50">
         <div className="p-4">
           <button
             onClick={() => navigate(createPageUrl("BusinessDashboard"))}
