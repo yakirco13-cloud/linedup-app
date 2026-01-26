@@ -6,10 +6,7 @@ export default function PageHeader({ title, showBackButton = true }) {
   const navigate = useNavigate();
 
   return (
-    <div className="sticky top-0 z-20 bg-[#0C0F1D] border-b border-gray-800/50">
-      {/* Safe area spacer for iOS notch/status bar */}
-      <div className="pt-safe" />
-
+    <div className="sticky top-0 z-20 bg-[#0C0F1D] border-b border-gray-800/50 pt-safe">
       {/* Header content */}
       <div className="px-5 pb-4">
         {showBackButton && (
