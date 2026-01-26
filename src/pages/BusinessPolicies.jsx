@@ -82,18 +82,22 @@ export default function BusinessPolicies() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] p-6 pt-safe">
+    <div className="min-h-screen bg-[#0C0F1D]">
       <div className="max-w-2xl mx-auto">
-        <button
-          onClick={() => navigate(createPageUrl("Settings"))}
-          className="flex items-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors h-12"
-        >
-          <ArrowRight className="w-5 h-5" />
-          <span>חזרה</span>
-        </button>
+        {/* Sticky Header */}
+        <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 pt-safe border-b border-gray-800/50">
+          <button
+            onClick={() => navigate(createPageUrl("Settings"))}
+            className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
+          >
+            <ArrowRight className="w-5 h-5" />
+            <span className="font-medium">חזרה</span>
+          </button>
+          <h1 className="text-3xl font-bold">מדיניות ביטולים ואישורים</h1>
+        </div>
 
-        <h1 className="text-3xl font-bold mb-8">מדיניות ביטולים ואישורים</h1>
-
+        {/* Content */}
+        <div className="p-4">
         <div className="space-y-6">
           {/* Approval Policy - STARTER+ feature */}
           <LockedFeatureOverlay feature="newClientApproval">
@@ -301,6 +305,7 @@ export default function BusinessPolicies() {
               'שמור שינויים'
             )}
           </Button>
+        </div>
         </div>
       </div>
     </div>

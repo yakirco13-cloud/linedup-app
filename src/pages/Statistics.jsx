@@ -616,55 +616,59 @@ function StatisticsContent({ business, timeRange, setTimeRange, navigate }) {
 
   return (
     <div className="min-h-screen bg-[#0C0F1D] pb-24">
-      <div className="bg-[#0C0F1D] border-b border-white/10 pt-safe">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate(createPageUrl("BusinessDashboard"))}
-              className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 active:scale-95 transition-all touch-manipulation"
-            >
-              <ArrowRight className="w-5 h-5 text-white" />
-            </button>
-            <h1 className="text-lg font-bold text-white">סטטיסטיקות</h1>
+      {/* Sticky Header */}
+      <div className="sticky top-0 bg-[#0C0F1D] z-20 border-b border-gray-800/50 pt-safe">
+        <div className="p-4">
+          <button
+            onClick={() => navigate(createPageUrl("BusinessDashboard"))}
+            className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
+          >
+            <ArrowRight className="w-5 h-5" />
+            <span className="font-medium">חזרה</span>
+          </button>
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-bold">סטטיסטיקות</h1>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="h-11 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm font-medium flex items-center gap-2 transition-all"
+                >
+                  <Download className="w-4 h-4" />
+                  ייצוא
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-[#1A1F35] border-white/10 min-w-[160px]">
+                <DropdownMenuItem
+                  onClick={handleExportPDF}
+                  className="text-white hover:bg-white/10 focus:bg-white/10 cursor-pointer gap-2 h-11"
+                >
+                  <FileText className="w-4 h-4 text-[#FF6B35]" />
+                  <span>דוח PDF</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleExportCSV}
+                  className="text-white hover:bg-white/10 focus:bg-white/10 cursor-pointer gap-2 h-11"
+                >
+                  <Download className="w-4 h-4 text-[#FF6B35]" />
+                  <span>קובץ CSV</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                className="h-11 min-h-[44px] px-4 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm font-medium flex items-center gap-2 transition-all touch-manipulation"
-              >
-                <Download className="w-4 h-4" />
-                ייצוא
-                <ChevronDown className="w-4 h-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-[#1A1F35] border-white/10 min-w-[160px]">
-              <DropdownMenuItem
-                onClick={handleExportPDF}
-                className="text-white hover:bg-white/10 focus:bg-white/10 cursor-pointer gap-2 h-11"
-              >
-                <FileText className="w-4 h-4 text-[#FF6B35]" />
-                <span>דוח PDF</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={handleExportCSV}
-                className="text-white hover:bg-white/10 focus:bg-white/10 cursor-pointer gap-2 h-11"
-              >
-                <Download className="w-4 h-4 text-[#FF6B35]" />
-                <span>קובץ CSV</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        </div>
+        <div className="px-4 pb-3">
+          <div className="flex gap-2 bg-[#1A1F35] p-1 rounded-xl">
+            {[{ value: 'today', label: 'היום' }, { value: 'week', label: 'השבוע' }, { value: 'month', label: 'החודש' }].map(option => (
+              <button key={option.value} onClick={() => setTimeRange(option.value)} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${timeRange === option.value ? 'bg-[#FF6B35] text-white' : 'text-[#94A3B8] hover:text-white'}`}>{option.label}</button>
+            ))}
+          </div>
         </div>
       </div>
-      <div className="px-4 py-3">
-        <div className="flex gap-2 bg-[#1A1F35] p-1 rounded-xl">
-          {[{ value: 'today', label: 'היום' }, { value: 'week', label: 'השבוע' }, { value: 'month', label: 'החודש' }].map(option => (
-            <button key={option.value} onClick={() => setTimeRange(option.value)} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${timeRange === option.value ? 'bg-[#FF6B35] text-white' : 'text-[#94A3B8] hover:text-white'}`}>{option.label}</button>
-          ))}
-        </div>
-      </div>
+
+      {/* Content */}
       {isLoading ? (<div className="flex items-center justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-[#FF6B35]" /></div>) : (
-        <div className="px-4 space-y-4">
+        <div className="p-4 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <StatCard label="תורים" value={stats.bookings.current} change={stats.bookings.change} icon={Calendar} />
             <StatCard label="הכנסות" value={`₪${stats.revenue.current.toLocaleString()}`} change={stats.revenue.change} icon={DollarSign} />

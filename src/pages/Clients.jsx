@@ -12,10 +12,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { format, parseISO } from "date-fns";
 import { he } from "date-fns/locale";
 
-// Import centralized services
-import { sendBroadcast } from "@/services/whatsappService";
-import { getCurrentPlan } from "@/services/subscriptionService";
-import UpgradeModal from "@/components/UpgradeModal";
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -25,7 +21,6 @@ export default function Clients() {
   const [broadcastMessage, setBroadcastMessage] = useState("");
   const [sendingBroadcast, setSendingBroadcast] = useState(false);
   const [broadcastResult, setBroadcastResult] = useState(null);
-  const [showBroadcastUpgrade, setShowBroadcastUpgrade] = useState(false);
 
   const { data: business } = useQuery({
     queryKey: ['business', user?.business_id],
@@ -38,15 +33,6 @@ export default function Clients() {
     gcTime: 15 * 60 * 1000,
     placeholderData: keepPreviousData,
   });
-
-  // Get current plan to check for broadcast feature (PREMIUM only)
-  const { data: currentPlan } = useQuery({
-    queryKey: ['current-plan', user?.business_id],
-    queryFn: () => getCurrentPlan(user.business_id),
-    enabled: !!user?.business_id,
-  });
-
-  const hasBroadcastMessages = currentPlan?.features?.broadcastMessages || false;
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['all-bookings', business?.id],
@@ -124,19 +110,24 @@ export default function Clients() {
   });
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] p-4 pt-safe">
+    <div className="min-h-screen bg-[#0C0F1D]">
       <div className="max-w-2xl mx-auto">
-        <button
-          onClick={() => navigate(createPageUrl("BusinessDashboard"))}
-          className="flex items-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors py-2 px-1 -ml-1 min-h-[44px]"
-        >
-          <ArrowRight className="w-5 h-5" />
-          <span className="font-medium">חזרה</span>
-        </button>
+        {/* Sticky Header */}
+        <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 pt-safe border-b border-gray-800/50">
+          <button
+            onClick={() => navigate(createPageUrl("BusinessDashboard"))}
+            className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors py-2 px-1 -ml-1 min-h-[44px]"
+          >
+            <ArrowRight className="w-5 h-5" />
+            <span className="font-medium">חזרה</span>
+          </button>
 
-        <h1 className="text-3xl font-bold mb-6 pt-2">הלקוחות שלי</h1>
+          <h1 className="text-3xl font-bold">הלקוחות שלי</h1>
+        </div>
 
-        {/* Stats */}
+        {/* Content */}
+        <div className="p-4">
+          {/* Stats */}
         <div className="grid grid-cols-2 gap-3 mb-6">
           <div className="bg-[#1A1F35] rounded-2xl p-4 border-2 border-gray-800">
             <p className="text-[#94A3B8] text-sm mb-1">סך הכל לקוחות</p>
@@ -162,53 +153,41 @@ export default function Clients() {
           />
         </div>
 
-        {/* Broadcast Button - PREMIUM feature */}
-        {clients.filter(c => c.phone).length > 0 && (
-          <div className="relative">
-            {!hasBroadcastMessages && (
-              <div className="absolute top-2 left-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs px-2 py-1 rounded-full z-10">
-                PREMIUM
-              </div>
-            )}
-            <Button
-              onClick={() => {
-                if (!hasBroadcastMessages) {
-                  setShowBroadcastUpgrade(true);
-                  return;
-                }
-                setBroadcastOpen(true);
-              }}
-              className={`w-full mb-6 h-14 rounded-xl gap-3 font-semibold text-lg ${!hasBroadcastMessages ? 'opacity-70' : ''}`}
-              style={{ background: 'linear-gradient(135deg, #25D366, #128C7E)' }}
-            >
-              <MessageSquare className="w-6 h-6" />
-              שליחת הודעת תפוצה ({clients.filter(c => c.phone).length} לקוחות)
-            </Button>
-          </div>
+        {/* Broadcast Button */}
+        {clients.length > 0 && (
+          <Button
+            onClick={() => setBroadcastOpen(true)}
+            className="w-full mb-6 h-14 rounded-xl gap-3 font-semibold text-lg"
+            style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}
+          >
+            <MessageSquare className="w-6 h-6" />
+            שליחת הודעה לכל הלקוחות ({clients.length} לקוחות)
+          </Button>
         )}
 
         {/* Broadcast Dialog */}
         <Dialog open={broadcastOpen} onOpenChange={setBroadcastOpen}>
-          <DialogContent className="bg-[#1A1F35] border-gray-800 text-white max-w-md">
+          <DialogContent className="bg-[#1A1F35] border-gray-800 text-white max-w-sm overflow-y-auto max-h-[90vh]" dir="rtl">
             <DialogHeader>
-              <DialogTitle className="text-xl font-bold flex items-center gap-2">
-                <MessageSquare className="w-6 h-6 text-green-500" />
-                שליחת הודעת תפוצה
+              <DialogTitle className="text-lg font-bold flex items-center justify-center gap-2">
+                <MessageSquare className="w-5 h-5 text-[#FF6B35]" />
+                הודעה לכל הלקוחות
               </DialogTitle>
-              <DialogDescription className="text-[#94A3B8]">
-                ההודעה תישלח ל-{clients.filter(c => c.phone).length} לקוחות שיש להם מספר טלפון
+              <DialogDescription className="text-[#94A3B8] text-sm text-center">
+                הלקוחות יראו את ההודעה בפעם הבאה שיכנסו לאפליקציה
               </DialogDescription>
             </DialogHeader>
-            
-            <div className="space-y-4 mt-4">
+
+            <div className="space-y-3 mt-2">
               <Textarea
                 placeholder="כתוב את ההודעה שלך כאן..."
                 value={broadcastMessage}
                 onChange={(e) => setBroadcastMessage(e.target.value)}
-                className="bg-[#0C0F1D] border-gray-700 text-white min-h-[120px] rounded-xl"
+                className="bg-[#0C0F1D] border-gray-700 text-white min-h-[100px] rounded-xl text-sm"
                 maxLength={500}
+                dir="rtl"
               />
-              <p className="text-xs text-[#94A3B8] text-left">{broadcastMessage.length}/500</p>
+              <p className="text-xs text-[#94A3B8] text-right">{broadcastMessage.length}/500</p>
               
               {broadcastResult && (
                 <div className={`p-4 rounded-xl ${broadcastResult.success ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
@@ -216,62 +195,51 @@ export default function Clients() {
                 </div>
               )}
               
-              <div className="flex gap-3">
+              <div className="flex gap-2 flex-row-reverse">
                 <Button
                   onClick={async () => {
                     if (!broadcastMessage.trim()) return;
-                    
+
                     setSendingBroadcast(true);
                     setBroadcastResult(null);
-                    
+
                     try {
-                      const clientsWithPhone = clients.filter(c => c.phone).map(c => ({
-                        phone: c.phone,
-                        name: c.name
-                      }));
-                      
-                      const result = await sendBroadcast({
-                        phones: clientsWithPhone.map(c => c.phone),
-                        recipients: clientsWithPhone,
+                      // Save the broadcast message to the database
+                      await base44.entities.BroadcastMessage.create({
+                        business_id: business.id,
                         message: broadcastMessage,
-                        businessName: business.name
+                        created_by: user.id,
+                        active: true
                       });
-                      
-                      if (result.success) {
-                        setBroadcastResult({
-                          success: true,
-                          message: `✅ ההודעה נשלחה ל-${result.data?.sent || 0} לקוחות!`
-                        });
-                        setBroadcastMessage("");
-                        setTimeout(() => {
-                          setBroadcastOpen(false);
-                          setBroadcastResult(null);
-                        }, 2000);
-                      } else {
-                        setBroadcastResult({
-                          success: false,
-                          message: `❌ שגיאה: ${result.error}`
-                        });
-                      }
+
+                      setBroadcastResult({
+                        success: true,
+                        message: `✅ ההודעה נשלחה בהצלחה!`
+                      });
+                      setBroadcastMessage("");
+                      setTimeout(() => {
+                        setBroadcastOpen(false);
+                        setBroadcastResult(null);
+                      }, 2000);
                     } catch (error) {
                       setBroadcastResult({
                         success: false,
-                        message: `❌ שגיאה בשליחה: ${error.message}`
+                        message: `❌ שגיאה: ${error.message}`
                       });
                     } finally {
                       setSendingBroadcast(false);
                     }
                   }}
                   disabled={sendingBroadcast || !broadcastMessage.trim()}
-                  className="flex-1 h-12 rounded-xl font-semibold"
-                  style={{ background: 'linear-gradient(135deg, #25D366, #128C7E)' }}
+                  className="flex-1 h-11 rounded-xl font-semibold text-sm"
+                  style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}
                 >
                   {sendingBroadcast ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <>
-                      <Send className="w-5 h-5 ml-2" />
-                      שלח הודעה
+                      <Send className="w-4 h-4 ml-2" />
+                      שלח
                     </>
                   )}
                 </Button>
@@ -282,15 +250,11 @@ export default function Clients() {
                     setBroadcastResult(null);
                   }}
                   variant="outline"
-                  className="h-12 rounded-xl border-gray-700 bg-transparent text-white hover:bg-[#0C0F1D]"
+                  className="h-11 px-6 rounded-xl border-gray-700 bg-transparent text-white hover:bg-[#0C0F1D] text-sm"
                 >
                   ביטול
                 </Button>
               </div>
-              
-              <p className="text-xs text-[#94A3B8] text-center">
-                💰 עלות: ${(clients.filter(c => c.phone).length * 0.0353).toFixed(2)} (לפי $0.0353 להודעה)
-              </p>
             </div>
           </DialogContent>
         </Dialog>
@@ -336,6 +300,19 @@ export default function Clients() {
                         <div className="flex items-center gap-2 text-[#94A3B8] text-sm">
                           <Phone className="w-4 h-4 flex-shrink-0" />
                           <span>{client.phone}</span>
+                          <button
+                            onClick={() => {
+                              const normalizedPhone = client.phone.replace(/\D/g, '');
+                              const whatsappNumber = normalizedPhone.startsWith('972') ? normalizedPhone : '972' + normalizedPhone.substring(1);
+                              window.open(`https://wa.me/${whatsappNumber}`, '_blank');
+                            }}
+                            className="ml-2 p-1.5 rounded-full bg-green-500/20 hover:bg-green-500/30 transition-colors"
+                            title="פתח ב-WhatsApp"
+                          >
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="#22c55e">
+                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                            </svg>
+                          </button>
                         </div>
                       )}
                     </div>
@@ -369,15 +346,8 @@ export default function Clients() {
             ))}
           </div>
         )}
+        </div>
       </div>
-
-      <UpgradeModal
-        isOpen={showBroadcastUpgrade}
-        onClose={() => setShowBroadcastUpgrade(false)}
-        feature="broadcastMessages"
-        featureNameHe="הודעות תפוצה"
-        description="שדרג לתוכנית PREMIUM כדי לשלוח הודעות תפוצה לכל הלקוחות שלך בבת אחת."
-      />
     </div>
   );
 }

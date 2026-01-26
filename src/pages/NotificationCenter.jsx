@@ -75,30 +75,35 @@ export default function NotificationCenter() {
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] p-4 pt-safe">
+    <div className="min-h-screen bg-[#0C0F1D]">
       <div className="max-w-2xl mx-auto">
-        <button
-          onClick={() => navigate(createPageUrl("BusinessDashboard"))}
-          className="flex items-center justify-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors min-h-12 p-3 -mx-3 rounded-lg hover:bg-white/5"
-        >
-          <ArrowRight className="w-5 h-5" />
-          <span className="font-medium">חזרה</span>
-        </button>
-
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold">התראות</h1>
-          {unreadCount > 0 && (
-            <Button
-              onClick={() => markAllAsReadMutation.mutate()}
-              disabled={markAllAsReadMutation.isPending}
-              variant="ghost"
-              className="text-[#FF6B35] hover:text-[#FF6B35]/80 hover:bg-[#FF6B35]/10 h-10 rounded-xl font-semibold"
-            >
-              <CheckCheck className="w-5 h-5 ml-2" />
-              סמן הכל כנקרא
-            </Button>
-          )}
+        {/* Sticky Header */}
+        <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 pt-safe border-b border-gray-800/50">
+          <button
+            onClick={() => navigate(createPageUrl("BusinessDashboard"))}
+            className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
+          >
+            <ArrowRight className="w-5 h-5" />
+            <span className="font-medium">חזרה</span>
+          </button>
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-bold">התראות</h1>
+            {unreadCount > 0 && (
+              <Button
+                onClick={() => markAllAsReadMutation.mutate()}
+                disabled={markAllAsReadMutation.isPending}
+                variant="ghost"
+                className="text-[#FF6B35] hover:text-[#FF6B35]/80 hover:bg-[#FF6B35]/10 h-10 rounded-xl font-semibold"
+              >
+                <CheckCheck className="w-5 h-5 ml-2" />
+                סמן הכל כנקרא
+              </Button>
+            )}
+          </div>
         </div>
+
+        {/* Content */}
+        <div className="p-4">
 
         {/* Filter Tabs */}
         <div className="flex gap-3 mb-6">
@@ -202,6 +207,7 @@ export default function NotificationCenter() {
             ))}
           </div>
         )}
+        </div>
       </div>
     </div>
   );

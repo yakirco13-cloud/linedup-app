@@ -4,7 +4,7 @@ import { createPageUrl, formatTime } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import { Calendar, Loader2, Clock, Wallet, Plus, Check, Phone, X, MessageCircle, Share2, Copy, ChevronLeft, TrendingUp, Bell, Send } from "lucide-react";
+import { Calendar, Clock, Plus, Check, X, MessageCircle, Copy, ChevronLeft, TrendingUp, Bell, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format, startOfDay, addDays } from "date-fns";
 import { he } from "date-fns/locale";
@@ -341,10 +341,10 @@ export default function BusinessDashboard() {
               תור חדש
             </button>
             <button
-              onClick={() => navigate(createPageUrl("CalendarView"))}
+              onClick={() => navigate(createPageUrl("AllBookings"))}
               className="bg-[#0C0F1D] border border-white/10 rounded-xl py-4 font-semibold hover:border-[#FF6B35]/50 transition-colors"
             >
-              עבור ליומן
+              כל התורים
             </button>
           </div>
         </div>
@@ -490,7 +490,7 @@ export default function BusinessDashboard() {
           )}
         </div>
 
-        {/* Referral Code - Minimized & Collapsible */}
+        {/* Invite Clients Section - Minimized & Collapsible */}
         <div className="px-6 mb-6">
           <button
             onClick={() => setShowReferral(!showReferral)}
@@ -498,11 +498,11 @@ export default function BusinessDashboard() {
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#FF6B35] to-[#FF1744] flex items-center justify-center">
-                <Share2 className="w-5 h-5 text-white" />
+                <Send className="w-5 h-5 text-white" />
               </div>
               <div className="text-right">
-                <p className="text-sm font-semibold">קוד העסק שלך</p>
-                <p className="text-xs text-[#94A3B8]">שתף עם לקוחות</p>
+                <p className="text-sm font-semibold">הזמן לקוחות</p>
+                <p className="text-xs text-[#94A3B8]">שתף קוד או לינק הצטרפות</p>
               </div>
             </div>
             <ChevronLeft
@@ -512,22 +512,58 @@ export default function BusinessDashboard() {
 
           {showReferral && (
             <div className="mt-3 bg-gradient-to-l from-[#FF6B35] to-[#FF1744] rounded-xl p-5 animate-slideDown">
+              {/* Business Code */}
               <div className="bg-white/20 rounded-lg p-4 text-center mb-3">
+                <p className="text-xs opacity-90 mb-2">קוד העסק</p>
                 <p className="text-3xl font-bold tracking-widest">{business.business_code}</p>
               </div>
-              <p className="text-sm text-center opacity-90 mb-3">
-                שתף קוד זה עם לקוחות כדי שיוכלו להצטרף לעסק שלך
-              </p>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(business.business_code);
-                  alert('הקוד הועתק ללוח!');
-                }}
-                className="w-full bg-white/20 hover:bg-white/30 rounded-lg py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-              >
-                <Copy className="w-4 h-4" />
-                העתק קוד
-              </button>
+
+              {/* Invitation Link */}
+              <div className="bg-white/10 rounded-lg p-3 mb-4">
+                <p className="text-xs opacity-90 mb-2 text-center">לינק הצטרפות</p>
+                <p className="text-xs break-all text-center opacity-80">
+                  {window.location.origin}/BusinessPreview/{business.business_code}
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    const inviteLink = `${window.location.origin}/BusinessPreview/${business.business_code}`;
+                    const message = `היי! הצטרף לעסק שלי "${business.name}" ב-LinedUp כדי לקבוע תורים:\n${inviteLink}\n\nאו הזן קוד: ${business.business_code}`;
+                    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+                    window.open(whatsappUrl, '_blank');
+                  }}
+                  className="w-full bg-white/20 hover:bg-white/30 rounded-lg py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  שתף ב-WhatsApp
+                </button>
+
+                <button
+                  onClick={() => {
+                    const inviteLink = `${window.location.origin}/BusinessPreview/${business.business_code}`;
+                    navigator.clipboard.writeText(inviteLink);
+                    alert('הלינק הועתק ללוח!');
+                  }}
+                  className="w-full bg-white/20 hover:bg-white/30 rounded-lg py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                >
+                  <Copy className="w-4 h-4" />
+                  העתק לינק
+                </button>
+
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(business.business_code);
+                    alert('הקוד הועתק ללוח!');
+                  }}
+                  className="w-full bg-white/20 hover:bg-white/30 rounded-lg py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                >
+                  <Copy className="w-4 h-4" />
+                  העתק קוד בלבד
+                </button>
+              </div>
             </div>
           )}
         </div>

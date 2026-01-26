@@ -8,15 +8,15 @@ import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { 
-  User, 
-  LogOut, 
-  Briefcase, 
-  Globe, 
-  RefreshCw, 
-  Clock, 
-  CheckCircle, 
-  Loader2, 
+import {
+  User,
+  LogOut,
+  Briefcase,
+  Globe,
+  RefreshCw,
+  Clock,
+  CheckCircle,
+  Loader2,
   MessageSquare,
   ChevronLeft,
   HelpCircle,
@@ -303,8 +303,14 @@ export default function Settings() {
         confirmText={deletingAccount ? "מוחק..." : "מחק חשבון"}
       />
 
-      <div className="max-w-2xl mx-auto px-5 pb-8">
-        <h1 className="text-2xl font-bold text-white pt-4 mb-6">הגדרות</h1>
+      <div className="max-w-2xl mx-auto">
+        {/* Sticky Header */}
+        <div className="sticky top-0 bg-[#0C0F1D] z-20 px-5 pt-safe pt-4 pb-4 border-b border-gray-800/50">
+          <h1 className="text-2xl font-bold text-white">הגדרות</h1>
+        </div>
+
+        {/* Content */}
+        <div className="px-5 pb-8 pt-6">
 
         {/* Profile Section */}
         {editingProfile ? (
@@ -478,22 +484,34 @@ export default function Settings() {
 
         {/* General Settings */}
         <Card title="כללי">
-          <MenuItem 
-            icon={Globe} 
-            label="שפה" 
+          <MenuItem
+            icon={Globe}
+            label="שפה"
             value="עברית"
             onClick={() => {}}
             showArrow={false}
           />
-          <MenuItem 
-            icon={HelpCircle} 
-            label="עזרה" 
-            onClick={() => {}}
+          <MenuItem
+            icon={HelpCircle}
+            label="עזרה והדרכה"
+            onClick={() => {
+              // Only trigger tutorial if the feature is available (database field exists)
+              if (user && user.onboarding_completed !== undefined) {
+                window.dispatchEvent(new Event('restart-tutorial'));
+              } else {
+                alert('תכונת ההדרכה תהיה זמינה בקרוב');
+              }
+            }}
           />
-          <MenuItem 
-            icon={FileText} 
-            label="תנאי שימוש" 
+          <MenuItem
+            icon={FileText}
+            label="תנאי שימוש"
             onClick={() => navigate(createPageUrl("TermsOfService"))}
+          />
+          <MenuItem
+            icon={X}
+            label="מחיקת חשבון"
+            onClick={() => navigate(createPageUrl("AccountDeletion"))}
           />
         </Card>
 
@@ -514,17 +532,12 @@ export default function Settings() {
           </Card>
         )}
 
-        {/* Logout & Delete Account */}
+        {/* Logout */}
         <Card>
           <DestructiveItem
             icon={LogOut}
             label="התנתק"
             onClick={() => setShowLogoutConfirm(true)}
-          />
-          <DestructiveItem
-            icon={X}
-            label="מחק חשבון"
-            onClick={() => setShowDeleteConfirm(true)}
           />
         </Card>
 
@@ -538,6 +551,7 @@ export default function Settings() {
         feature="recurringBookings"
         highlightPlan="pro"
       />
+      </div>
     </div>
   );
 }

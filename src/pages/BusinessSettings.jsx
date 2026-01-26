@@ -320,7 +320,7 @@ export default function BusinessSettings() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] pt-safe">
+    <div className="min-h-screen bg-[#0C0F1D]">
       <style>{`
         /* Fix Switch white dot positioning - override Tailwind's translate-x-4 */
         button[role="switch"] span[data-state] {
@@ -335,21 +335,20 @@ export default function BusinessSettings() {
       `}</style>
 
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="sticky top-12 bg-[#0C0F1D]/95 backdrop-blur-sm border-b border-gray-800 z-10 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => navigate(createPageUrl("Settings"))}
-              className="p-2 hover:bg-[#1A1F35] rounded-lg transition-colors">
-              
-              <ArrowRight className="w-6 h-6" />
-            </button>
-            <h1 className="text-xl font-bold">הגדרות עסק</h1>
-            <div className="w-10" />
-          </div>
+        {/* Sticky Header */}
+        <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 pt-safe border-b border-gray-800/50">
+          <button
+            onClick={() => navigate(createPageUrl("Settings"))}
+            className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
+          >
+            <ArrowRight className="w-5 h-5" />
+            <span className="font-medium">חזרה</span>
+          </button>
+          <h1 className="text-3xl font-bold">הגדרות עסק</h1>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6 pb-40">
+        {/* Content */}
+        <form onSubmit={handleSubmit} className="p-4 space-y-6 pb-40">
           {/* Business Info */}
           <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800 space-y-4">
             <div className="flex items-center gap-2 mb-2">

@@ -341,18 +341,22 @@ export default function MyBookings() {
   const displayedBookings = filter === 'upcoming' ? upcomingBookings : pastBookings;
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] p-4 pt-safe">
+    <div className="min-h-screen bg-[#0C0F1D]">
       <div className="max-w-2xl mx-auto">
-        <button
-          onClick={() => navigate("/ClientDashboard")}
-          className="flex items-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors h-12"
-        >
-          <ArrowRight className="w-5 h-5" />
-          <span className="font-medium">חזרה</span>
-        </button>
+        {/* Sticky Header */}
+        <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 pt-safe border-b border-gray-800/50">
+          <button
+            onClick={() => navigate("/ClientDashboard")}
+            className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
+          >
+            <ArrowRight className="w-5 h-5" />
+            <span className="font-medium">חזרה</span>
+          </button>
+          <h1 className="text-3xl font-bold">התורים שלי</h1>
+        </div>
 
-        <h1 className="text-3xl font-bold mb-6 pt-2">התורים שלי</h1>
-
+        {/* Content */}
+        <div className="p-4">
         {/* Filter Tabs */}
         <div className="flex gap-3 mb-6">
           <button
@@ -604,6 +608,7 @@ export default function MyBookings() {
             ))}
           </div>
         )}
+        </div>
       </div>
     </div>
   );

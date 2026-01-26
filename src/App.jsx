@@ -13,12 +13,20 @@ const queryClient = new QueryClient({
   },
 })
 
+function AppContent() {
+  return (
+    <>
+      <Pages />
+      <Toaster />
+    </>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <UserProvider>
-        <Pages />
-        <Toaster />
+        <AppContent />
       </UserProvider>
     </QueryClientProvider>
   )

@@ -1,4 +1,6 @@
 import Layout from "./Layout.jsx";
+import AccountDeletion from "./AccountDeletion";
+import AllBookings from "./AllBookings";
 import ApprovalManagement from "./ApprovalManagement";
 import Auth from "./Auth";
 import BookAppointment from "./BookAppointment";
@@ -24,10 +26,15 @@ import StaffManagement from "./StaffManagement";
 import Statistics from "./Statistics";
 import TermsOfService from "./TermsOfService";
 import Welcome from "./Welcome";
+import Onboarding from "@/components/Onboarding";
 
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useUser } from "@/components/UserContext";
 
 const PAGES = {
+    AccountDeletion,
+    AllBookings,
     ApprovalManagement,
     Auth,
     BookAppointment,
@@ -71,38 +78,65 @@ function _getCurrentPage(url) {
 function PagesContent() {
     const location = useLocation();
     const currentPage = _getCurrentPage(location.pathname);
-    
+    const { user } = useUser();
+    const [showOnboarding, setShowOnboarding] = useState(false);
+
+    useEffect(() => {
+        // Show onboarding for logged-in users who haven't completed it
+        // Only if the field exists in the database (not undefined)
+        if (user && user.onboarding_completed !== undefined && user.onboarding_completed === false) {
+            setShowOnboarding(true);
+        }
+    }, [user]);
+
+    // Listen for custom event to restart tutorial
+    useEffect(() => {
+        const handleRestartTutorial = () => {
+            setShowOnboarding(true);
+        };
+
+        window.addEventListener('restart-tutorial', handleRestartTutorial);
+        return () => window.removeEventListener('restart-tutorial', handleRestartTutorial);
+    }, []);
+
     return (
-        <Layout currentPageName={currentPage}>
-            <Routes>
-                <Route path="/" element={<Welcome />} />
-                <Route path="/Welcome" element={<Welcome />} />
-                <Route path="/Auth" element={<Auth />} />
-                <Route path="/ApprovalManagement" element={<ApprovalManagement />} />
-                <Route path="/BookAppointment" element={<BookAppointment />} />
-                <Route path="/BusinessDashboard" element={<BusinessDashboard />} />
-                <Route path="/BusinessPolicies" element={<BusinessPolicies />} />
-                <Route path="/BusinessPreview/:businessCode" element={<BusinessPreview />} />
-                <Route path="/BusinessSettings" element={<BusinessSettings />} />
-                <Route path="/BusinessSetup" element={<BusinessSetup />} />
-                <Route path="/CalendarView" element={<CalendarView />} />
-                <Route path="/ClientDashboard" element={<ClientDashboard />} />
-                <Route path="/Clients" element={<Clients />} />
-                <Route path="/CreateBooking" element={<CreateBooking />} />
-                <Route path="/DemoTour" element={<DemoTour />} />
-                <Route path="/JoinBusiness" element={<JoinBusiness />} />
-                <Route path="/MyBookings" element={<MyBookings />} />
-                <Route path="/NotificationCenter" element={<NotificationCenter />} />
-                <Route path="/Pricing" element={<Pricing />} />
-                <Route path="/RecurringManagement" element={<RecurringManagement />} />
-                <Route path="/ServiceManagement" element={<ServiceManagement />} />
-                <Route path="/Settings" element={<Settings />} />
-                <Route path="/SharedCalendar" element={<SharedCalendar />} />
-                <Route path="/StaffManagement" element={<StaffManagement />} />
-                <Route path="/Statistics" element={<Statistics />} />
-                <Route path="/TermsOfService" element={<TermsOfService />} />
-            </Routes>
-        </Layout>
+        <>
+            <Layout currentPageName={currentPage}>
+                <Routes>
+                    <Route path="/" element={<Welcome />} />
+                    <Route path="/Welcome" element={<Welcome />} />
+                    <Route path="/AccountDeletion" element={<AccountDeletion />} />
+                    <Route path="/AllBookings" element={<AllBookings />} />
+                    <Route path="/Auth" element={<Auth />} />
+                    <Route path="/ApprovalManagement" element={<ApprovalManagement />} />
+                    <Route path="/BookAppointment" element={<BookAppointment />} />
+                    <Route path="/BusinessDashboard" element={<BusinessDashboard />} />
+                    <Route path="/BusinessPolicies" element={<BusinessPolicies />} />
+                    <Route path="/BusinessPreview/:businessCode" element={<BusinessPreview />} />
+                    <Route path="/BusinessSettings" element={<BusinessSettings />} />
+                    <Route path="/BusinessSetup" element={<BusinessSetup />} />
+                    <Route path="/CalendarView" element={<CalendarView />} />
+                    <Route path="/ClientDashboard" element={<ClientDashboard />} />
+                    <Route path="/Clients" element={<Clients />} />
+                    <Route path="/CreateBooking" element={<CreateBooking />} />
+                    <Route path="/DemoTour" element={<DemoTour />} />
+                    <Route path="/JoinBusiness" element={<JoinBusiness />} />
+                    <Route path="/MyBookings" element={<MyBookings />} />
+                    <Route path="/NotificationCenter" element={<NotificationCenter />} />
+                    <Route path="/Pricing" element={<Pricing />} />
+                    <Route path="/RecurringManagement" element={<RecurringManagement />} />
+                    <Route path="/ServiceManagement" element={<ServiceManagement />} />
+                    <Route path="/Settings" element={<Settings />} />
+                    <Route path="/SharedCalendar" element={<SharedCalendar />} />
+                    <Route path="/StaffManagement" element={<StaffManagement />} />
+                    <Route path="/Statistics" element={<Statistics />} />
+                    <Route path="/TermsOfService" element={<TermsOfService />} />
+                </Routes>
+            </Layout>
+            {showOnboarding && (
+                <Onboarding onComplete={() => setShowOnboarding(false)} />
+            )}
+        </>
     );
 }
 

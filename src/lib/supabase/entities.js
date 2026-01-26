@@ -137,6 +137,8 @@ export const Payment = createEntity('payments');
 export const ScheduleOverride = createEntity('schedule_overrides');
 export const RecurringAppointment = createEntity('recurring_appointments');
 export const Profile = createEntity('profiles');
+export const BroadcastMessage = createEntity('broadcast_messages');
+export const BroadcastMessageRead = createEntity('broadcast_message_reads');
 
 export const entities = {
   Business,
@@ -150,6 +152,8 @@ export const entities = {
   ScheduleOverride,
   RecurringAppointment,
   Profile,
+  BroadcastMessage,
+  BroadcastMessageRead,
 };
 
 export default entities;

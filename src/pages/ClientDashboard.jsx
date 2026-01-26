@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { format, isToday, isTomorrow, parseISO } from "date-fns";
 import { he } from "date-fns/locale";
 import { formatNumeric } from "@/services/dateService";
+import BroadcastMessagePopup from "@/components/BroadcastMessagePopup";
 
 // Instagram & Facebook icons as SVG components
 const InstagramIcon = ({ className }) => (
@@ -233,7 +234,10 @@ export default function ClientDashboard() {
 
   return (
     <div className="min-h-screen bg-[#0C0F1D]" dir="rtl">
-      
+
+      {/* Broadcast Message Popup */}
+      <BroadcastMessagePopup />
+
       {/* Waiting List Popup */}
       {waitingListPopup && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
