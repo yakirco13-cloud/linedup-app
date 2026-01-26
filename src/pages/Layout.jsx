@@ -210,6 +210,11 @@ function AppContent({ children }) {
           padding-top: max(16px, env(safe-area-inset-top, 16px));
         }
 
+        /* Safe area top position - for sticky headers */
+        .top-safe {
+          top: env(safe-area-inset-top, 0px);
+        }
+
         /* Bottom padding for pages with nav - Layout handles this now */
         .pb-safe {
           padding-bottom: env(safe-area-inset-bottom, 0px);

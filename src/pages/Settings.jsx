@@ -33,6 +33,7 @@ import SubscriptionCard from "@/components/SubscriptionCard";
 import { useFeatureGate } from "@/components/FeatureGate";
 import UpgradeModal from "@/components/UpgradeModal";
 import { isUserDemoAccount } from "@/utils/demoAccounts";
+import PageHeader from "@/components/PageHeader";
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -304,10 +305,7 @@ export default function Settings() {
       />
 
       <div className="max-w-2xl mx-auto">
-        {/* Sticky Header */}
-        <div className="sticky top-0 bg-[#0C0F1D] z-20 px-5 pt-4 pb-4 border-b border-gray-800/50">
-          <h1 className="text-2xl font-bold text-white">הגדרות</h1>
-        </div>
+        <PageHeader title="הגדרות" showBackButton={false} />
 
         {/* Content */}
         <div className="px-5 pb-8 pt-6">
