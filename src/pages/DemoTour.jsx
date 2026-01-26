@@ -593,7 +593,7 @@ export default function DemoTour() {
   return (
     <div className="min-h-screen bg-[#0C0F1D] flex flex-col" dir="rtl">
       {/* Header */}
-      <div className="bg-[#1A1F35] border-b border-gray-800 p-4 pt-safe">
+      <div className="bg-[#1A1F35] border-b border-gray-800 p-4">
         <div className="flex items-center justify-between mb-4">
           <button onClick={() => navigate("/")} className="flex items-center gap-2 text-[#94A3B8] hover:text-white transition-colors">
             <ArrowRight className="w-5 h-5" />

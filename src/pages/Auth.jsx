@@ -332,7 +332,7 @@ export default function Auth() {
   // ===== RENDER UI =====
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] p-6 pt-safe flex flex-col">
+    <div className="min-h-screen bg-[#0C0F1D] p-6 flex flex-col">
       {/* Back button */}
       <button
         onClick={handleBack}

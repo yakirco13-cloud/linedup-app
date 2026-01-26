@@ -274,7 +274,7 @@ export default function SharedCalendar() {
       )}
 
       {/* Header */}
-      <div className="bg-[#1A1F35] border-b border-gray-800 pt-safe">
+      <div className="bg-[#1A1F35] border-b border-gray-800">
         <div className="p-4 pb-2">
           {/* Business Name */}
           <div className="flex items-center justify-center gap-2 mb-4">

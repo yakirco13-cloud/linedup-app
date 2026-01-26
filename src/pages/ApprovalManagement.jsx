@@ -100,7 +100,7 @@ export default function ApprovalManagement() {
     <div className="min-h-screen bg-[#0C0F1D]">
       <div className="max-w-2xl mx-auto">
         {/* Sticky Header */}
-        <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 pt-safe border-b border-gray-800/50">
+        <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 border-b border-gray-800/50">
           <button
             onClick={() => navigate(createPageUrl("Settings"))}
             className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"

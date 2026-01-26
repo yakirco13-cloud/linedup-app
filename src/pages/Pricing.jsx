@@ -135,7 +135,7 @@ export default function Pricing() {
   const planOrder = ['free', 'starter', 'pro', 'premium'];
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] pb-20 pt-safe text-slate-200">
+    <div className="min-h-screen bg-[#0C0F1D] pb-20 text-slate-200">
       
       {/* Background Decor */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">

@@ -276,7 +276,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] pt-safe">
+    <div className="min-h-screen bg-[#0C0F1D]">
       {/* Modals */}
       <ConfirmModal
         show={showLogoutConfirm}
@@ -305,7 +305,7 @@ export default function Settings() {
 
       <div className="max-w-2xl mx-auto">
         {/* Sticky Header */}
-        <div className="sticky top-0 bg-[#0C0F1D] z-20 px-5 pt-safe pt-4 pb-4 border-b border-gray-800/50">
+        <div className="sticky top-0 bg-[#0C0F1D] z-20 px-5 pt-4 pb-4 border-b border-gray-800/50">
           <h1 className="text-2xl font-bold text-white">הגדרות</h1>
         </div>
 

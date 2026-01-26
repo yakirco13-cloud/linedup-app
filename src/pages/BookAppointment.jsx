@@ -934,7 +934,7 @@ const handleBooking = async () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] p-4 pt-safe">
+    <div className="min-h-screen bg-[#0C0F1D] p-4">
       <div className="max-w-2xl mx-auto">
         <button
           onClick={() => {
