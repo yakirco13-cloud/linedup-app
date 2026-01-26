@@ -147,7 +147,7 @@ function AppContent({ children }) {
 
   return (
     <div className="min-h-screen bg-[#0C0F1D] text-white" dir="rtl">
-      <main className={showNav ? "pb-24" : ""}>
+      <main className={`pt-safe ${showNav ? "pb-24" : ""}`}>
         {children}
       </main>
 
