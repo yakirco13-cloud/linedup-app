@@ -305,7 +305,7 @@ export default function Settings() {
 
       <div className="max-w-2xl mx-auto">
         {/* Content */}
-        <div className="px-5 pb-8 pt-6">
+        <div className="px-5 pt-6">
           <h1 className="text-2xl font-bold text-white mb-6">הגדרות</h1>
 
         {/* Profile Section */}
