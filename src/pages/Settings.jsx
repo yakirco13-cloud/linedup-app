@@ -304,9 +304,9 @@ export default function Settings() {
         confirmText={deletingAccount ? "מוחק..." : "מחק חשבון"}
       />
 
-      <div className="max-w-2xl mx-auto">
-        <PageHeader title="הגדרות" showBackButton={false} />
+      <PageHeader title="הגדרות" showBackButton={false} />
 
+      <div className="max-w-2xl mx-auto">
         {/* Content */}
         <div className="px-5 pb-8 pt-6">
 
