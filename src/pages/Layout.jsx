@@ -159,10 +159,11 @@ function AppContent({ children }) {
       <PWAInstallPrompt />
       
       {showNav && (
-        <motion.nav 
+        <motion.nav
           initial={{ y: 100 }}
           animate={{ y: 0 }}
-          className="fixed bottom-3 left-3 right-3 z-50"
+          className="fixed left-3 right-3 z-50"
+          style={{ bottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}
         >
           <div className="bg-[#1A1F35] rounded-full py-2 px-2 flex justify-around items-center border border-white/5 shadow-2xl">
             {tabs.map((tab) => {
