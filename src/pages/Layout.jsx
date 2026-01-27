@@ -198,6 +198,7 @@ function AppContent({ children }) {
           overscroll-behavior: none;
           -webkit-user-select: none;
           user-select: none;
+          background-color: #0C0F1D;
         }
 
         input, textarea, button, select {
