@@ -308,6 +308,7 @@ export default function Settings() {
       />
 
       {/* Profile Section */}
+      <div className="mt-6">
         {editingProfile ? (
           <div className="bg-[#1A1F35] rounded-2xl p-5 mb-5 border border-white/5">
             <div className="flex items-center justify-between mb-6">
@@ -386,6 +387,7 @@ export default function Settings() {
             </button>
           </Card>
         )}
+      </div>
 
         {/* Business Owner Settings */}
         {user?.user_role === 'business_owner' && business && (
