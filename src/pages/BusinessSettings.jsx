@@ -300,7 +300,7 @@ export default function BusinessSettings() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="min-h-screen bg-[#0C0F1D] flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-[#FF6B35]" />
       </div>
     );
@@ -308,7 +308,7 @@ export default function BusinessSettings() {
 
   if (!business) {
     return (
-      <div className="flex items-center justify-center py-16">
+      <div className="min-h-screen bg-[#0C0F1D] flex items-center justify-center p-6">
         <div className="text-center">
           <p className="text-[#94A3B8] mb-4">לא נמצא עסק</p>
           <Button onClick={() => navigate(createPageUrl("BusinessSetup"))}>
@@ -320,7 +320,7 @@ export default function BusinessSettings() {
   }
 
   return (
-    <>
+    <div className="min-h-screen bg-[#0C0F1D]">
       <style>{`
         /* Fix Switch white dot positioning - override Tailwind's translate-x-4 */
         button[role="switch"] span[data-state] {
@@ -334,19 +334,21 @@ export default function BusinessSettings() {
         }
       `}</style>
 
-      {/* Back button */}
-      <button
-        onClick={() => navigate(createPageUrl("Settings"))}
-        className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
-      >
-        <ArrowRight className="w-5 h-5" />
-        <span className="font-medium">חזרה</span>
-      </button>
+      <div className="max-w-4xl mx-auto">
+        {/* Sticky Header */}
+        <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 border-b border-gray-800/50">
+          <button
+            onClick={() => navigate(createPageUrl("Settings"))}
+            className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
+          >
+            <ArrowRight className="w-5 h-5" />
+            <span className="font-medium">חזרה</span>
+          </button>
+          <h1 className="text-3xl font-bold">הגדרות עסק</h1>
+        </div>
 
-      <h1 className="text-3xl font-bold mb-6">הגדרות עסק</h1>
-
-      {/* Content */}
-      <form onSubmit={handleSubmit} className="space-y-6 pb-40">
+        {/* Content */}
+        <form onSubmit={handleSubmit} className="p-4 space-y-6 pb-40">
           {/* Business Info */}
           <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800 space-y-4">
             <div className="flex items-center gap-2 mb-2">
@@ -940,36 +942,37 @@ export default function BusinessSettings() {
             )}
           </div>
 
-      </form>
+        </form>
 
-      {/* Sticky Save Button */}
-      <div className="fixed bottom-20 left-0 right-0 bg-[#0C0F1D]/95 backdrop-blur-sm border-t border-gray-800 p-4 z-20">
-        <div className="max-w-4xl mx-auto flex gap-3">
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            disabled={updateMutation.isPending}
-            className="flex-1 h-14 rounded-xl text-white font-semibold text-lg"
-            style={{
-              background: 'linear-gradient(135deg, #FF6B35, #FF1744)'
-            }}
-          >
-            {updateMutation.isPending ? (
-              <Loader2 className="w-6 h-6 animate-spin" />
-            ) : (
-              "שמור שינויים"
-            )}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => navigate(createPageUrl("Settings"))}
-            variant="outline"
-            className="h-14 px-6 rounded-xl border-gray-700 bg-transparent text-white hover:bg-[#0C0F1D] hover:text-white"
-          >
-            ביטול
-          </Button>
+        {/* Sticky Save Button */}
+        <div className="fixed bottom-20 left-0 right-0 bg-[#0C0F1D]/95 backdrop-blur-sm border-t border-gray-800 p-4 z-20">
+          <div className="max-w-4xl mx-auto flex gap-3">
+            <Button
+              type="button"
+              onClick={handleSubmit}
+              disabled={updateMutation.isPending}
+              className="flex-1 h-14 rounded-xl text-white font-semibold text-lg"
+              style={{
+                background: 'linear-gradient(135deg, #FF6B35, #FF1744)'
+              }}
+            >
+              {updateMutation.isPending ? (
+                <Loader2 className="w-6 h-6 animate-spin" />
+              ) : (
+                "שמור שינויים"
+              )}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => navigate(createPageUrl("Settings"))}
+              variant="outline"
+              className="h-14 px-6 rounded-xl border-gray-700 bg-transparent text-white hover:bg-[#0C0F1D] hover:text-white"
+            >
+              ביטול
+            </Button>
+          </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
