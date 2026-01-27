@@ -40,7 +40,15 @@ export function usePageHeader(config) {
     throw new Error('usePageHeader must be used within a PageHeaderProvider');
   }
 
-  // Auto-set header on mount if config provided
+  // Auto-set header on mount and when config changes
+  // Using JSON.stringify for stable comparison of config object
+  const configString = config ? JSON.stringify({
+    title: config.title,
+    showBackButton: config.showBackButton,
+    backPath: config.backPath,
+    // Note: onBackClick is a function, can't stringify - handle separately
+  }) : null;
+
   React.useEffect(() => {
     if (config) {
       context.setPageHeader(config);
@@ -48,7 +56,7 @@ export function usePageHeader(config) {
     return () => {
       context.hidePageHeader();
     };
-  }, []);
+  }, [configString, config?.onBackClick]);
 
   return context;
 }

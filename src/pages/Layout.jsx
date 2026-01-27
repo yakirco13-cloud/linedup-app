@@ -158,6 +158,7 @@ function AppContent({ children }) {
                 /* Header WITH back button */
                 <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 border-b border-gray-800/50">
                   <button
+                    type="button"
                     onClick={() => {
                       if (headerConfig.onBackClick) {
                         headerConfig.onBackClick();
@@ -167,7 +168,8 @@ function AppContent({ children }) {
                         navigate(-1);
                       }
                     }}
-                    className="flex items-center gap-2 text-[#94A3B8] hover:text-white transition-colors mb-2"
+                    className="flex items-center gap-2 text-[#94A3B8] hover:text-white transition-colors mb-2 py-2 -my-2 touch-manipulation"
+                    style={{ touchAction: 'manipulation' }}
                   >
                     <ArrowRight className="w-5 h-5" />
                     <span className="font-medium">חזרה</span>
