@@ -4,6 +4,7 @@ import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { supabase } from "@/lib/supabase/client";
 import { useUser } from "@/components/UserContext";
+import { usePageHeader } from "@/components/PageHeaderContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,13 @@ export default function StaffManagement() {
   const navigate = useNavigate();
   const { user } = useUser();
   const queryClient = useQueryClient();
+
+  usePageHeader({
+    title: "ניהול צוות",
+    showBackButton: true,
+    backPath: createPageUrl("Settings")
+  });
+
   const [showForm, setShowForm] = useState(false);
   const [editingStaff, setEditingStaff] = useState(null);
   const [useBusinessHours, setUseBusinessHours] = useState(true);
@@ -340,17 +348,8 @@ export default function StaffManagement() {
 
   return (
     <>
-      {/* Back button */}
-      <button
-        onClick={() => navigate(createPageUrl("Settings"))}
-        className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
-      >
-        <ArrowRight className="w-5 h-5" />
-        <span className="font-medium">חזרה</span>
-      </button>
-
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold">ניהול צוות</h1>
+      {/* Add Staff Button */}
+      <div className="flex justify-end mb-6">
         <Button
           onClick={() => {
             // Check if user already has staff and doesn't have premium

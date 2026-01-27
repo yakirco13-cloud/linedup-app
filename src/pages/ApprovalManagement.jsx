@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
+import { usePageHeader } from "@/components/PageHeaderContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle, XCircle, Clock, User, Calendar, Loader2 } from "lucide-react";
@@ -16,6 +17,13 @@ export default function ApprovalManagement() {
   const navigate = useNavigate();
   const { user } = useUser();
   const queryClient = useQueryClient();
+
+  usePageHeader({
+    title: "תורים הממתינים לאישור",
+    showBackButton: true,
+    backPath: createPageUrl("Settings")
+  });
+
   const [filter, setFilter] = useState('pending');
 
   const { data: business } = useQuery({
@@ -98,19 +106,6 @@ export default function ApprovalManagement() {
 
   return (
     <>
-      {/* Back button */}
-      <button
-        onClick={() => navigate(createPageUrl("Settings"))}
-        className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
-      >
-        <ArrowRight className="w-5 h-5" />
-        <span className="font-medium">חזרה</span>
-      </button>
-
-      <h1 className="text-3xl font-bold mb-6">תורים הממתינים לאישור</h1>
-
-      {/* Content */}
-      <div>
         {isLoading ? (
           <div className="text-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-[#FF6B35] mx-auto" />
@@ -197,7 +192,6 @@ export default function ApprovalManagement() {
             ))}
           </div>
         )}
-      </div>
     </>
   );
 }

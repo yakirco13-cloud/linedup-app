@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
+import { usePageHeader } from "@/components/PageHeaderContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,13 @@ export default function ServiceManagement() {
   const navigate = useNavigate();
   const { user } = useUser();
   const queryClient = useQueryClient();
+
+  usePageHeader({
+    title: "ניהול שירותים",
+    showBackButton: true,
+    backPath: createPageUrl("Settings")
+  });
+
   const [showForm, setShowForm] = useState(false);
   const [editingService, setEditingService] = useState(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -157,17 +165,8 @@ export default function ServiceManagement() {
 
   return (
     <>
-      {/* Back button */}
-      <button
-        onClick={() => navigate(createPageUrl("Settings"))}
-        className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
-      >
-        <ArrowRight className="w-5 h-5" />
-        <span className="font-medium">חזרה</span>
-      </button>
-
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold">ניהול שירותים</h1>
+      {/* Add Service Button */}
+      <div className="flex justify-end mb-6">
         <Button
           onClick={handleAddNew}
           className="h-12 px-6 rounded-xl"
@@ -177,9 +176,6 @@ export default function ServiceManagement() {
           הוסף שירות
         </Button>
       </div>
-
-      {/* Content */}
-      <div>
 
         {showForm && (
           <div className="bg-[#1A1F35] rounded-2xl p-6 mb-6 border border-gray-800">
@@ -369,7 +365,6 @@ export default function ServiceManagement() {
             ))}
           </div>
         ) : null}
-      </div>
 
       <UpgradeModal
         isOpen={showUpgradeModal}

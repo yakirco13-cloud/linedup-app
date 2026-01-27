@@ -4,6 +4,7 @@ import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { supabase } from "@/lib/supabase/client";
 import { useUser } from "@/components/UserContext";
+import { usePageHeader } from "@/components/PageHeaderContext";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Calendar, Clock, User, Loader2, CheckCircle, Briefcase, ChevronLeft, ChevronRight, Lightbulb, Sparkles, Bell, CalendarPlus } from "lucide-react";
@@ -43,6 +44,32 @@ export default function BookAppointment() {
   const [waitingListStatus, setWaitingListStatus] = useState({ joining: false, joined: false, error: null });
   const [waitingListSuccess, setWaitingListSuccess] = useState(false);
   const [waitingListModalOpen, setWaitingListModalOpen] = useState(false);
+
+  // Back button handler ref - allows dynamic back behavior
+  const backClickRef = useRef(() => navigate("/MyBookings"));
+
+  // Update back click handler when step changes
+  useEffect(() => {
+    backClickRef.current = () => {
+      if (step > 2) {
+        if (step === 4 && staff.length === 1 && selectedStaff) {
+          setSelectedStaff(null);
+          setStep(2);
+        } else {
+          setStep(step - 1);
+        }
+      } else {
+        navigate("/MyBookings");
+      }
+    };
+  }, [step, staff, selectedStaff, navigate]);
+
+  // Set header with dynamic back button
+  usePageHeader({
+    title: "קביעת תור",
+    showBackButton: true,
+    onBackClick: () => backClickRef.current()
+  });
 
   // Load business automatically from user's joined businesses
   useEffect(() => {
@@ -935,25 +962,6 @@ const handleBooking = async () => {
 
   return (
     <>
-      <button
-        onClick={() => {
-          if (step > 2) {
-            if (step === 4 && staff.length === 1 && selectedStaff) {
-              setSelectedStaff(null);
-              setStep(2);
-            } else {
-              setStep(step - 1);
-            }
-          } else {
-            navigate("/MyBookings");
-          }
-        }}
-        className="flex items-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors h-12"
-      >
-        <ArrowRight className="w-5 h-5" />
-        <span className="font-medium">חזרה</span>
-      </button>
-
         {/* Progress with step labels */}
         <div className="mb-8">
           <div className="flex items-center justify-center gap-2 mb-3">
