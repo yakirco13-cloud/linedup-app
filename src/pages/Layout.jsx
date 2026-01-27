@@ -156,7 +156,7 @@ function AppContent({ children }) {
             <>
               {headerConfig.showBackButton ? (
                 /* Header WITH back button */
-                <div className="sticky top-0 bg-[#0C0F1D] z-20 px-4 pt-safe pb-4 border-b border-gray-800/50">
+                <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 border-b border-gray-800/50">
                   <button
                     onClick={() => {
                       if (headerConfig.onBackClick) {
@@ -176,11 +176,11 @@ function AppContent({ children }) {
                 </div>
               ) : (
                 /* Header WITHOUT back button - simple title only */
-                <div className="sticky top-0 bg-[#0C0F1D] z-20 px-4 pt-safe pb-4 border-b border-gray-800/50">
+                <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 border-b border-gray-800/50">
                   <h1 className="text-3xl font-bold">{headerConfig.title}</h1>
                 </div>
               )}
-              <div className="px-4 pt-4">
+              <div className="p-4">
                 {children}
               </div>
             </>
