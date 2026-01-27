@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl, formatTime } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
-import StickyHeader from "@/components/StickyHeader";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { Calendar, Clock, User, X, Loader2, Edit, Bell, Trash2, CalendarPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -343,19 +342,18 @@ export default function MyBookings() {
 
   return (
     <>
-      {/* Sticky Header with Title and Filter Tabs */}
-      <StickyHeader>
-        <h1 className="text-3xl font-bold mb-4">התורים שלי</h1>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setFilter('upcoming')}
-            className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all ${
-              filter === 'upcoming'
-                ? 'bg-gradient-to-r from-[#FF6B35] to-[#FF1744] text-white shadow-lg scale-105'
-                : 'bg-[#1A1F35] text-[#94A3B8] border-2 border-gray-800 hover:border-[#FF6B35] hover:scale-105 active:scale-95'
-            }`}
-          >
-            <div className="text-base">קרובים</div>
+      {/* Header with Title and Filter Tabs */}
+      <h1 className="text-3xl font-bold mb-4">התורים שלי</h1>
+      <div className="flex gap-3 mb-4">
+        <button
+          onClick={() => setFilter('upcoming')}
+          className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all ${
+            filter === 'upcoming'
+              ? 'bg-gradient-to-r from-[#FF6B35] to-[#FF1744] text-white shadow-lg scale-105'
+              : 'bg-[#1A1F35] text-[#94A3B8] border-2 border-gray-800 hover:border-[#FF6B35] hover:scale-105 active:scale-95'
+          }`}
+        >
+          <div className="text-base">קרובים</div>
             <div className="text-2xl font-bold mt-1">{upcomingBookings.length}</div>
           </button>
           <button
@@ -369,10 +367,9 @@ export default function MyBookings() {
             <div className="text-base">היסטוריה</div>
             <div className="text-2xl font-bold mt-1">{pastBookings.length}</div>
           </button>
-        </div>
-      </StickyHeader>
+      </div>
 
-        {/* Waiting List Section */}
+      {/* Waiting List Section */}
         {waitingListEntries.length > 0 && filter === 'upcoming' && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-3">

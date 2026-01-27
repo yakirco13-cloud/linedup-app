@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useUser } from "@/components/UserContext";
-import StickyHeader from "@/components/StickyHeader";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { supabase } from "@/lib/supabase/client";
@@ -305,9 +304,7 @@ export default function Settings() {
       />
 
       {/* Header */}
-      <StickyHeader>
-        <h1 className="text-3xl font-bold">הגדרות</h1>
-      </StickyHeader>
+      <h1 className="text-3xl font-bold mb-4">הגדרות</h1>
 
         {/* Profile Section */}
         {editingProfile ? (

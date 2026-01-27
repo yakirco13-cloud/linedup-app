@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
-import StickyHeader from "@/components/StickyHeader";
 import { useQuery } from "@tanstack/react-query";
 import { FeatureGate, useFeatureGate } from "@/components/FeatureGate";
 import UpgradeModal from "@/components/UpgradeModal";
@@ -617,44 +616,42 @@ function StatisticsContent({ business, timeRange, setTimeRange, navigate }) {
 
   return (
     <>
-      {/* Sticky Header with Title, Export, and Time Range */}
-      <StickyHeader>
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-3xl font-bold">סטטיסטיקות</h1>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                className="h-11 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm font-medium flex items-center gap-2 transition-all"
-              >
-                <Download className="w-4 h-4" />
-                ייצוא
-                <ChevronDown className="w-4 h-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-[#1A1F35] border-white/10 min-w-[160px]">
-              <DropdownMenuItem
-                onClick={handleExportPDF}
-                className="text-white hover:bg-white/10 focus:bg-white/10 cursor-pointer gap-2 h-11"
-              >
-                <FileText className="w-4 h-4 text-[#FF6B35]" />
-                <span>דוח PDF</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={handleExportCSV}
-                className="text-white hover:bg-white/10 focus:bg-white/10 cursor-pointer gap-2 h-11"
-              >
-                <Download className="w-4 h-4 text-[#FF6B35]" />
-                <span>קובץ CSV</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        <div className="flex gap-2 bg-[#1A1F35] p-1 rounded-xl">
-          {[{ value: 'today', label: 'היום' }, { value: 'week', label: 'השבוע' }, { value: 'month', label: 'החודש' }].map(option => (
-            <button key={option.value} onClick={() => setTimeRange(option.value)} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${timeRange === option.value ? 'bg-[#FF6B35] text-white' : 'text-[#94A3B8] hover:text-white'}`}>{option.label}</button>
-          ))}
-        </div>
-      </StickyHeader>
+      {/* Header with Title, Export, and Time Range */}
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-3xl font-bold">סטטיסטיקות</h1>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="h-11 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm font-medium flex items-center gap-2 transition-all"
+            >
+              <Download className="w-4 h-4" />
+              ייצוא
+              <ChevronDown className="w-4 h-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="bg-[#1A1F35] border-white/10 min-w-[160px]">
+            <DropdownMenuItem
+              onClick={handleExportPDF}
+              className="text-white hover:bg-white/10 focus:bg-white/10 cursor-pointer gap-2 h-11"
+            >
+              <FileText className="w-4 h-4 text-[#FF6B35]" />
+              <span>דוח PDF</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={handleExportCSV}
+              className="text-white hover:bg-white/10 focus:bg-white/10 cursor-pointer gap-2 h-11"
+            >
+              <Download className="w-4 h-4 text-[#FF6B35]" />
+              <span>קובץ CSV</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <div className="flex gap-2 bg-[#1A1F35] p-1 rounded-xl mb-4">
+        {[{ value: 'today', label: 'היום' }, { value: 'week', label: 'השבוע' }, { value: 'month', label: 'החודש' }].map(option => (
+          <button key={option.value} onClick={() => setTimeRange(option.value)} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${timeRange === option.value ? 'bg-[#FF6B35] text-white' : 'text-[#94A3B8] hover:text-white'}`}>{option.label}</button>
+        ))}
+      </div>
 
       {/* Content */}
       {isLoading ? (<div className="flex items-center justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-[#FF6B35]" /></div>) : (
