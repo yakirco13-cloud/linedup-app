@@ -154,8 +154,9 @@ function AppContent({ children }) {
           {/* Sticky Header from Context */}
           {headerConfig.show && (
             <>
-              <div className="sticky top-0 bg-[#0C0F1D] z-20 px-4 pt-safe pb-4 border-b border-gray-800/50 flex items-center gap-3">
-                {headerConfig.showBackButton && (
+              {headerConfig.showBackButton ? (
+                /* Header WITH back button */
+                <div className="sticky top-0 bg-[#0C0F1D] z-20 px-4 pt-safe pb-4 border-b border-gray-800/50">
                   <button
                     onClick={() => {
                       if (headerConfig.onBackClick) {
@@ -166,16 +167,19 @@ function AppContent({ children }) {
                         navigate(-1);
                       }
                     }}
-                    className="flex items-center gap-2 text-[#94A3B8] hover:text-white transition-colors"
+                    className="flex items-center gap-2 text-[#94A3B8] hover:text-white transition-colors mb-2"
                   >
                     <ArrowRight className="w-5 h-5" />
+                    <span className="font-medium">חזרה</span>
                   </button>
-                )}
-                <h1 className="text-3xl font-bold">{headerConfig.title}</h1>
-                {headerConfig.rightAction && (
-                  <div className="mr-auto">{headerConfig.rightAction}</div>
-                )}
-              </div>
+                  <h1 className="text-3xl font-bold">{headerConfig.title}</h1>
+                </div>
+              ) : (
+                /* Header WITHOUT back button - simple title only */
+                <div className="sticky top-0 bg-[#0C0F1D] z-20 px-4 pt-safe pb-4 border-b border-gray-800/50">
+                  <h1 className="text-3xl font-bold">{headerConfig.title}</h1>
+                </div>
+              )}
               <div className="px-4 pt-4">
                 {children}
               </div>

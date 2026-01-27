@@ -2,13 +2,22 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useUser } from "@/components/UserContext";
+import { usePageHeader } from "@/components/PageHeaderContext";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, X, Loader2 } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 
 export default function AccountDeletion() {
   const navigate = useNavigate();
   const { user, logout } = useUser();
+
+  // Set sticky header with back button
+  usePageHeader({
+    title: "מחיקת חשבון",
+    showBackButton: true,
+    backPath: createPageUrl("Settings")
+  });
+
   const [deleteConfirmChecked, setDeleteConfirmChecked] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
@@ -98,17 +107,6 @@ export default function AccountDeletion() {
         message="האם אתה בטוח? פעולה זו תמחק לצמיתות את כל המידע שלך ולא ניתן לשחזר אותו."
         confirmText={deletingAccount ? "מוחק..." : "מחק חשבון"}
       />
-
-      {/* Back button */}
-      <button
-        onClick={() => navigate(createPageUrl("Settings"))}
-        className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
-      >
-        <ArrowRight className="w-5 h-5" />
-        <span className="font-medium">חזרה</span>
-      </button>
-
-      <h1 className="text-3xl font-bold text-red-400 mb-6">מחיקת חשבון</h1>
 
       {/* Content */}
       <div>
