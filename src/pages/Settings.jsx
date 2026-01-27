@@ -276,7 +276,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D]">
+    <>
       {/* Modals */}
       <ConfirmModal
         show={showLogoutConfirm}
@@ -303,14 +303,8 @@ export default function Settings() {
         confirmText={deletingAccount ? "מוחק..." : "מחק חשבון"}
       />
 
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="p-4 pt-safe">
-          <h1 className="text-3xl font-bold">הגדרות</h1>
-        </div>
-
-        {/* Content */}
-        <div className="p-4">
+      {/* Header */}
+      <h1 className="text-3xl font-bold mb-6">הגדרות</h1>
 
         {/* Profile Section */}
         {editingProfile ? (
@@ -543,7 +537,6 @@ export default function Settings() {
 
         {/* App Info */}
         <p className="text-center text-[#3F4553] text-sm mt-6 pb-4">LinedUp v1.0</p>
-      </div>
 
       <UpgradeModal
         isOpen={showRecurringUpgrade}
@@ -551,7 +544,6 @@ export default function Settings() {
         feature="recurringBookings"
         highlightPlan="pro"
       />
-      </div>
-    </div>
+    </>
   );
 }

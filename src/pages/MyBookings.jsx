@@ -341,16 +341,11 @@ export default function MyBookings() {
   const displayedBookings = filter === 'upcoming' ? upcomingBookings : pastBookings;
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D]">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="p-4 pt-safe">
-          <h1 className="text-3xl font-bold">התורים שלי</h1>
-        </div>
+    <>
+      {/* Header */}
+      <h1 className="text-3xl font-bold mb-6">התורים שלי</h1>
 
-        {/* Content */}
-        <div className="p-4">
-        {/* Filter Tabs */}
+      {/* Filter Tabs */}
         <div className="flex gap-3 mb-6">
           <button
             onClick={() => setFilter('upcoming')}
@@ -601,8 +596,6 @@ export default function MyBookings() {
             ))}
           </div>
         )}
-        </div>
-      </div>
-    </div>
+    </>
   );
 }
