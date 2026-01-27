@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
+import StickyHeader from "@/components/StickyHeader";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { User, Phone, Mail, Calendar, Loader2, Search, Send, MessageSquare } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -108,7 +109,9 @@ export default function Clients() {
 
   return (
     <>
-      <h1 className="text-3xl font-bold mb-6">הלקוחות שלי</h1>
+      <StickyHeader>
+        <h1 className="text-3xl font-bold">הלקוחות שלי</h1>
+      </StickyHeader>
 
       <div>
           {/* Stats */}

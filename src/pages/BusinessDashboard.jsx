@@ -237,7 +237,7 @@ export default function BusinessDashboard() {
       )}
 
       {/* ============ COVER DESIGN ============ */}
-      <div className="relative h-44">
+      <div className="relative h-44 -mx-4">
         <style>{`
           @keyframes gradientShift {
             0%, 100% { background-position: 0% 50%; }
@@ -304,7 +304,7 @@ export default function BusinessDashboard() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto">
+      <div className="-mx-4">
         {/* Business Name Card - merged smoothly */}
         <div className="bg-[#1A1F35] pt-20 pb-3 px-6 text-center">
           <h1 className="text-2xl font-bold text-white">{business.name}</h1>

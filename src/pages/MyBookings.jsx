@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl, formatTime } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
+import StickyHeader from "@/components/StickyHeader";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { Calendar, Clock, User, X, Loader2, Edit, Bell, Trash2, CalendarPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -342,11 +343,10 @@ export default function MyBookings() {
 
   return (
     <>
-      {/* Header */}
-      <h1 className="text-3xl font-bold mb-6">התורים שלי</h1>
-
-      {/* Filter Tabs */}
-        <div className="flex gap-3 mb-6">
+      {/* Sticky Header with Title and Filter Tabs */}
+      <StickyHeader>
+        <h1 className="text-3xl font-bold mb-4">התורים שלי</h1>
+        <div className="flex gap-3">
           <button
             onClick={() => setFilter('upcoming')}
             className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all ${
@@ -370,6 +370,7 @@ export default function MyBookings() {
             <div className="text-2xl font-bold mt-1">{pastBookings.length}</div>
           </button>
         </div>
+      </StickyHeader>
 
         {/* Waiting List Section */}
         {waitingListEntries.length > 0 && filter === 'upcoming' && (

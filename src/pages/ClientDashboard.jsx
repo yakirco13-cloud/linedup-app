@@ -299,7 +299,7 @@ export default function ClientDashboard() {
       )}
 
       {/* ============ COVER DESIGN (Same for all businesses) ============ */}
-      <div className="relative h-48">
+      <div className="relative h-48 -mx-4">
         <style>{`
           @keyframes gradientShift {
             0%, 100% { background-position: 0% 50%; }
@@ -349,7 +349,7 @@ export default function ClientDashboard() {
       </div>
 
       {/* ============ BUSINESS INFO CARD ============ */}
-      <div className="bg-[#1A1F35] px-4 pt-2 pb-4 relative -mt-4 rounded-t-3xl">
+      <div className="bg-[#1A1F35] px-4 pt-2 pb-4 relative -mt-4 -mx-4 rounded-t-3xl">
         {/* Social icons - positioned at the dividing line between cover and card */}
         {(hasInstagram || hasFacebook) && (
           <div className="absolute -top-5 left-4 flex items-center gap-2 z-20">
