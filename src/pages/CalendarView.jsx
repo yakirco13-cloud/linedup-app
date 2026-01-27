@@ -64,13 +64,14 @@ export default function CalendarView() {
 
   // Configure drag sensors with activation constraints
   // - PointerSensor: requires 8px movement to start drag (prevents accidental drags)
-  // - TouchSensor: 200ms delay before drag starts (allows quick swipes for navigation)
+  // - TouchSensor: uses distance constraint instead of delay for better Capacitor/native WebView compatibility
+  //   (delay-based activation doesn't work well in native WebViews - the native layer intercepts touch first)
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
     }),
     useSensor(TouchSensor, {
-      activationConstraint: { delay: 200, tolerance: 5 },
+      activationConstraint: { distance: 10 },
     })
   );
 
