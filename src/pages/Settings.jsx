@@ -276,7 +276,7 @@ export default function Settings() {
   };
 
   return (
-    <>
+    <div className="min-h-screen bg-[#0C0F1D]">
       {/* Modals */}
       <ConfirmModal
         show={showLogoutConfirm}
@@ -303,10 +303,15 @@ export default function Settings() {
         confirmText={deletingAccount ? "מוחק..." : "מחק חשבון"}
       />
 
-      {/* Header */}
-      <h1 className="text-3xl font-bold mb-4">הגדרות</h1>
+      <div className="max-w-2xl mx-auto">
+        {/* Sticky Header */}
+        <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 border-b border-gray-800/50">
+          <h1 className="text-3xl font-bold">הגדרות</h1>
+        </div>
 
-        {/* Profile Section */}
+        {/* Content */}
+        <div className="p-4">
+          {/* Profile Section */}
         {editingProfile ? (
           <div className="bg-[#1A1F35] rounded-2xl p-5 mb-5 border border-white/5">
             <div className="flex items-center justify-between mb-6">
@@ -535,15 +540,17 @@ export default function Settings() {
           />
         </Card>
 
-        {/* App Info */}
-        <p className="text-center text-[#3F4553] text-sm mt-6 pb-4">LinedUp v1.0</p>
+          {/* App Info */}
+          <p className="text-center text-[#3F4553] text-sm mt-6 pb-4">LinedUp v1.0</p>
 
-      <UpgradeModal
-        isOpen={showRecurringUpgrade}
-        onClose={() => setShowRecurringUpgrade(false)}
-        feature="recurringBookings"
-        highlightPlan="pro"
-      />
-    </>
+          <UpgradeModal
+            isOpen={showRecurringUpgrade}
+            onClose={() => setShowRecurringUpgrade(false)}
+            feature="recurringBookings"
+            highlightPlan="pro"
+          />
+        </div>
+      </div>
+    </div>
   );
 }
