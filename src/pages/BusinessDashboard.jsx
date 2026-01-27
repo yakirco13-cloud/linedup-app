@@ -216,7 +216,7 @@ export default function BusinessDashboard() {
 
   if (!business) {
     return (
-      <div className="min-h-screen bg-[#0C0F1D] flex items-center justify-center p-6">
+      <div className="flex items-center justify-center py-20">
         <div className="text-center">
           <p className="text-[#94A3B8] mb-4">לא נמצא עסק</p>
           <Button onClick={() => navigate(createPageUrl("BusinessSetup"))}>
@@ -228,7 +228,7 @@ export default function BusinessDashboard() {
   }
 
   return (
-    <div className={`min-h-screen bg-[#0C0F1D] ${showNotifications ? 'overflow-hidden h-screen' : ''}`}>
+    <div className={showNotifications ? 'overflow-hidden h-screen' : ''}>
       {showNotifications && (
         <NotificationDropdown
           businessId={business?.id}

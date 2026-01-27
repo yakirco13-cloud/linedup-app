@@ -199,7 +199,7 @@ export default function ClientDashboard() {
 
   if (businessLoading) {
     return (
-      <div className="min-h-screen bg-[#0C0F1D] flex items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <div className="flex flex-col items-center gap-3">
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#FF6B35] to-[#FF1744] flex items-center justify-center animate-pulse">
             <Scissors className="w-6 h-6 text-white" />
@@ -212,7 +212,7 @@ export default function ClientDashboard() {
 
   if (!business) {
     return (
-      <div className="min-h-screen bg-[#0C0F1D] flex items-center justify-center p-6" dir="rtl">
+      <div className="flex items-center justify-center py-20">
         <div className="text-center max-w-md">
           <div className="w-24 h-24 mx-auto mb-8 rounded-3xl bg-gradient-to-br from-[#FF6B35] to-[#FF1744] flex items-center justify-center">
             <Calendar className="w-12 h-12 text-white" />
@@ -233,7 +233,7 @@ export default function ClientDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D]" dir="rtl">
+    <>
 
       {/* Broadcast Message Popup */}
       <BroadcastMessagePopup />
@@ -542,6 +542,6 @@ export default function ClientDashboard() {
         
         <div className="h-16" />
       </div>
-    </div>
+    </>
   );
 }
