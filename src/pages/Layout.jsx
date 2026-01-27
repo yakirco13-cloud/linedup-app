@@ -147,7 +147,7 @@ function AppContent({ children }) {
 
   return (
     <div className="min-h-screen bg-[#0C0F1D] text-white" dir="rtl">
-      <main className={`pt-safe ${showNav ? "pb-20" : ""}`}>
+      <main className={showNav ? "pb-20" : ""}>
         {children}
       </main>
 
@@ -157,9 +157,9 @@ function AppContent({ children }) {
         <motion.nav
           initial={{ y: 100 }}
           animate={{ y: 0 }}
-          className="fixed bottom-3 left-3 right-3 z-50"
+          className="fixed bottom-0 left-0 right-0 z-50 pb-safe"
         >
-          <div className="bg-[#1A1F35] rounded-full py-2 px-2 flex justify-around items-center border border-white/5 shadow-2xl">
+          <div className="bg-[#1A1F35] rounded-full py-2 px-2 mx-3 mb-2 flex justify-around items-center border border-white/5 shadow-2xl">
             {tabs.map((tab) => {
               // Case-insensitive path comparison
               const currentPath = location.pathname.toLowerCase();
