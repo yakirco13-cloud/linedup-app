@@ -17,7 +17,11 @@ function AppContent({ children }) {
 
   // Scroll to top on route change
   useEffect(() => {
-    window.scrollTo(0, 0);
+    // Immediate scroll for better UX
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    // Also try scrolling document element for iOS compatibility
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
   }, [location.pathname]);
 
   // Add PWA meta tags
@@ -156,7 +160,7 @@ function AppContent({ children }) {
             <>
               {headerConfig.showBackButton ? (
                 /* Header WITH back button */
-                <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 border-b border-gray-800/50">
+                <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 pb-3 border-b border-gray-800/50">
                   <button
                     type="button"
                     onClick={() => {
@@ -168,8 +172,13 @@ function AppContent({ children }) {
                         navigate(-1);
                       }
                     }}
-                    className="flex items-center gap-2 text-[#94A3B8] hover:text-white transition-colors mb-2 py-2 -my-2 touch-manipulation"
-                    style={{ touchAction: 'manipulation' }}
+                    className="flex items-center gap-2 text-[#94A3B8] active:text-white transition-colors mb-1 min-h-[44px] min-w-[44px] select-none"
+                    style={{
+                      touchAction: 'manipulation',
+                      WebkitTapHighlightColor: 'transparent',
+                      WebkitUserSelect: 'none',
+                      userSelect: 'none',
+                    }}
                   >
                     <ArrowRight className="w-5 h-5" />
                     <span className="font-medium">חזרה</span>

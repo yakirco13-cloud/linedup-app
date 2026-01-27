@@ -807,6 +807,9 @@ export default function CalendarView() {
       opacity: isDragging ? 0.5 : 1,
       cursor: 'grab',
       touchAction: 'none',
+      userSelect: 'none',
+      WebkitUserSelect: 'none',
+      WebkitTouchCallout: 'none',
     };
 
     return (
