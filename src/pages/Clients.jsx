@@ -1,10 +1,8 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { ArrowRight, User, Phone, Mail, Calendar, Loader2, Search, Send, MessageSquare } from "lucide-react";
+import { User, Phone, Mail, Calendar, Loader2, Search, Send, MessageSquare } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,7 +12,6 @@ import { he } from "date-fns/locale";
 
 
 export default function Clients() {
-  const navigate = useNavigate();
   const { user } = useUser();
   const [searchQuery, setSearchQuery] = useState("");
   const [broadcastOpen, setBroadcastOpen] = useState(false);
@@ -110,23 +107,10 @@ export default function Clients() {
   });
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D]">
-      <div className="max-w-2xl mx-auto">
-        {/* Sticky Header */}
-        <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 border-b border-gray-800/50">
-          <button
-            onClick={() => navigate(createPageUrl("BusinessDashboard"))}
-            className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors py-2 px-1 -ml-1 min-h-[44px]"
-          >
-            <ArrowRight className="w-5 h-5" />
-            <span className="font-medium">חזרה</span>
-          </button>
+    <>
+      <h1 className="text-3xl font-bold mb-6">הלקוחות שלי</h1>
 
-          <h1 className="text-3xl font-bold">הלקוחות שלי</h1>
-        </div>
-
-        {/* Content */}
-        <div className="p-4">
+      <div>
           {/* Stats */}
         <div className="grid grid-cols-2 gap-3 mb-6">
           <div className="bg-[#1A1F35] rounded-2xl p-4 border-2 border-gray-800">
@@ -346,8 +330,7 @@ export default function Clients() {
             ))}
           </div>
         )}
-        </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -8,7 +8,7 @@ import { FeatureGate, useFeatureGate } from "@/components/FeatureGate";
 import UpgradeModal from "@/components/UpgradeModal";
 import {
   Calendar, TrendingUp, TrendingDown, Users, DollarSign,
-  XCircle, Clock, ArrowRight, Loader2, BarChart3, PieChart,
+  XCircle, Clock, Loader2, BarChart3, PieChart,
   Sparkles, Target, Download, UserPlus, UserCheck, CalendarDays,
   Timer, CheckCircle, FileText, ChevronDown
 } from "lucide-react";
@@ -48,7 +48,7 @@ export default function Statistics() {
 
   if (!user?.business_id) {
     return (
-      <div className="min-h-screen bg-[#0C0F1D] flex items-center justify-center p-6">
+      <div className="flex items-center justify-center py-20">
         <div className="text-center">
           <div className="w-16 h-16 rounded-2xl bg-[#1A1F35] flex items-center justify-center mx-auto mb-4">
             <BarChart3 className="w-8 h-8 text-[#FF6B35]" />
@@ -63,7 +63,7 @@ export default function Statistics() {
 
   if (businessLoading) {
     return (
-      <div className="min-h-screen bg-[#0C0F1D] flex items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-[#FF6B35]" />
           <p className="text-[#64748B] text-sm">טוען נתונים...</p>
@@ -74,7 +74,7 @@ export default function Statistics() {
 
   if (businessError) {
     return (
-      <div className="min-h-screen bg-[#0C0F1D] flex items-center justify-center p-6">
+      <div className="flex items-center justify-center py-20">
         <div className="text-center">
           <p className="text-red-400 mb-4">שגיאה בטעינת נתונים</p>
           <Button onClick={() => navigate(createPageUrl("BusinessDashboard"))}>חזור לדשבורד</Button>
@@ -615,19 +615,10 @@ function StatisticsContent({ business, timeRange, setTimeRange, navigate }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] pb-24">
-      {/* Sticky Header */}
-      <div className="sticky top-0 bg-[#0C0F1D] z-20 border-b border-gray-800/50">
-        <div className="p-4">
-          <button
-            onClick={() => navigate(createPageUrl("BusinessDashboard"))}
-            className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
-          >
-            <ArrowRight className="w-5 h-5" />
-            <span className="font-medium">חזרה</span>
-          </button>
-          <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold">סטטיסטיקות</h1>
+    <>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-3xl font-bold">סטטיסטיקות</h1>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -655,20 +646,18 @@ function StatisticsContent({ business, timeRange, setTimeRange, navigate }) {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
-        </div>
-        <div className="px-4 pb-3">
-          <div className="flex gap-2 bg-[#1A1F35] p-1 rounded-xl">
-            {[{ value: 'today', label: 'היום' }, { value: 'week', label: 'השבוע' }, { value: 'month', label: 'החודש' }].map(option => (
-              <button key={option.value} onClick={() => setTimeRange(option.value)} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${timeRange === option.value ? 'bg-[#FF6B35] text-white' : 'text-[#94A3B8] hover:text-white'}`}>{option.label}</button>
-            ))}
-          </div>
-        </div>
+      </div>
+
+      {/* Time Range Selector */}
+      <div className="flex gap-2 bg-[#1A1F35] p-1 rounded-xl mb-4">
+        {[{ value: 'today', label: 'היום' }, { value: 'week', label: 'השבוע' }, { value: 'month', label: 'החודש' }].map(option => (
+          <button key={option.value} onClick={() => setTimeRange(option.value)} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${timeRange === option.value ? 'bg-[#FF6B35] text-white' : 'text-[#94A3B8] hover:text-white'}`}>{option.label}</button>
+        ))}
       </div>
 
       {/* Content */}
       {isLoading ? (<div className="flex items-center justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-[#FF6B35]" /></div>) : (
-        <div className="p-4 space-y-4">
+        <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <StatCard label="תורים" value={stats.bookings.current} change={stats.bookings.change} icon={Calendar} />
             <StatCard label="הכנסות" value={`₪${stats.revenue.current.toLocaleString()}`} change={stats.revenue.change} icon={DollarSign} />
@@ -855,7 +844,7 @@ function StatisticsContent({ business, timeRange, setTimeRange, navigate }) {
         feature="dataExport"
         highlightPlan="pro"
       />
-    </div>
+    </>
   );
 }
 
