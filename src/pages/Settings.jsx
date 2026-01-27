@@ -33,7 +33,6 @@ import SubscriptionCard from "@/components/SubscriptionCard";
 import { useFeatureGate } from "@/components/FeatureGate";
 import UpgradeModal from "@/components/UpgradeModal";
 import { isUserDemoAccount } from "@/utils/demoAccounts";
-import PageHeader from "@/components/PageHeader";
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -304,11 +303,14 @@ export default function Settings() {
         confirmText={deletingAccount ? "מוחק..." : "מחק חשבון"}
       />
 
-      <PageHeader title="הגדרות" showBackButton={false} />
-
       <div className="max-w-2xl mx-auto">
+        {/* Header */}
+        <div className="p-4 pt-safe">
+          <h1 className="text-3xl font-bold">הגדרות</h1>
+        </div>
+
         {/* Content */}
-        <div className="px-5 pt-6">
+        <div className="p-4">
 
         {/* Profile Section */}
         {editingProfile ? (

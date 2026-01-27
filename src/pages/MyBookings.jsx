@@ -4,7 +4,7 @@ import { createPageUrl, formatTime } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import { ArrowRight, Calendar, Clock, User, X, Loader2, Edit, Bell, Trash2, CalendarPlus } from "lucide-react";
+import { Calendar, Clock, User, X, Loader2, Edit, Bell, Trash2, CalendarPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format, parseISO } from "date-fns";
 import { he } from "date-fns/locale";
@@ -343,15 +343,8 @@ export default function MyBookings() {
   return (
     <div className="min-h-screen bg-[#0C0F1D]">
       <div className="max-w-2xl mx-auto">
-        {/* Sticky Header */}
-        <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 border-b border-gray-800/50">
-          <button
-            onClick={() => navigate("/ClientDashboard")}
-            className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
-          >
-            <ArrowRight className="w-5 h-5" />
-            <span className="font-medium">חזרה</span>
-          </button>
+        {/* Header */}
+        <div className="p-4 pt-safe">
           <h1 className="text-3xl font-bold">התורים שלי</h1>
         </div>
 
