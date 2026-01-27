@@ -2,7 +2,8 @@ import React, { useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useUser } from "@/components/UserContext";
-import { Home, Calendar, Settings, CalendarCheck, CalendarPlus, User, BarChart3 } from "lucide-react";
+import { PageHeaderProvider, usePageHeaderContext } from "@/components/PageHeaderContext";
+import { Home, Calendar, Settings, CalendarCheck, CalendarPlus, User, BarChart3, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 
@@ -10,6 +11,7 @@ function AppContent({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, loading, initialLoadComplete } = useUser();
+  const { headerConfig } = usePageHeaderContext();
   const hasCheckedSetup = useRef(false);
   const hasRenderedOnce = useRef(false);
 
@@ -147,9 +149,41 @@ function AppContent({ children }) {
 
   return (
     <div className="min-h-screen bg-[#0C0F1D] text-white" dir="rtl">
-      <main className={`px-4 pt-safe ${showNav ? "pb-28" : ""}`}>
+      <main className={`${headerConfig.show ? '' : 'px-4 pt-safe'} ${showNav ? "pb-28" : ""}`}>
         <div className="max-w-2xl mx-auto">
-          {children}
+          {/* Sticky Header from Context */}
+          {headerConfig.show && (
+            <>
+              <div className="sticky top-0 bg-[#0C0F1D] z-20 px-4 pt-safe border-b border-gray-800/50">
+                <div className="py-4 flex items-center gap-3">
+                  {headerConfig.showBackButton && (
+                    <button
+                      onClick={() => {
+                        if (headerConfig.onBackClick) {
+                          headerConfig.onBackClick();
+                        } else if (headerConfig.backPath) {
+                          navigate(headerConfig.backPath);
+                        } else {
+                          navigate(-1);
+                        }
+                      }}
+                      className="flex items-center gap-2 text-[#94A3B8] hover:text-white transition-colors"
+                    >
+                      <ArrowRight className="w-5 h-5" />
+                    </button>
+                  )}
+                  <h1 className="text-3xl font-bold">{headerConfig.title}</h1>
+                  {headerConfig.rightAction && (
+                    <div className="mr-auto">{headerConfig.rightAction}</div>
+                  )}
+                </div>
+              </div>
+              <div className="px-4 pt-4">
+                {children}
+              </div>
+            </>
+          )}
+          {!headerConfig.show && children}
         </div>
       </main>
 
@@ -248,5 +282,9 @@ function AppContent({ children }) {
 }
 
 export default function Layout({ children }) {
-  return <AppContent>{children}</AppContent>;
+  return (
+    <PageHeaderProvider>
+      <AppContent>{children}</AppContent>
+    </PageHeaderProvider>
+  );
 }
