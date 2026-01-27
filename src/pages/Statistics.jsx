@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
+import { usePageHeader } from "@/components/PageHeaderContext";
 import { useQuery } from "@tanstack/react-query";
 import { FeatureGate, useFeatureGate } from "@/components/FeatureGate";
 import UpgradeModal from "@/components/UpgradeModal";
@@ -35,6 +36,7 @@ import {
 export default function Statistics() {
   const navigate = useNavigate();
   const { user } = useUser();
+  usePageHeader({ title: "סטטיסטיקות" });
   const [timeRange, setTimeRange] = useState('month');
 
   const { data: business, isLoading: businessLoading, error: businessError } = useQuery({
@@ -616,9 +618,8 @@ function StatisticsContent({ business, timeRange, setTimeRange, navigate }) {
 
   return (
     <>
-      {/* Header with Title, Export, and Time Range */}
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-3xl font-bold">סטטיסטיקות</h1>
+      {/* Export Button */}
+      <div className="flex items-center justify-end mb-4">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button

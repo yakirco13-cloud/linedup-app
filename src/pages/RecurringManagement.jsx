@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
+import { usePageHeader } from "@/components/PageHeaderContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Search, Repeat, Trash2, Edit, Calendar, Clock, User, Loader2, Pause, Play, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,13 @@ export default function RecurringManagement() {
   const navigate = useNavigate();
   const { user } = useUser();
   const queryClient = useQueryClient();
+
+  usePageHeader({
+    title: "תורים חוזרים",
+    showBackButton: true,
+    backPath: createPageUrl("Settings")
+  });
+
   const [searchQuery, setSearchQuery] = useState("");
   const [editingRule, setEditingRule] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -160,27 +168,8 @@ export default function RecurringManagement() {
 
   return (
     <FeatureGate feature="recurringBookings">
-      {/* Back button */}
-      <button
-        onClick={() => navigate(createPageUrl("Settings"))}
-        className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
-      >
-        <ArrowRight className="w-5 h-5" />
-        <span className="font-medium">חזרה</span>
-      </button>
-
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FF6B35] to-[#FF1744] flex items-center justify-center">
-          <Repeat className="w-6 h-6 text-white" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold">תורים חוזרים</h1>
-          <p className="text-[#94A3B8] text-sm">{filteredRules.length} כללים פעילים</p>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div>
+      {/* Rules count */}
+      <p className="text-[#94A3B8] text-sm mb-4">{filteredRules.length} כללים פעילים</p>
 
         {/* Search */}
         <div className="relative mb-6">
@@ -283,7 +272,6 @@ export default function RecurringManagement() {
             ))}
           </div>
         )}
-      </div>
 
       {/* Edit Modal */}
       <Dialog open={!!editingRule} onOpenChange={() => setEditingRule(null)}>

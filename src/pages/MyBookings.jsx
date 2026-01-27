@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl, formatTime } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
+import { usePageHeader } from "@/components/PageHeaderContext";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { Calendar, Clock, User, X, Loader2, Edit, Bell, Trash2, CalendarPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ export default function MyBookings() {
   const navigate = useNavigate();
   const { user } = useUser();
   const queryClient = useQueryClient();
+  usePageHeader({ title: "התורים שלי" });
   const [filter, setFilter] = useState('upcoming');
 
   // Filter bookings by current business (joined_business_id)
@@ -342,8 +344,7 @@ export default function MyBookings() {
 
   return (
     <>
-      {/* Header with Title and Filter Tabs */}
-      <h1 className="text-3xl font-bold mb-4">התורים שלי</h1>
+      {/* Filter Tabs */}
       <div className="flex gap-3 mb-4">
         <button
           onClick={() => setFilter('upcoming')}

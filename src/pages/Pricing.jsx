@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import { useUser } from "@/components/UserContext";
+import { usePageHeader } from "@/components/PageHeaderContext";
 import { useSubscription } from "@/hooks/useSubscription";
 import { PLANS, PLAN_IDS, FEATURE_NAMES, LIMIT_NAMES, formatLimit, getPaymentLink } from "@/config/plans";
 import { Button } from "@/components/ui/button";
@@ -110,6 +112,13 @@ export default function Pricing() {
   const navigate = useNavigate();
   const { user } = useUser();
   const { plan: currentPlan } = useSubscription();
+
+  usePageHeader({
+    title: "שדרג את העסק שלך",
+    showBackButton: true,
+    backPath: createPageUrl("Settings")
+  });
+
   const [isAnnual, setIsAnnual] = useState(false);
   const [openFaq, setOpenFaq] = useState(null);
   const [showComparison, setShowComparison] = useState(false);
@@ -141,24 +150,10 @@ export default function Pricing() {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-[#FF6B35]/10 rounded-full blur-[120px]" />
       </div>
 
-      {/* Back Button */}
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
-      >
-        <ArrowRight className="w-5 h-5" />
-        <span className="font-medium">חזרה</span>
-      </button>
-
-        {/* Header */}
-        <div className="text-center py-4 space-y-4">
-          <h1 className="text-2xl md:text-4xl font-bold text-white mb-2">
-            שדרג את העסק שלך
-          </h1>
-          <p className="text-[#94A3B8] text-sm md:text-lg max-w-2xl mx-auto">
-            בחר את התוכנית המתאימה לך וקבל גישה לכל הכלים המתקדמים
-          </p>
-        </div>
+        {/* Subtitle */}
+        <p className="text-[#94A3B8] text-sm md:text-lg max-w-2xl mx-auto text-center mb-4">
+          בחר את התוכנית המתאימה לך וקבל גישה לכל הכלים המתקדמים
+        </p>
 
         {/* Sticky Toggle Switch */}
         <div className="sticky top-12 z-30 py-3 -mx-4 px-4 bg-[#0C0F1D]/95 backdrop-blur-sm">

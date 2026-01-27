@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
+import { usePageHeader } from "@/components/PageHeaderContext";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { User, Phone, Mail, Calendar, Loader2, Search, Send, MessageSquare } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import { he } from "date-fns/locale";
 
 export default function Clients() {
   const { user } = useUser();
+  usePageHeader({ title: "הלקוחות שלי" });
   const [searchQuery, setSearchQuery] = useState("");
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [broadcastMessage, setBroadcastMessage] = useState("");
@@ -108,10 +110,7 @@ export default function Clients() {
 
   return (
     <>
-      <h1 className="text-3xl font-bold mb-4">הלקוחות שלי</h1>
-
-      <div>
-          {/* Stats */}
+      {/* Stats */}
         <div className="grid grid-cols-2 gap-3 mb-6">
           <div className="bg-[#1A1F35] rounded-2xl p-4 border-2 border-gray-800">
             <p className="text-[#94A3B8] text-sm mb-1">סך הכל לקוחות</p>
@@ -330,7 +329,6 @@ export default function Clients() {
             ))}
           </div>
         )}
-      </div>
     </>
   );
 }

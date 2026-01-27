@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
+import { usePageHeader } from "@/components/PageHeaderContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -15,6 +16,12 @@ export default function BusinessPolicies() {
   const navigate = useNavigate();
   const { user } = useUser();
   const queryClient = useQueryClient();
+
+  usePageHeader({
+    title: "מדיניות ביטולים ואישורים",
+    showBackButton: true,
+    backPath: createPageUrl("Settings")
+  });
 
   const [requireApproval, setRequireApproval] = useState(false); // Default false - STARTER+ feature
   const [cancellationHours, setCancellationHours] = useState("24");
@@ -83,19 +90,6 @@ export default function BusinessPolicies() {
 
   return (
     <>
-      {/* Back button */}
-      <button
-        onClick={() => navigate(createPageUrl("Settings"))}
-        className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
-      >
-        <ArrowRight className="w-5 h-5" />
-        <span className="font-medium">חזרה</span>
-      </button>
-
-      <h1 className="text-3xl font-bold mb-6">מדיניות ביטולים ואישורים</h1>
-
-      {/* Content */}
-      <div>
         <div className="space-y-6">
           {/* Approval Policy - STARTER+ feature */}
           <LockedFeatureOverlay feature="newClientApproval">
@@ -304,7 +298,6 @@ export default function BusinessPolicies() {
             )}
           </Button>
         </div>
-      </div>
     </>
   );
 }

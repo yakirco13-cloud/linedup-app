@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { useUser } from "@/components/UserContext";
+import { usePageHeader } from "@/components/PageHeaderContext";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,13 @@ export default function JoinBusiness() {
   const navigate = useNavigate();
   const { user, updateUser, refetchUser } = useUser();
   const queryClient = useQueryClient();
+
+  usePageHeader({
+    title: "הצטרף לעסק",
+    showBackButton: true,
+    backPath: createPageUrl("ClientDashboard")
+  });
+
   const [code, setCode] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -106,24 +114,10 @@ export default function JoinBusiness() {
 
   return (
     <>
-      {/* Back button */}
-      <button
-        onClick={() => navigate(createPageUrl("ClientDashboard"))}
-        className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
-      >
-        <ArrowRight className="w-5 h-5" />
-        <span className="font-medium">חזרה</span>
-      </button>
+      {/* Subtitle */}
+      <p className="text-[#94A3B8] text-base leading-relaxed text-center mb-6">חפש עסק או הזן קוד להצטרפות</p>
 
-        <div className="text-center mb-8 pt-4">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-[#FF6B35] to-[#FF1744] flex items-center justify-center">
-            <Store className="w-10 h-10 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold mb-3">הצטרף לעסק</h1>
-          <p className="text-[#94A3B8] text-base leading-relaxed">חפש עסק או הזן קוד להצטרפות</p>
-        </div>
-
-        {/* Join Method Toggle */}
+      {/* Join Method Toggle */}
         <div className="flex gap-3 mb-6">
           <button
             type="button"
