@@ -339,43 +339,41 @@ export default function StaffManagement() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D]">
-      <div className="max-w-2xl mx-auto">
-        {/* Sticky Header */}
-        <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 border-b border-gray-800/50">
-          <button
-            onClick={() => navigate(createPageUrl("Settings"))}
-            className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
-          >
-            <ArrowRight className="w-5 h-5" />
-            <span className="font-medium">חזרה</span>
-          </button>
-          <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold">ניהול צוות</h1>
-            <Button
-              onClick={() => {
-                // Check if user already has staff and doesn't have premium
-                if (staff.length > 0 && !canAddMultipleStaff) {
-                  setShowUpgradeModal(true);
-                  return;
-                }
-                resetForm();
-                setShowForm(!showForm);
-              }}
-              className="h-12 px-6 rounded-xl relative"
-              style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}
-            >
-              <Plus className="w-5 h-5 ml-2" />
-              הוסף עובד
-              {staff.length > 0 && !canAddMultipleStaff && (
-                <Lock className="w-3.5 h-3.5 absolute top-1 left-1 text-white" />
-              )}
-            </Button>
-          </div>
-        </div>
+    <>
+      {/* Back button */}
+      <button
+        onClick={() => navigate(createPageUrl("Settings"))}
+        className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
+      >
+        <ArrowRight className="w-5 h-5" />
+        <span className="font-medium">חזרה</span>
+      </button>
 
-        {/* Content */}
-        <div className="p-4">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold">ניהול צוות</h1>
+        <Button
+          onClick={() => {
+            // Check if user already has staff and doesn't have premium
+            if (staff.length > 0 && !canAddMultipleStaff) {
+              setShowUpgradeModal(true);
+              return;
+            }
+            resetForm();
+            setShowForm(!showForm);
+          }}
+          className="h-12 px-6 rounded-xl relative"
+          style={{ background: 'linear-gradient(135deg, #FF6B35, #FF1744)' }}
+        >
+          <Plus className="w-5 h-5 ml-2" />
+          הוסף עובד
+          {staff.length > 0 && !canAddMultipleStaff && (
+            <Lock className="w-3.5 h-3.5 absolute top-1 left-1 text-white" />
+          )}
+        </Button>
+      </div>
+
+      {/* Content */}
+      <div>
 
         {showForm && (
           <div className="bg-[#1A1F35] rounded-2xl p-6 mb-6 border border-gray-800">
@@ -550,7 +548,6 @@ export default function StaffManagement() {
             ))}
           </div>
         )}
-        </div>
       </div>
 
       <UpgradeModal
@@ -559,6 +556,6 @@ export default function StaffManagement() {
         feature="multipleStaff"
         highlightPlan="premium"
       />
-    </div>
+    </>
   );
 }

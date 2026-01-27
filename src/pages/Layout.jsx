@@ -61,7 +61,7 @@ function AppContent({ children }) {
     if (!appleTitle) {
       appleTitle = document.createElement('meta');
       appleTitle.name = 'apple-mobile-web-app-title';
-      document.head.appendChild(appleTitle);
+      document.head.appendChild(appleTiFtle);
     }
     appleTitle.content = 'LinedUp';
 

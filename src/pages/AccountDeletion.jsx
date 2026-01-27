@@ -89,7 +89,7 @@ export default function AccountDeletion() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D]">
+    <>
       <ConfirmModal
         show={showDeleteConfirm}
         onClose={() => !deletingAccount && setShowDeleteConfirm(false)}
@@ -99,21 +99,19 @@ export default function AccountDeletion() {
         confirmText={deletingAccount ? "מוחק..." : "מחק חשבון"}
       />
 
-      <div className="max-w-2xl mx-auto">
-        {/* Sticky Header */}
-        <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 border-b border-gray-800/50">
-          <button
-            onClick={() => navigate(createPageUrl("Settings"))}
-            className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
-          >
-            <ArrowRight className="w-5 h-5" />
-            <span className="font-medium">חזרה</span>
-          </button>
-          <h1 className="text-3xl font-bold text-red-400">מחיקת חשבון</h1>
-        </div>
+      {/* Back button */}
+      <button
+        onClick={() => navigate(createPageUrl("Settings"))}
+        className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
+      >
+        <ArrowRight className="w-5 h-5" />
+        <span className="font-medium">חזרה</span>
+      </button>
 
-        {/* Content */}
-        <div className="p-4">
+      <h1 className="text-3xl font-bold text-red-400 mb-6">מחיקת חשבון</h1>
+
+      {/* Content */}
+      <div>
           <div className="bg-[#1A1F35] rounded-2xl p-6 border-2 border-red-500/30">
             <div className="flex items-center gap-3 mb-4">
               <X className="w-6 h-6 text-red-400" />
@@ -174,8 +172,7 @@ export default function AccountDeletion() {
               )}
             </Button>
           </div>
-        </div>
       </div>
-    </div>
+    </>
   );
 }

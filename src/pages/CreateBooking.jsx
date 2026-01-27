@@ -508,12 +508,12 @@ export default function CreateBooking() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[#0C0F1D] flex items-center justify-center p-6">
+      <div className="flex items-center justify-center py-16">
         <div className="text-center">
           <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-4" />
           <h2 className="text-3xl font-bold mb-2">
-            {editMode ? 'התור עודכן בהצלחה!' : 
-             isRecurring ? `נקבעו ${recurringPreview.length} תורים בהצלחה!` : 
+            {editMode ? 'התור עודכן בהצלחה!' :
+             isRecurring ? `נקבעו ${recurringPreview.length} תורים בהצלחה!` :
              'התור נקבע בהצלחה!'}
           </h2>
           <p className="text-[#94A3B8]">חוזר ליומן...</p>
@@ -523,17 +523,17 @@ export default function CreateBooking() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] p-6">
-      <div className="max-w-2xl mx-auto">
-        <button
-          onClick={() => navigate(createPageUrl("CalendarView"))}
-          className="flex items-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors h-12"
-        >
-          <ArrowRight className="w-5 h-5" />
-          <span>חזרה</span>
-        </button>
+    <>
+      {/* Back button */}
+      <button
+        onClick={() => navigate(createPageUrl("CalendarView"))}
+        className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
+      >
+        <ArrowRight className="w-5 h-5" />
+        <span className="font-medium">חזרה</span>
+      </button>
 
-        <h1 className="text-3xl font-bold mb-8">{editMode ? 'ערוך תור' : 'תור חדש'}</h1>
+      <h1 className="text-3xl font-bold mb-6">{editMode ? 'ערוך תור' : 'תור חדש'}</h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {!editMode && (
@@ -1021,7 +1021,6 @@ export default function CreateBooking() {
             )}
           </Button>
         </form>
-      </div>
 
       <UpgradeModal
         isOpen={showRecurringUpgrade}
@@ -1030,6 +1029,6 @@ export default function CreateBooking() {
         featureNameHe="תורים חוזרים"
         description="שדרג לתוכנית PRO כדי ליצור תורים חוזרים אוטומטיים ללקוחות קבועים."
       />
-    </div>
+    </>
   );
 }

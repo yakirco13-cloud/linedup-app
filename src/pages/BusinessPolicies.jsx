@@ -75,29 +75,27 @@ export default function BusinessPolicies() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#0C0F1D] flex items-center justify-center">
+      <div className="flex items-center justify-center py-12">
         <Loader2 className="w-8 h-8 animate-spin text-[#FF6B35]" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D]">
-      <div className="max-w-2xl mx-auto">
-        {/* Sticky Header */}
-        <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 border-b border-gray-800/50">
-          <button
-            onClick={() => navigate(createPageUrl("Settings"))}
-            className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
-          >
-            <ArrowRight className="w-5 h-5" />
-            <span className="font-medium">חזרה</span>
-          </button>
-          <h1 className="text-3xl font-bold">מדיניות ביטולים ואישורים</h1>
-        </div>
+    <>
+      {/* Back button */}
+      <button
+        onClick={() => navigate(createPageUrl("Settings"))}
+        className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
+      >
+        <ArrowRight className="w-5 h-5" />
+        <span className="font-medium">חזרה</span>
+      </button>
 
-        {/* Content */}
-        <div className="p-4">
+      <h1 className="text-3xl font-bold mb-6">מדיניות ביטולים ואישורים</h1>
+
+      {/* Content */}
+      <div>
         <div className="space-y-6">
           {/* Approval Policy - STARTER+ feature */}
           <LockedFeatureOverlay feature="newClientApproval">
@@ -306,8 +304,7 @@ export default function BusinessPolicies() {
             )}
           </Button>
         </div>
-        </div>
       </div>
-    </div>
+    </>
   );
 }

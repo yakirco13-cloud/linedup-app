@@ -843,7 +843,7 @@ const handleBooking = async () => {
   // Show loading screen while preparing reschedule
   if (rescheduleLoading) {
     return (
-      <div className="min-h-screen bg-[#0C0F1D] flex items-center justify-center p-6">
+      <div className="flex items-center justify-center py-16">
         <div className="text-center">
           <Loader2 className="w-16 h-16 animate-spin text-[#FF6B35] mx-auto mb-4" />
           <p className="text-[#94A3B8] text-lg">טוען את התור...</p>
@@ -863,7 +863,7 @@ const handleBooking = async () => {
     });
 
     return (
-      <div className="min-h-screen bg-[#0C0F1D] flex items-center justify-center p-6">
+      <div className="flex items-center justify-center py-16">
         <div className="text-center max-w-md">
           <div className="w-24 h-24 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6">
             <CheckCircle className="w-16 h-16 text-green-500" />
@@ -872,9 +872,9 @@ const handleBooking = async () => {
             {isRescheduling ? 'התור עודכן!' : bookingStatus === 'pending_approval' ? 'נשלח לאישור' : 'התור נקבע!'}
           </h2>
           <p className="text-[#94A3B8] text-lg leading-relaxed mb-6">
-            {isRescheduling 
+            {isRescheduling
               ? `התור שלך עודכן ל-${format(selectedDate, 'd.M', { locale: he })} בשעה ${selectedTime}`
-              : bookingStatus === 'pending_approval' 
+              : bookingStatus === 'pending_approval'
                 ? 'התור שלך ממתין לאישור. נעדכן אותך ברגע שיאושר.'
                 : `התור שלך ל-${format(selectedDate, 'd.M', { locale: he })} בשעה ${selectedTime}`
             }
@@ -907,7 +907,7 @@ const handleBooking = async () => {
   // Waiting list success screen
   if (waitingListSuccess) {
     return (
-      <div className="min-h-screen bg-[#0C0F1D] flex items-center justify-center p-6">
+      <div className="flex items-center justify-center py-16">
         <div className="text-center max-w-md">
           <div className="w-24 h-24 rounded-full bg-blue-500/20 flex items-center justify-center mx-auto mb-6">
             <Bell className="w-16 h-16 text-blue-400" />
@@ -934,26 +934,25 @@ const handleBooking = async () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] p-4">
-      <div className="max-w-2xl mx-auto">
-        <button
-          onClick={() => {
-            if (step > 2) {
-              if (step === 4 && staff.length === 1 && selectedStaff) {
-                setSelectedStaff(null);
-                setStep(2);
-              } else {
-                setStep(step - 1);
-              }
+    <>
+      <button
+        onClick={() => {
+          if (step > 2) {
+            if (step === 4 && staff.length === 1 && selectedStaff) {
+              setSelectedStaff(null);
+              setStep(2);
             } else {
-              navigate("/MyBookings");
+              setStep(step - 1);
             }
-          }}
-          className="flex items-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors h-12"
-        >
-          <ArrowRight className="w-5 h-5" />
-          <span className="font-medium">חזרה</span>
-        </button>
+          } else {
+            navigate("/MyBookings");
+          }
+        }}
+        className="flex items-center gap-2 text-[#94A3B8] mb-6 hover:text-white transition-colors h-12"
+      >
+        <ArrowRight className="w-5 h-5" />
+        <span className="font-medium">חזרה</span>
+      </button>
 
         {/* Progress with step labels */}
         <div className="mb-8">
@@ -1377,7 +1376,6 @@ const handleBooking = async () => {
             )}
           </div>
         )}
-      </div>
 
       {/* Waiting List Modal */}
       <WaitingListModal
@@ -1393,6 +1391,6 @@ const handleBooking = async () => {
         onJoin={joinWaitingList}
         getScheduleForDate={getScheduleForDate}
       />
-    </div>
+    </>
   );
 }

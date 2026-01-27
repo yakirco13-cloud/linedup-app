@@ -135,23 +135,20 @@ export default function Pricing() {
   const planOrder = ['free', 'starter', 'pro', 'premium'];
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] pb-20 text-slate-200">
-      
+    <>
       {/* Background Decor */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-[#FF6B35]/10 rounded-full blur-[120px]" />
       </div>
 
-      <div className="relative z-10 max-w-6xl mx-auto px-4">
-
-        {/* Back Button */}
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors h-12"
-        >
-          <ArrowRight className="w-5 h-5" />
-          <span className="font-medium">חזרה</span>
-        </button>
+      {/* Back Button */}
+      <button
+        onClick={() => navigate(-1)}
+        className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
+      >
+        <ArrowRight className="w-5 h-5" />
+        <span className="font-medium">חזרה</span>
+      </button>
 
         {/* Header */}
         <div className="text-center py-4 space-y-4">
@@ -418,8 +415,6 @@ export default function Pricing() {
           </p>
           <p className="text-[#64748B] text-[10px] mt-2">* כל המחירים לא כוללים מע"מ</p>
         </div>
-
-      </div>
-    </div>
+    </>
   );
 }

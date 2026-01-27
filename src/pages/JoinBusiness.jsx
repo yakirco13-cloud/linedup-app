@@ -92,7 +92,7 @@ export default function JoinBusiness() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[#0C0F1D] flex items-center justify-center p-6">
+      <div className="flex items-center justify-center py-16">
         <div className="text-center">
           <div className="w-24 h-24 rounded-3xl bg-green-500/20 flex items-center justify-center mx-auto mb-6">
             <CheckCircle className="w-14 h-14 text-green-500" />
@@ -105,15 +105,15 @@ export default function JoinBusiness() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D] p-4">
-      <div className="max-w-md mx-auto">
-        <button
-          onClick={() => navigate(createPageUrl("ClientDashboard"))}
-          className="flex items-center gap-2 text-[#94A3B8] mb-8 hover:text-white transition-colors h-10"
-        >
-          <ArrowRight className="w-5 h-5" />
-          <span className="font-medium">חזרה</span>
-        </button>
+    <>
+      {/* Back button */}
+      <button
+        onClick={() => navigate(createPageUrl("ClientDashboard"))}
+        className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
+      >
+        <ArrowRight className="w-5 h-5" />
+        <span className="font-medium">חזרה</span>
+      </button>
 
         <div className="text-center mb-8 pt-4">
           <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-[#FF6B35] to-[#FF1744] flex items-center justify-center">
@@ -280,7 +280,6 @@ export default function JoinBusiness() {
           </div>
         </form>
         )}
-      </div>
-    </div>
+    </>
   );
 }

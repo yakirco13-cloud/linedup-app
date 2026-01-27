@@ -152,7 +152,7 @@ export default function RecurringManagement() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#0C0F1D] flex items-center justify-center">
+      <div className="flex items-center justify-center py-12">
         <Loader2 className="w-8 h-8 animate-spin text-[#FF6B35]" />
       </div>
     );
@@ -160,30 +160,27 @@ export default function RecurringManagement() {
 
   return (
     <FeatureGate feature="recurringBookings">
-    <div className="min-h-screen bg-[#0C0F1D]">
-      <div className="max-w-2xl mx-auto">
-        {/* Sticky Header */}
-        <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 border-b border-gray-800/50">
-          <button
-            onClick={() => navigate(createPageUrl("Settings"))}
-            className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
-          >
-            <ArrowRight className="w-5 h-5" />
-            <span className="font-medium">חזרה</span>
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FF6B35] to-[#FF1744] flex items-center justify-center">
-              <Repeat className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">תורים חוזרים</h1>
-              <p className="text-[#94A3B8] text-sm">{filteredRules.length} כללים פעילים</p>
-            </div>
-          </div>
-        </div>
+      {/* Back button */}
+      <button
+        onClick={() => navigate(createPageUrl("Settings"))}
+        className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
+      >
+        <ArrowRight className="w-5 h-5" />
+        <span className="font-medium">חזרה</span>
+      </button>
 
-        {/* Content */}
-        <div className="p-4">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FF6B35] to-[#FF1744] flex items-center justify-center">
+          <Repeat className="w-6 h-6 text-white" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold">תורים חוזרים</h1>
+          <p className="text-[#94A3B8] text-sm">{filteredRules.length} כללים פעילים</p>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div>
 
         {/* Search */}
         <div className="relative mb-6">
@@ -286,7 +283,6 @@ export default function RecurringManagement() {
             ))}
           </div>
         )}
-        </div>
       </div>
 
       {/* Edit Modal */}
@@ -479,7 +475,6 @@ export default function RecurringManagement() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
     </FeatureGate>
   );
 }
