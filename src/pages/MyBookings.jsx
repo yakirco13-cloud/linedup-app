@@ -20,7 +20,11 @@ export default function MyBookings() {
   const navigate = useNavigate();
   const { user } = useUser();
   const queryClient = useQueryClient();
-  usePageHeader({ title: "התורים שלי" });
+  usePageHeader({
+    title: "התורים שלי",
+    showBackButton: true,
+    backPath: createPageUrl("ClientDashboard")
+  });
   const [filter, setFilter] = useState('upcoming');
 
   // Filter bookings by current business (joined_business_id)
