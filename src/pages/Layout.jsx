@@ -258,6 +258,11 @@ function AppContent({ children }) {
           padding-top: env(safe-area-inset-top, 8px);
         }
 
+        /* Negative safe area margin - for pages with custom covers */
+        .-mt-safe {
+          margin-top: calc(-1 * env(safe-area-inset-top, 8px));
+        }
+
         /* Safe area top position - for sticky headers */
         .top-safe {
           top: env(safe-area-inset-top, 0px);

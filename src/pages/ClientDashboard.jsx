@@ -299,7 +299,7 @@ export default function ClientDashboard() {
       )}
 
       {/* ============ COVER DESIGN (Same for all businesses) ============ */}
-      <div className="relative h-48 -mx-4">
+      <div className="relative h-48 -mx-4 -mt-safe">
         <style>{`
           @keyframes gradientShift {
             0%, 100% { background-position: 0% 50%; }

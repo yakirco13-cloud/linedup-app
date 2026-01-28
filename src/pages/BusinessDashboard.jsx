@@ -237,7 +237,7 @@ export default function BusinessDashboard() {
       )}
 
       {/* ============ COVER DESIGN ============ */}
-      <div className="relative h-44 -mx-4">
+      <div className="relative h-44 -mx-4 -mt-safe">
         <style>{`
           @keyframes gradientShift {
             0%, 100% { background-position: 0% 50%; }

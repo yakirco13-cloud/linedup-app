@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowRight, Loader2, CheckCircle, UserPlus, Users, Search, Clock, Bell, BellOff, Repeat, Calendar } from "lucide-react";
+import { Loader2, CheckCircle, UserPlus, Users, Search, Clock, Bell, BellOff, Repeat, Calendar } from "lucide-react";
+import { usePageHeader } from "@/components/PageHeaderContext";
 import { format, addDays, addWeeks, getDay } from "date-fns";
 import { he } from "date-fns/locale";
 
@@ -28,6 +29,13 @@ export default function CreateBooking() {
   const [success, setSuccess] = useState(false);
   const [clientType, setClientType] = useState('existing');
   const [editMode, setEditMode] = useState(false);
+
+  // Set header with back button - title changes based on editMode
+  usePageHeader({
+    title: editMode ? "ערוך תור" : "תור חדש",
+    showBackButton: true,
+    backPath: createPageUrl("CalendarView")
+  });
   const [editingBookingId, setEditingBookingId] = useState(null);
   const [clientSearch, setClientSearch] = useState("");
   const [conflictWarning, setConflictWarning] = useState(null);
@@ -524,17 +532,6 @@ export default function CreateBooking() {
 
   return (
     <>
-      {/* Back button */}
-      <button
-        onClick={() => navigate(createPageUrl("CalendarView"))}
-        className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
-      >
-        <ArrowRight className="w-5 h-5" />
-        <span className="font-medium">חזרה</span>
-      </button>
-
-      <h1 className="text-3xl font-bold mb-6">{editMode ? 'ערוך תור' : 'תור חדש'}</h1>
-
         <form onSubmit={handleSubmit} className="space-y-6">
           {!editMode && (
             <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800">

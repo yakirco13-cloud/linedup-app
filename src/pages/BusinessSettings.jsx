@@ -9,9 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { ArrowRight, Briefcase, Phone, Mail, Clock, Loader2, CheckCircle, Plus, Trash2, Bell, Share2, Copy, RefreshCw, ChevronDown, ChevronUp, Calendar, ExternalLink, Smartphone, Lock, Instagram, Facebook } from "lucide-react";
+import { Briefcase, Phone, Mail, Clock, Loader2, CheckCircle, Plus, Trash2, Bell, Share2, Copy, RefreshCw, ChevronDown, ChevronUp, Calendar, ExternalLink, Smartphone, Lock, Instagram, Facebook } from "lucide-react";
 import { LockedFeatureOverlay } from "@/components/FeatureGate";
 import { getCurrentPlan } from "@/services/subscriptionService";
+import { usePageHeader } from "@/components/PageHeaderContext";
 
 // Railway URL for calendar sync
 const RAILWAY_URL = 'https://linedup-official-production.up.railway.app';
@@ -23,6 +24,13 @@ export default function BusinessSettings() {
   const navigate = useNavigate();
   const { user } = useUser();
   const queryClient = useQueryClient();
+
+  // Set header with back button
+  usePageHeader({
+    title: "הגדרות עסק",
+    showBackButton: true,
+    backPath: createPageUrl("Settings")
+  });
 
   const [formData, setFormData] = useState({
     name: "",
@@ -320,7 +328,7 @@ export default function BusinessSettings() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0C0F1D]">
+    <>
       <style>{`
         /* Fix Switch white dot positioning - override Tailwind's translate-x-4 */
         button[role="switch"] span[data-state] {
@@ -334,21 +342,7 @@ export default function BusinessSettings() {
         }
       `}</style>
 
-      <div className="max-w-4xl mx-auto">
-        {/* Sticky Header */}
-        <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 border-b border-gray-800/50">
-          <button
-            onClick={() => navigate(createPageUrl("Settings"))}
-            className="flex items-center gap-2 text-[#94A3B8] mb-4 hover:text-white transition-colors"
-          >
-            <ArrowRight className="w-5 h-5" />
-            <span className="font-medium">חזרה</span>
-          </button>
-          <h1 className="text-3xl font-bold">הגדרות עסק</h1>
-        </div>
-
-        {/* Content */}
-        <form onSubmit={handleSubmit} className="p-4 space-y-6 pb-40">
+      <form onSubmit={handleSubmit} className="space-y-6 pb-40">
           {/* Business Info */}
           <div className="bg-[#1A1F35] rounded-2xl p-6 border border-gray-800 space-y-4">
             <div className="flex items-center gap-2 mb-2">
@@ -972,7 +966,6 @@ export default function BusinessSettings() {
             </Button>
           </div>
         </div>
-      </div>
-    </div>
+    </>
   );
 }
