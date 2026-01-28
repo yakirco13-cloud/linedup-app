@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { supabase } from "@/lib/supabase/client";
 import { useUser } from "@/components/UserContext";
@@ -45,30 +44,20 @@ export default function BookAppointment() {
   const [waitingListSuccess, setWaitingListSuccess] = useState(false);
   const [waitingListModalOpen, setWaitingListModalOpen] = useState(false);
 
-  // Back button handler ref - allows dynamic back behavior
-  const backClickRef = useRef(() => navigate("/MyBookings"));
-
-  // Update back click handler when step changes
-  useEffect(() => {
-    backClickRef.current = () => {
-      if (step > 2) {
-        if (step === 4 && staff.length === 1 && selectedStaff) {
-          setSelectedStaff(null);
-          setStep(2);
-        } else {
-          setStep(step - 1);
-        }
-      } else {
-        navigate("/MyBookings");
-      }
-    };
-  }, [step, staff, selectedStaff, navigate]);
+  // Back button handler ref - will be updated after staff is loaded
+  const backClickRef = useRef(null);
 
   // Set header with dynamic back button
   usePageHeader({
     title: "קביעת תור",
     showBackButton: true,
-    onBackClick: () => backClickRef.current()
+    onBackClick: () => {
+      if (backClickRef.current) {
+        backClickRef.current();
+      } else {
+        navigate("/MyBookings");
+      }
+    }
   });
 
   // Load business automatically from user's joined businesses
@@ -249,6 +238,23 @@ export default function BookAppointment() {
       setStep(4);
     }
   }, [staff, step, selectedStaff]);
+
+  // Update back click handler when step/staff changes (must be after staff query)
+  useEffect(() => {
+    backClickRef.current = () => {
+      if (step > 2) {
+        // If on step 4 and there's only one staff member, skip back to step 2
+        if (step === 4 && staff.length === 1 && selectedStaff) {
+          setSelectedStaff(null);
+          setStep(2);
+        } else {
+          setStep(step - 1);
+        }
+      } else {
+        navigate("/MyBookings");
+      }
+    };
+  }, [step, staff, selectedStaff, navigate]);
 
   const { data: existingBookings = [], refetch: refetchExistingBookings } = useQuery({
     queryKey: ['existing-bookings', selectedStaff?.id, selectedDate],
