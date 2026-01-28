@@ -191,7 +191,7 @@ function AppContent({ children }) {
                   <h1 className="text-3xl font-bold">{headerConfig.title}</h1>
                 </div>
               )}
-              <div className="px-4 pb-4 pt-20">
+              <div className="px-4 pb-4 pt-4">
                 {children}
               </div>
             </>
