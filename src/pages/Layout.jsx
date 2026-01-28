@@ -158,39 +158,37 @@ function AppContent({ children }) {
           {/* Sticky Header from Context */}
           {headerConfig.show && (
             <>
-              {headerConfig.showBackButton ? (
-                /* Header WITH back button */
-                <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 pb-3 border-b border-gray-800/50">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (headerConfig.onBackClick) {
-                        headerConfig.onBackClick();
-                      } else if (headerConfig.backPath) {
-                        navigate(headerConfig.backPath);
-                      } else {
-                        navigate(-1);
-                      }
-                    }}
-                    className="flex items-center gap-2 text-[#94A3B8] active:text-white transition-colors mb-1 min-h-[44px] min-w-[44px] select-none"
-                    style={{
-                      touchAction: 'manipulation',
-                      WebkitTapHighlightColor: 'transparent',
-                      WebkitUserSelect: 'none',
-                      userSelect: 'none',
-                    }}
-                  >
-                    <ArrowRight className="w-5 h-5" />
-                    <span className="font-medium">חזרה</span>
-                  </button>
-                  <h1 className="text-3xl font-bold">{headerConfig.title}</h1>
+              <div className="sticky top-0 bg-[#0C0F1D] z-20 px-4 py-3 border-b border-gray-800/50">
+                <div className="flex items-center justify-center relative min-h-[44px]">
+                  {/* Back button - positioned absolute on the right (RTL) */}
+                  {headerConfig.showBackButton && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (headerConfig.onBackClick) {
+                          headerConfig.onBackClick();
+                        } else if (headerConfig.backPath) {
+                          navigate(headerConfig.backPath);
+                        } else {
+                          navigate(-1);
+                        }
+                      }}
+                      className="absolute right-0 flex items-center gap-1 text-[#94A3B8] active:text-white transition-colors min-h-[44px] min-w-[44px] select-none"
+                      style={{
+                        touchAction: 'manipulation',
+                        WebkitTapHighlightColor: 'transparent',
+                        WebkitUserSelect: 'none',
+                        userSelect: 'none',
+                      }}
+                    >
+                      <ArrowRight className="w-5 h-5" />
+                      <span className="text-sm font-medium">חזרה</span>
+                    </button>
+                  )}
+                  {/* Centered title */}
+                  <h1 className="text-xl font-bold">{headerConfig.title}</h1>
                 </div>
-              ) : (
-                /* Header WITHOUT back button - simple title only */
-                <div className="sticky top-0 bg-[#0C0F1D] z-20 p-4 border-b border-gray-800/50">
-                  <h1 className="text-3xl font-bold">{headerConfig.title}</h1>
-                </div>
-              )}
+              </div>
               <div className="px-4 pb-4 pt-4">
                 {children}
               </div>
