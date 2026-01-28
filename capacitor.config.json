@@ -8,8 +8,16 @@
     "iosScheme": "https"
   },
   "ios": {
-    "contentInset": "always",
+    "contentInset": "never",
     "preferredContentMode": "mobile",
-    "scheme": "LinedUp"
+    "scheme": "LinedUp",
+    "backgroundColor": "#0C0F1D"
+  },
+  "plugins": {
+    "StatusBar": {
+      "style": "LIGHT",
+      "backgroundColor": "#0C0F1D",
+      "overlaysWebView": true
+    }
   }
 }
