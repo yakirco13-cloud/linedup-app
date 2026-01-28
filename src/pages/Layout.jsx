@@ -259,8 +259,9 @@ function AppContent({ children }) {
         }
 
         /* Negative safe area margin - for pages with custom covers */
+        /* Negates both #root safe area padding AND Layout's pt-safe */
         .-mt-safe {
-          margin-top: calc(-1 * env(safe-area-inset-top, 8px));
+          margin-top: calc(-2 * env(safe-area-inset-top, 4px));
         }
 
         /* Safe area top position - for sticky headers */
